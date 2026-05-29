@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scroll-behavior: smooth;
+  transition: background-color 300ms ease, color 300ms ease;
+}
+
+/* Light / Dark Mode Background Config */
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(20, 184, 166, 0.13), transparent 35rem),
+    radial-gradient(circle at 88% 4%, rgba(14, 165, 233, 0.10), transparent 30rem),
+    #f8fafc;
+  color: #0f172a;
+}
+
+
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* Design System - Spacing & Pages */
+.container-page {
+  @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+}
+
+.section-pad {
+  @apply py-24 sm:py-28 lg:py-32; /* Apple Health / Stripe-level generous breathing room */
+}
+
+.section-title {
+  @apply text-4xl sm:text-5xl font-bold tracking-tight text-slate-900;
+}
+
+.section-subtitle {
+  @apply mt-6 max-w-2xl text-lg leading-relaxed text-slate-600;
+}
+
+/* Design System - Shadows */
+.shadow-soft {
+  box-shadow: 0 10px 30px -10px rgba(148, 163, 184, 0.15);
+}
+
+
+.shadow-medical {
+  box-shadow: 0 10px 40px -8px rgba(20, 184, 166, 0.14);
+}
+
+
+.shadow-floating {
+  box-shadow: 0 30px 60px -15px rgba(15, 23, 42, 0.08);
+}
+
+
+/* Design System - Glassmorphism Surfaces */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+
+.clinic-surface {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.96)),
+    radial-gradient(circle at top right, rgba(45, 212, 191, 0.10), transparent 30rem);
+}
+
+
+/* Soft grid lines */
+.soft-grid {
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+
+/* Motion Philosophy - Calm animated entries */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 500ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.fade-up {
+  animation: fade-up 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.premium-ring {
+  box-shadow:
+    0 0 0 1px rgba(14, 165, 233, 0.12),
+    0 20px 50px rgba(8, 47, 73, 0.08);
+}
+
