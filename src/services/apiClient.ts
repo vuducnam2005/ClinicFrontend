@@ -4,16 +4,28 @@ import type { ApiResponse } from '@/types/api'
 type ServiceName = 'appointment' | 'medicalRecord' | 'billing'
 
 const useGateway = import.meta.env.VITE_USE_GATEWAY === 'true'
+const defaultUrls: Record<ServiceName, string> = {
+  appointment: 'http://180.93.98.14:8080/appointment',
+  medicalRecord: 'http://180.93.98.14:8080/medical',
+  billing: 'http://180.93.98.14:8080/pharmacy',
+}
+const defaultGatewayUrl = 'http://180.93.98.14:8080/apigateway'
+
+function resolveRuntimeUrl(value: string | undefined, fallback: string) {
+  if (!value) return fallback
+  if (import.meta.env.PROD && value.startsWith('/')) return fallback
+  return value
+}
 
 const urls: Record<ServiceName, string> = {
-  appointment: import.meta.env.VITE_APPOINTMENT_SERVICE_URL || 'http://180.93.98.14:8080/appointment',
-  medicalRecord: import.meta.env.VITE_MEDICAL_RECORD_SERVICE_URL || 'http://180.93.98.14:8080/medical',
-  billing: import.meta.env.VITE_PHARMACY_BILLING_SERVICE_URL || 'http://180.93.98.14:8080/pharmacy',
+  appointment: resolveRuntimeUrl(import.meta.env.VITE_APPOINTMENT_SERVICE_URL, defaultUrls.appointment),
+  medicalRecord: resolveRuntimeUrl(import.meta.env.VITE_MEDICAL_RECORD_SERVICE_URL, defaultUrls.medicalRecord),
+  billing: resolveRuntimeUrl(import.meta.env.VITE_PHARMACY_BILLING_SERVICE_URL, defaultUrls.billing),
 }
 
 export const apiConfig = {
   useGateway,
-  gatewayUrl: import.meta.env.VITE_API_GATEWAY_URL || 'http://180.93.98.14:8080/apigateway',
+  gatewayUrl: resolveRuntimeUrl(import.meta.env.VITE_API_GATEWAY_URL, defaultGatewayUrl),
   urls,
 }
 
