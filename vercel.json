@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    { "source": "/gateway/:path*", "destination": "http://180.93.98.14:8080/apigateway/:path*" },
+    { "source": "/n1/:path*", "destination": "http://180.93.98.14:8080/appointment/:path*" },
+    { "source": "/n2/:path*", "destination": "http://180.93.98.14:8080/medical/:path*" },
+    { "source": "/n3/:path*", "destination": "http://180.93.98.14:8080/pharmacy/:path*" },
+    { "source": "/((?!assets/|gateway/|n1/|n2/|n3/).*)", "destination": "/index.html" }
+  ]
+}
