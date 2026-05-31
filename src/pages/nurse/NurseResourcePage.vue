@@ -16,11 +16,11 @@
         <div class="flex flex-wrap gap-2">
           <BaseButton v-if="resource === 'patients'" @click="openPatientModal">
             <template #icon><UserPlus class="h-4 w-4" /></template>
-            Th?m b?nh nh?n
+            Thêm bệnh nhân
           </BaseButton>
           <BaseButton variant="outline" :disabled="loading" @click="loadData">
             <template #icon><RefreshCw class="h-4 w-4" /></template>
-            T?i l?i
+            Tải lại
           </BaseButton>
         </div>
       </div>
@@ -37,9 +37,9 @@
       <div class="grid gap-3 border-b border-slate-100 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
         <label class="relative block">
           <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input v-model="query" class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" placeholder="T?m ki?m" />
+          <input v-model="query" class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" placeholder="Tìm kiếm" />
         </label>
-        <span class="rounded-lg bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-700">{{ filteredRows.length }} d?ng</span>
+        <span class="rounded-lg bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-700">{{ filteredRows.length }} dòng</span>
       </div>
 
       <div v-if="filteredRows.length" class="overflow-x-auto">
@@ -47,7 +47,7 @@
           <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
               <th v-for="column in config.columns" :key="column.key" :class="['px-5 py-3', column.right ? 'text-right' : 'text-left']">{{ column.label }}</th>
-              <th v-if="hasActions" class="px-5 py-3 text-right">Thao t?c</th>
+              <th v-if="hasActions" class="px-5 py-3 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -77,8 +77,8 @@
 
       <div v-else class="p-10 text-center">
         <SearchX class="mx-auto h-10 w-10 text-slate-400" />
-        <h2 class="mt-4 text-lg font-semibold text-slate-950">Ch?a c? d? li?u</h2>
-        <p class="mt-2 text-sm text-slate-500">Service c? th? ch?a c? d? li?u ho?c endpoint ch?a s?n s?ng.</p>
+        <h2 class="mt-4 text-lg font-semibold text-slate-950">Chưa có dữ liệu</h2>
+        <p class="mt-2 text-sm text-slate-500">Service có thể chưa có dữ liệu hoặc endpoint chưa sẵn sàng.</p>
       </div>
     </div>
 
@@ -87,25 +87,25 @@
         <div class="flex items-start justify-between gap-4">
           <div>
             <p class="text-sm font-semibold uppercase tracking-wide text-teal-700">N2 Medical Record</p>
-            <h2 class="mt-1 text-2xl font-bold text-slate-950">Th?m b?nh nh?n</h2>
-            <p class="mt-2 text-sm text-slate-500">T?o h? s? b?nh nh?n ?? li?n k?t l?ch h?n v? b?nh ?n.</p>
+            <h2 class="mt-1 text-2xl font-bold text-slate-950">Thêm bệnh nhân</h2>
+            <p class="mt-2 text-sm text-slate-500">Tạo hồ sơ bệnh nhân để liên kết lịch hẹn và bệnh án.</p>
           </div>
-          <button type="button" class="rounded-xl p-2 text-slate-500 hover:bg-slate-100" @click="patientModalOpen = false">?</button>
+          <button type="button" class="rounded-xl p-2 text-slate-500 hover:bg-slate-100" @click="patientModalOpen = false">✕</button>
         </div>
         <form class="mt-5 space-y-4" @submit.prevent="submitPatient">
           <div class="grid gap-4 sm:grid-cols-2">
-            <BaseInput v-model="patientForm.fullName" label="H? t?n" required />
-            <BaseInput v-model="patientForm.phone" label="S? ?i?n tho?i" required />
-            <BaseInput v-model="patientForm.dateOfBirth" label="Ng?y sinh" type="date" />
-            <BaseSelect v-model="patientForm.gender" label="Gi?i t?nh" :options="genderOptions" placeholder="Ch?n gi?i t?nh" />
+            <BaseInput v-model="patientForm.fullName" label="Họ tên" required />
+            <BaseInput v-model="patientForm.phone" label="Số điện thoại" required />
+            <BaseInput v-model="patientForm.dateOfBirth" label="Ngày sinh" type="date" />
+            <BaseSelect v-model="patientForm.gender" label="Giới tính" :options="genderOptions" placeholder="Chọn giới tính" />
           </div>
           <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Ti?n s? b?nh / d? ?ng</span>
+            <span class="mb-2 block text-sm font-medium text-slate-700">Tiền sử bệnh / dị ứng</span>
             <textarea v-model="patientForm.medicalHistory" rows="3" class="form-textarea"></textarea>
           </label>
           <div class="flex justify-end gap-3">
-            <BaseButton type="button" variant="outline" @click="patientModalOpen = false">??ng</BaseButton>
-            <BaseButton type="submit" :loading="savingPatient">L?u b?nh nh?n</BaseButton>
+            <BaseButton type="button" variant="outline" @click="patientModalOpen = false">Đóng</BaseButton>
+            <BaseButton type="submit" :loading="savingPatient">Lưu bệnh nhân</BaseButton>
           </div>
         </form>
       </div>
@@ -153,7 +153,7 @@ const hasActions = computed(() => ['appointments', 'queue', 'bills', 'prescripti
 const patientModalOpen = ref(false)
 const savingPatient = ref(false)
 const patientForm = reactive({ fullName: '', phone: '', dateOfBirth: '', gender: '', medicalHistory: '' })
-const genderOptions = [{ label: 'Nam', value: 'Male' }, { label: 'N?', value: 'Female' }]
+const genderOptions = [{ label: 'Nam', value: 'Male' }, { label: 'Nữ', value: 'Female' }]
 
 const filteredRows = computed(() => {
   const keyword = query.value.trim().toLowerCase()
@@ -162,28 +162,28 @@ const filteredRows = computed(() => {
 })
 
 const fallbackPatients: Patient[] = [
-  { patientId: 'BN001', fullName: 'Nguy?n Minh An', phone: '0901001001', gender: 'Male', medicalHistory: 'T?ng huy?t ?p' },
-  { patientId: 'BN002', fullName: 'Tr?n Thu H?', phone: '0902002002', gender: 'Female', medicalHistory: 'D? ?ng h?i s?n' },
+  { patientId: 'BN001', fullName: 'Nguyễn Minh An', phone: '0901001001', gender: 'Male', medicalHistory: 'Tăng huyết áp' },
+  { patientId: 'BN002', fullName: 'Trần Thu Hà', phone: '0902002002', gender: 'Female', medicalHistory: 'Dị ứng hải sản' },
 ]
 const fallbackInvoices: Invoice[] = [
   { invoiceId: 1001, appointmentId: 2201, patientId: 12, amount: 300000, status: 'Paid', createdAt: new Date().toISOString() },
   { invoiceId: 1002, appointmentId: 2202, patientId: 4, amount: 350000, status: 'Unpaid', createdAt: new Date().toISOString() },
 ]
 const fallbackRecords: MedicalRecord[] = [
-  { recordId: 'MR001', patientId: 'BN001', diagnosis: 'Theo d?i tim m?ch', doctorNotes: 'Paracetamol n?u ?au', createdAt: new Date().toISOString() },
-  { recordId: 'MR002', patientId: 'BN002', diagnosis: 'Vi?m h? h?p tr?n', doctorNotes: 'K? ??n kh?ng vi?m nh?', createdAt: new Date().toISOString() },
+  { recordId: 'MR001', patientId: 'BN001', diagnosis: 'Theo dõi tim mạch', doctorNotes: 'Paracetamol nếu đau', createdAt: new Date().toISOString() },
+  { recordId: 'MR002', patientId: 'BN002', diagnosis: 'Viêm hô hấp trên', doctorNotes: 'Kê đơn kháng viêm nhẹ', createdAt: new Date().toISOString() },
 ]
 const fallbackMedicines: Medicine[] = [
-  { medicineId: 1, medicineName: 'Paracetamol 500mg', dosageForm: 'Vi?n n?n', unitPrice: 1500, stockQuantity: 200, isActive: true },
-  { medicineId: 2, medicineName: 'Amoxicillin 500mg', dosageForm: 'Vi?n nang', unitPrice: 3500, stockQuantity: 18, isActive: true },
+  { medicineId: 1, medicineName: 'Paracetamol 500mg', dosageForm: 'Viên nén', unitPrice: 1500, stockQuantity: 200, isActive: true },
+  { medicineId: 2, medicineName: 'Amoxicillin 500mg', dosageForm: 'Viên nang', unitPrice: 3500, stockQuantity: 18, isActive: true },
 ]
 
 const configs: Record<Resource, Config> = {
-  appointments: cfg('L?ch h?n', 'N1 Appointment', 'X?c nh?n, ti?p nh?n, t?o h?a ??n v? ?i?u ph?i l?ch h?n trong ph?ng kh?m.', 'GET /api/appointments', CalendarCheck, 'bg-teal-50 text-teal-700', ['patientName','doctorName','status','reason'], cols(['id','M?'], ['patientName','B?nh nh?n', false, false, true], ['doctorName','B?c s?'], ['dateTime','Ng?y gi?'], ['reason','L? do'], ['status','Tr?ng th?i', false, true])),
-  patients: cfg('Ti?p nh?n b?nh nh?n', 'N2 Medical Record', 'Tra c?u v? t?o h? s? b?nh nh?n khi ti?p nh?n.', 'GET/POST /api/patients', Users, 'bg-cyan-50 text-cyan-700', ['id','name','phone','gender','history'], cols(['id','M? BN'], ['name','B?nh nh?n', false, false, true], ['phone','S? ?i?n tho?i'], ['gender','Gi?i t?nh'], ['history','Ti?n s? b?nh'])),
-  queue: cfg('H?ng ??i kh?m', 'N1 Waiting Queue', 'Theo d?i s? th? t? v? tr?ng th?i ch? kh?m trong ng?y.', 'GET /api/waiting-queue?date=today', Users, 'bg-blue-50 text-blue-700', ['patientName','doctorName','status'], cols(['queueNumber','STT', true], ['patientName','B?nh nh?n', false, false, true], ['doctorName','B?c s?'], ['slotTime','Gi?'], ['status','Tr?ng th?i', false, true])),
-  bills: cfg('Thu vi?n ph?', 'N3 Billing', 'Theo d?i h?a ??n, s? ti?n v? tr?ng th?i thanh to?n.', 'GET /api/billing/invoices', CreditCard, 'bg-emerald-50 text-emerald-700', ['id','patientId','amount','status'], cols(['id','M? H?'], ['patientId','B?nh nh?n'], ['appointmentId','L?ch h?n'], ['amount','S? ti?n', true], ['status','Tr?ng th?i', false, true])),
-  prescriptions: cfg('Ph?t thu?c', 'N2 + N3', 'Chu?n b? ph?t thu?c t? b?nh ?n/k? ??n v? ??i chi?u t?n kho.', 'GET /api/medical-records ? GET /api/medicines', Pill, 'bg-indigo-50 text-indigo-700', ['id','patientId','diagnosis','medicine','status'], cols(['id','M?'], ['patientId','B?nh nh?n', false, false, true], ['diagnosis','Ch?n ?o?n'], ['medicine','Thu?c g?i ?'], ['stock','T?n kho'], ['status','Tr?ng th?i', false, true])),
+  appointments: cfg('Lịch hẹn', 'N1 Appointment', 'Xác nhận, tiếp nhận, tạo hóa đơn và điều phối lịch hẹn trong phòng khám.', 'GET /api/appointments', CalendarCheck, 'bg-teal-50 text-teal-700', ['patientName','doctorName','status','reason'], cols(['id','Mã'], ['patientName','Bệnh nhân', false, false, true], ['doctorName','Bác sĩ'], ['dateTime','Ngày giờ'], ['reason','Lý do'], ['status','Trạng thái', false, true])),
+  patients: cfg('Tiếp nhận bệnh nhân', 'N2 Medical Record', 'Tra cứu và tạo hồ sơ bệnh nhân khi tiếp nhận.', 'GET/POST /api/patients', Users, 'bg-cyan-50 text-cyan-700', ['id','name','phone','gender','history'], cols(['id','Mã BN'], ['name','Bệnh nhân', false, false, true], ['phone','Số điện thoại'], ['gender','Giới tính'], ['history','Tiền sử bệnh'])),
+  queue: cfg('Hàng đợi khám', 'N1 Waiting Queue', 'Theo dõi số thứ tự và trạng thái chờ khám trong ngày.', 'GET /api/waiting-queue?date=today', Users, 'bg-blue-50 text-blue-700', ['patientName','doctorName','status'], cols(['queueNumber','STT', true], ['patientName','Bệnh nhân', false, false, true], ['doctorName','Bác sĩ'], ['slotTime','Giờ'], ['status','Trạng thái', false, true])),
+  bills: cfg('Thu viện phí', 'N3 Billing', 'Theo dõi hóa đơn, số tiền và trạng thái thanh toán.', 'GET /api/billing/invoices', CreditCard, 'bg-emerald-50 text-emerald-700', ['id','patientId','amount','status'], cols(['id','Mã HĐ'], ['patientId','Bệnh nhân'], ['appointmentId','Lịch hẹn'], ['amount','Số tiền', true], ['status','Trạng thái', false, true])),
+  prescriptions: cfg('Phát thuốc', 'N2 + N3', 'Chuẩn bị phát thuốc từ bệnh án/kê đơn và đối chiếu tồn kho.', 'GET /api/medical-records ? GET /api/medicines', Pill, 'bg-indigo-50 text-indigo-700', ['id','patientId','diagnosis','medicine','status'], cols(['id','Mã'], ['patientId','Bệnh nhân', false, false, true], ['diagnosis','Chẩn đoán'], ['medicine','Thuốc gợi ý'], ['stock','Tồn kho'], ['status','Trạng thái', false, true])),
 }
 
 watch(resource, () => { query.value = ''; void loadData() }, { immediate: true })
@@ -193,10 +193,10 @@ async function loadData() {
   error.value = ''
   note.value = ''
   try {
-    if (resource.value === 'appointments') rows.value = await loadRows(() => appointmentApi.getAppointments(), fallbackAppointments, mapAppointment, '?? ??c l?ch h?n t? N1.')
-    if (resource.value === 'patients') rows.value = await loadRows(() => medicalRecordApi.getPatients(), fallbackPatients, mapPatient, '?? ??c b?nh nh?n t? N2.')
-    if (resource.value === 'queue') rows.value = await loadRows(() => appointmentApi.getWaitingQueue(today), fallbackQueue, mapQueue, '?? ??c h?ng ??i t? N1.')
-    if (resource.value === 'bills') rows.value = await loadRows(() => billingApi.getInvoices(), fallbackInvoices, mapInvoice, '?? ??c h?a ??n t? N3.')
+    if (resource.value === 'appointments') rows.value = await loadRows(() => appointmentApi.getAppointments(), fallbackAppointments, mapAppointment, 'Để đọc lịch hẹn từ N1.')
+    if (resource.value === 'patients') rows.value = await loadRows(() => medicalRecordApi.getPatients(), fallbackPatients, mapPatient, 'Để đọc bệnh nhân từ N2.')
+    if (resource.value === 'queue') rows.value = await loadRows(() => appointmentApi.getWaitingQueue(today), fallbackQueue, mapQueue, 'Để đọc hàng đợi từ N1.')
+    if (resource.value === 'bills') rows.value = await loadRows(() => billingApi.getInvoices(), fallbackInvoices, mapInvoice, 'Để đọc hóa đơn từ N3.')
     if (resource.value === 'prescriptions') rows.value = await loadPrescriptions()
   } finally {
     loading.value = false
@@ -207,11 +207,11 @@ async function loadRows<T>(loader: () => Promise<T[]>, fallback: T[], mapper: (i
   try {
     const data = await loader()
     if (data.length) { note.value = successNote; return data.map(mapper) }
-    note.value = 'API tr? d? li?u r?ng, ?ang hi?n th? fallback ?? kh?ng tr?ng trang.'
+    note.value = 'API trả dữ liệu rỗng, đang hiển thị fallback để không trống trang.'
     return fallback.map(mapper)
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError)
-    note.value = 'Endpoint ch?a ph?n h?i ?n ??nh, ?ang hi?n th? fallback.'
+    note.value = 'Endpoint chưa phản hồi ổn định, đang hiển thị fallback.'
     return fallback.map(mapper)
   }
 }
@@ -223,31 +223,31 @@ async function loadPrescriptions() {
   ])
   const sourceRecords = records.length ? records : fallbackRecords
   const sourceMedicines = medicines.length ? medicines : fallbackMedicines
-  note.value = '?? t?ng h?p b?nh ?n N2 v? kho thu?c N3 cho m?n ph?t thu?c.'
+  note.value = 'Để tổng hợp bệnh án N2 và kho thuốc N3 cho màn phát thuốc.'
   return sourceRecords.map((record, index) => mapPrescription(record, sourceMedicines[index % sourceMedicines.length]))
 }
 
-function mapAppointment(item: Appointment): Row { return { id: item.appointmentId, appointmentId: item.appointmentId, patientId: item.patientId, examFee: item.examFee, patientName: displayText(item.patientName), doctorName: displayText(item.doctorName), dateTime: `${formatDate(item.appointmentDate)} ? ${item.slotTime}`, reason: item.reason || 'Ch?a ghi nh?n', status: item.status } }
-function mapPatient(item: Patient): Row { return { id: item.patientId, name: displayText(item.fullName), phone: item.phone || item.phoneNumber || 'Ch?a c?p nh?t', gender: genderLabel(item.gender), history: item.medicalHistory || 'Ch?a ghi nh?n' } }
+function mapAppointment(item: Appointment): Row { return { id: item.appointmentId, appointmentId: item.appointmentId, patientId: item.patientId, examFee: item.examFee, patientName: displayText(item.patientName), doctorName: displayText(item.doctorName), dateTime: `${formatDate(item.appointmentDate)} · ${item.slotTime}`, reason: item.reason || 'Chưa ghi nhận', status: item.status } }
+function mapPatient(item: Patient): Row { return { id: item.patientId, name: displayText(item.fullName), phone: item.phone || item.phoneNumber || 'Chưa cập nhật', gender: genderLabel(item.gender), history: item.medicalHistory || 'Chưa ghi nhận' } }
 function mapQueue(item: WaitingQueueItem): Row { return { id: item.id || item.queueId || item.appointmentId, appointmentId: item.appointmentId, queueNumber: item.queueNumber, patientName: displayText(item.patientName), doctorName: displayText(item.doctorName), slotTime: item.slotTime || '-', status: item.status } }
-function mapInvoice(item: Invoice): Row { return { id: item.invoiceId, patientId: item.patientId, appointmentId: item.appointmentId ? `#${item.appointmentId}` : 'Kh?ng g?n l?ch', amount: formatCurrency(item.amount), status: item.status } }
-function mapPrescription(record: MedicalRecord, medicine?: Medicine): Row { return { id: record.recordId || record.medicalRecordId || 'MR', medicineId: medicine?.medicineId, stockQty: medicine?.stockQuantity, patientId: record.patientId, diagnosis: record.diagnosis || 'Ch?a ch?n ?o?n', medicine: medicine?.medicineName || 'Ch?a c? thu?c', stock: medicine ? `${medicine.stockQuantity} t?n` : 'Ch?a r?', status: medicine && medicine.stockQuantity > 0 ? 'S?n s?ng ph?t' : 'Thi?u thu?c' } }
+function mapInvoice(item: Invoice): Row { return { id: item.invoiceId, patientId: item.patientId, appointmentId: item.appointmentId ? `#${item.appointmentId}` : 'Không gán lịch', amount: formatCurrency(item.amount), status: item.status } }
+function mapPrescription(record: MedicalRecord, medicine?: Medicine): Row { return { id: record.recordId || record.medicalRecordId || 'MR', medicineId: medicine?.medicineId, stockQty: medicine?.stockQuantity, patientId: record.patientId, diagnosis: record.diagnosis || 'Chưa chẩn đoán', medicine: medicine?.medicineName || 'Chưa có thuốc', stock: medicine ? `${medicine.stockQuantity} tồn` : 'Chưa rõ', status: medicine && medicine.stockQuantity > 0 ? 'Sẵn sàng phát' : 'Thiếu thuốc' } }
 
 function rowActions(row: Row) {
   const status = String(row.status || '').toLowerCase()
   const actions: Array<{ key: ActionKey; label: string; className: string }> = []
   if (resource.value === 'appointments') {
-    if (status.includes('pending')) actions.push({ key: 'confirm', label: 'X?c nh?n / check-in', className: 'bg-teal-600 text-white hover:bg-teal-700' })
-    if (!status.includes('completed') && !status.includes('cancel')) actions.push({ key: 'invoice', label: 'T?o h?a ??n', className: 'bg-blue-600 text-white hover:bg-blue-700' })
-    if (!status.includes('completed') && !status.includes('cancel')) actions.push({ key: 'cancelAppointment', label: 'H?y', className: 'bg-rose-50 text-rose-700 hover:bg-rose-100' })
+    if (status.includes('pending')) actions.push({ key: 'confirm', label: 'Xác nhận / check-in', className: 'bg-teal-600 text-white hover:bg-teal-700' })
+    if (!status.includes('completed') && !status.includes('cancel')) actions.push({ key: 'invoice', label: 'Tạo hóa đơn', className: 'bg-blue-600 text-white hover:bg-blue-700' })
+    if (!status.includes('completed') && !status.includes('cancel')) actions.push({ key: 'cancelAppointment', label: 'Hủy', className: 'bg-rose-50 text-rose-700 hover:bg-rose-100' })
   }
   if (resource.value === 'queue') {
-    if (status.includes('waiting') || status.includes('confirmed')) actions.push({ key: 'start', label: '?ang kh?m', className: 'bg-blue-600 text-white hover:bg-blue-700' })
-    if (status.includes('inprogress') || status.includes('?ang kh?m')) actions.push({ key: 'done', label: 'Ho?n t?t', className: 'bg-teal-600 text-white hover:bg-teal-700' })
-    if (!status.includes('done') && !status.includes('cancel')) actions.push({ key: 'cancelQueue', label: 'H?y', className: 'bg-rose-50 text-rose-700 hover:bg-rose-100' })
+    if (status.includes('waiting') || status.includes('confirmed')) actions.push({ key: 'start', label: 'Đang khám', className: 'bg-blue-600 text-white hover:bg-blue-700' })
+    if (status.includes('inprogress') || status.includes('đang khám')) actions.push({ key: 'done', label: 'Hoàn tất', className: 'bg-teal-600 text-white hover:bg-teal-700' })
+    if (!status.includes('done') && !status.includes('cancel')) actions.push({ key: 'cancelQueue', label: 'Hủy', className: 'bg-rose-50 text-rose-700 hover:bg-rose-100' })
   }
-  if (resource.value === 'bills' && !status.includes('paid')) actions.push({ key: 'pay', label: 'Thu ti?n', className: 'bg-teal-600 text-white hover:bg-teal-700' })
-  if (resource.value === 'prescriptions' && status.includes('s?n')) actions.push({ key: 'dispense', label: '?? ph?t thu?c', className: 'bg-indigo-600 text-white hover:bg-indigo-700' })
+  if (resource.value === 'bills' && !status.includes('paid')) actions.push({ key: 'pay', label: 'Thu tiền', className: 'bg-teal-600 text-white hover:bg-teal-700' })
+  if (resource.value === 'prescriptions' && status.includes('sẵn')) actions.push({ key: 'dispense', label: 'Đã phát thuốc', className: 'bg-indigo-600 text-white hover:bg-indigo-700' })
   return actions
 }
 
@@ -265,7 +265,7 @@ async function runAction(action: ActionKey, row: Row) {
     if (action === 'cancelQueue') await appointmentApi.cancelQueueItem(id)
     if (action === 'pay') await billingApi.payInvoice(id)
     if (action === 'dispense') await dispenseMedicine(row)
-    note.value = '?? c?p nh?t tr?ng th?i th?nh c?ng.'
+    note.value = 'Đã cập nhật trạng thái thành công.'
     await loadData()
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError)
@@ -292,7 +292,7 @@ async function submitPatient() {
       gender: patientForm.gender || undefined,
       medicalHistory: patientForm.medicalHistory.trim() || undefined,
     })
-    note.value = '?? t?o h? s? b?nh nh?n ? N2.'
+    note.value = 'Đã tạo hồ sơ bệnh nhân ở N2.'
     patientModalOpen.value = false
     patientForm.fullName = ''; patientForm.phone = ''; patientForm.dateOfBirth = ''; patientForm.gender = ''; patientForm.medicalHistory = ''
     await loadData()
@@ -305,11 +305,11 @@ async function submitPatient() {
 
 function cfg(title: string, service: string, description: string, endpoint: string, icon: Component, iconClass: string, search: string[], columns: Column[]): Config { return { title, service, description, endpoint, icon, iconClass, search, columns } }
 function cols(...defs: [string, string, boolean?, boolean?, boolean?][]): Column[] { return defs.map(([key, label, right, badge, strong]) => ({ key, label, right, badge, strong })) }
-function value(row: Row, key: string) { return row[key] === undefined || row[key] === '' ? 'Ch?a c?p nh?t' : String(row[key]) }
+function value(row: Row, key: string) { return row[key] === undefined || row[key] === '' ? 'Chưa cập nhật' : String(row[key]) }
 function formatCurrency(value: number) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0)) }
-function formatDate(value?: string) { if (!value) return 'Ch?a c?p nh?t'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('vi-VN').format(date) }
-function genderLabel(value?: string) { return value ? ({ 'Male': 'Nam', 'Female': 'N?', 'Nam': 'Nam', 'N?': 'N?' } as Record<string, string>)[value] || value : 'Ch?a c?p nh?t' }
-function statusClass(status?: string) { const value = String(status || '').toLowerCase(); if (value.includes('confirmed') || value.includes('completed') || value.includes('paid') || value.includes('s?n')) return 'bg-teal-100 text-teal-700'; if (value.includes('pending') || value.includes('waiting') || value.includes('unpaid') || value.includes('ch?')) return 'bg-amber-100 text-amber-700'; if (value.includes('cancel') || value.includes('thi?u')) return 'bg-rose-100 text-rose-700'; return 'bg-slate-100 text-slate-700' }
+function formatDate(value?: string) { if (!value) return 'Chưa cập nhật'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('vi-VN').format(date) }
+function genderLabel(value?: string) { return value ? ({ 'Male': 'Nam', 'Female': 'Nữ', 'Nam': 'Nam', 'Nữ': 'Nữ' } as Record<string, string>)[value] || value : 'Chưa cập nhật' }
+function statusClass(status?: string) { const value = String(status || '').toLowerCase(); if (value.includes('confirmed') || value.includes('completed') || value.includes('paid') || value.includes('sẵn')) return 'bg-teal-100 text-teal-700'; if (value.includes('pending') || value.includes('waiting') || value.includes('unpaid') || value.includes('chờ')) return 'bg-amber-100 text-amber-700'; if (value.includes('cancel') || value.includes('thiếu')) return 'bg-rose-100 text-rose-700'; return 'bg-slate-100 text-slate-700' }
 function isResource(value: unknown): value is Resource { return typeof value === 'string' && value in configs }
 </script>
 

@@ -4,16 +4,16 @@
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p class="text-sm font-semibold uppercase tracking-wide text-teal-700">Doctor workspace</p>
-          <h1 class="mt-2 text-3xl font-bold text-slate-950">B?ng ?i?u khi?n b?c s?</h1>
+          <h1 class="mt-2 text-3xl font-bold text-slate-950">Bảng điều khiển bác sĩ</h1>
           <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-            ?ang xem d? li?u c?a <strong class="text-slate-900">{{ authStore.user?.fullName }}</strong>
-            <span v-if="authStore.user?.specialtyName"> ? {{ authStore.user.specialtyName }}</span>.
-            L?ch h?n v? l?ch l?m vi?c ???c l?c theo t?i kho?n b?c s? ?ang ??ng nh?p.
+            Đang xem dữ liệu của <strong class="text-slate-900">{{ authStore.user?.fullName }}</strong>
+            <span v-if="authStore.user?.specialtyName"> · {{ authStore.user.specialtyName }}</span>.
+            Lịch hẹn và lịch làm việc được lọc theo tài khoản bác sĩ đang đăng nhập.
           </p>
         </div>
         <BaseButton variant="outline" :disabled="loading" @click="loadData">
           <template #icon><RefreshCw class="h-4 w-4" /></template>
-          T?i l?i
+          Tải lại
         </BaseButton>
       </div>
     </div>
@@ -42,8 +42,8 @@
     <div class="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
       <div class="rounded-2xl border border-slate-200 bg-white shadow-card">
         <div class="border-b border-slate-100 px-5 py-4">
-          <h2 class="font-semibold text-slate-950">B?nh nh?n ?ang ch? kh?m</h2>
-          <p class="mt-1 text-sm text-slate-500">Ngu?n N1 - Waiting Queue, ?? l?c theo b?c s?</p>
+          <h2 class="font-semibold text-slate-950">Bệnh nhân đang chờ khám</h2>
+          <p class="mt-1 text-sm text-slate-500">Nguồn N1 - Waiting Queue, đã lọc theo bác sĩ</p>
         </div>
         <div class="divide-y divide-slate-100">
           <div v-for="item in queue.slice(0, 5)" :key="item.id || item.appointmentId" class="flex items-center justify-between gap-4 px-5 py-4">
@@ -51,26 +51,26 @@
               <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 font-bold text-teal-700">{{ item.queueNumber }}</span>
               <div>
                 <p class="font-semibold text-slate-950">{{ displayText(item.patientName) }}</p>
-                <p class="mt-1 text-sm text-slate-500">{{ item.slotTime || 'Ch?a c? gi?' }} ? {{ item.reason || 'Ch?a ghi l? do' }}</p>
+                <p class="mt-1 text-sm text-slate-500">{{ item.slotTime || 'Chưa có giờ' }} · {{ item.reason || 'Chưa ghi lý do' }}</p>
               </div>
             </div>
             <span :class="['rounded-full px-2.5 py-1 text-xs font-semibold', statusClass(item.status)]">{{ item.status }}</span>
           </div>
-          <p v-if="!queue.length" class="px-5 py-8 text-sm text-slate-500">Ch?a c? b?nh nh?n trong h?ng ??i c?a b?c s? n?y.</p>
+          <p v-if="!queue.length" class="px-5 py-8 text-sm text-slate-500">Chưa có bệnh nhân trong hàng đợi của bác sĩ này.</p>
         </div>
       </div>
 
       <div class="rounded-2xl border border-slate-200 bg-white shadow-card">
         <div class="border-b border-slate-100 px-5 py-4">
-          <h2 class="font-semibold text-slate-950">L?ch l?m vi?c g?n nh?t</h2>
-          <p class="mt-1 text-sm text-slate-500">Ngu?n N1 - Doctor Schedule</p>
+          <h2 class="font-semibold text-slate-950">Lịch làm việc gần nhất</h2>
+          <p class="mt-1 text-sm text-slate-500">Nguồn N1 - Doctor Schedule</p>
         </div>
         <div class="divide-y divide-slate-100">
           <div v-for="item in schedules.slice(0, 5)" :key="item.scheduleId" class="px-5 py-4">
             <p class="font-semibold text-slate-950">{{ formatDate(item.workDate) }}</p>
-            <p class="mt-1 text-sm text-slate-500">{{ item.startTime }} - {{ item.endTime }} ? {{ item.slotDurationMinutes || 30 }} ph?t/slot</p>
+            <p class="mt-1 text-sm text-slate-500">{{ item.startTime }} - {{ item.endTime }} · {{ item.slotDurationMinutes || 30 }} phút/slot</p>
           </div>
-          <p v-if="!schedules.length" class="px-5 py-8 text-sm text-slate-500">Ch?a c? l?ch l?m vi?c cho b?c s? n?y.</p>
+          <p v-if="!schedules.length" class="px-5 py-8 text-sm text-slate-500">Chưa có lịch làm việc cho bác sĩ này.</p>
         </div>
       </div>
     </div>
@@ -115,10 +115,10 @@ const fallbackSchedules: DoctorSchedule[] = fallbackDoctors.map((doctor, index) 
 }))
 
 const stats = computed<Stat[]>(() => [
-  { label: 'H?ng ??i', value: queue.value.length, note: 'B?nh nh?n h?m nay', to: '/doctor/queue', icon: Users, iconClass: 'bg-teal-50 text-teal-700' },
-  { label: 'L?ch h?n', value: appointments.value.length, note: 'C?a b?c s? n?y', to: '/doctor/appointments', icon: CalendarClock, iconClass: 'bg-cyan-50 text-cyan-700' },
-  { label: 'B?nh ?n', value: records.value.length, note: 'Ngu?n N2', to: '/doctor/records', icon: FileHeart, iconClass: 'bg-blue-50 text-blue-700' },
-  { label: 'Ca l?m', value: schedules.value.length, note: 'L?ch c? nh?n', to: '/doctor/schedule', icon: ClipboardList, iconClass: 'bg-emerald-50 text-emerald-700' },
+  { label: 'Hàng đợi', value: queue.value.length, note: 'Bệnh nhân hôm nay', to: '/doctor/queue', icon: Users, iconClass: 'bg-teal-50 text-teal-700' },
+  { label: 'Lịch hẹn', value: appointments.value.length, note: 'Của bác sĩ này', to: '/doctor/appointments', icon: CalendarClock, iconClass: 'bg-cyan-50 text-cyan-700' },
+  { label: 'Bệnh án', value: records.value.length, note: 'Nguồn N2', to: '/doctor/records', icon: FileHeart, iconClass: 'bg-blue-50 text-blue-700' },
+  { label: 'Ca làm', value: schedules.value.length, note: 'Lịch cá nhân', to: '/doctor/schedule', icon: ClipboardList, iconClass: 'bg-emerald-50 text-emerald-700' },
 ])
 
 onMounted(loadData)
@@ -144,7 +144,7 @@ async function loadData() {
   records.value = readList(results[3], [])
 
   const firstError = results.find((item) => item.status === 'rejected') as PromiseRejectedResult | undefined
-  if (firstError) error.value = `M?t s? API ch?a ph?n h?i: ${getApiErrorMessage(firstError.reason)}. ?ang d?ng fallback cho ph?n thi?u d? li?u.`
+  if (firstError) error.value = `Một số API chưa phản hồi: ${getApiErrorMessage(firstError.reason)}. Đang dùng fallback cho phần thiếu dữ liệu.`
   loading.value = false
 }
 
@@ -152,6 +152,6 @@ function readList<T>(result: PromiseSettledResult<T[]>, fallback: T[]) {
   return result.status === 'fulfilled' && Array.isArray(result.value) && result.value.length ? result.value : fallback
 }
 function addDays(days: number) { const date = new Date(); date.setDate(date.getDate() + days); return date }
-function formatDate(value?: string) { if (!value) return 'Ch?a c?p nh?t'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('vi-VN').format(date) }
-function statusClass(status?: string) { const value = String(status || '').toLowerCase(); if (value.includes('done') || value.includes('completed') || value.includes('confirmed')) return 'bg-teal-100 text-teal-700'; if (value.includes('inprogress') || value.includes('?ang kh?m')) return 'bg-blue-100 text-blue-700'; if (value.includes('waiting') || value.includes('pending')) return 'bg-amber-100 text-amber-700'; return 'bg-slate-100 text-slate-700' }
+function formatDate(value?: string) { if (!value) return 'Chưa cập nhật'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('vi-VN').format(date) }
+function statusClass(status?: string) { const value = String(status || '').toLowerCase(); if (value.includes('done') || value.includes('completed') || value.includes('confirmed')) return 'bg-teal-100 text-teal-700'; if (value.includes('inprogress') || value.includes('đang khám')) return 'bg-blue-100 text-blue-700'; if (value.includes('waiting') || value.includes('pending')) return 'bg-amber-100 text-amber-700'; return 'bg-slate-100 text-slate-700' }
 </script>

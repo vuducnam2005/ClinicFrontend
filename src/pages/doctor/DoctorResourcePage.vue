@@ -11,15 +11,15 @@
             <h1 class="mt-2 text-2xl font-bold text-slate-950 sm:text-3xl">{{ config.title }}</h1>
             <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{{ config.description }}</p>
             <p class="mt-2 text-sm font-medium text-slate-600">
-              T?i kho?n: <span class="text-slate-950">{{ authStore.user?.fullName }}</span>
-              <span v-if="authStore.user?.doctorId"> ? DoctorId #{{ authStore.user.doctorId }}</span>
+              Tài khoản: <span class="text-slate-950">{{ authStore.user?.fullName }}</span>
+              <span v-if="authStore.user?.doctorId"> · DoctorId #{{ authStore.user.doctorId }}</span>
             </p>
             <p class="mt-4 rounded-lg bg-slate-50 px-3 py-2 font-mono text-xs font-semibold text-slate-500">{{ config.endpoint }}</p>
           </div>
         </div>
         <BaseButton variant="outline" :disabled="loading" @click="loadData">
           <template #icon><RefreshCw class="h-4 w-4" /></template>
-          T?i l?i
+          Tải lại
         </BaseButton>
       </div>
     </div>
@@ -35,9 +35,9 @@
       <div class="grid gap-3 border-b border-slate-100 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
         <label class="relative block">
           <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input v-model="query" class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" placeholder="T?m ki?m" />
+          <input v-model="query" class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" placeholder="Tìm kiếm" />
         </label>
-        <span class="rounded-lg bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-700">{{ filteredRows.length }} d?ng</span>
+        <span class="rounded-lg bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-700">{{ filteredRows.length }} dòng</span>
       </div>
 
       <div v-if="filteredRows.length" class="overflow-x-auto">
@@ -45,7 +45,7 @@
           <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
               <th v-for="column in config.columns" :key="column.key" :class="['px-5 py-3', column.right ? 'text-right' : 'text-left']">{{ column.label }}</th>
-              <th v-if="hasActions" class="px-5 py-3 text-right">Thao t?c</th>
+              <th v-if="hasActions" class="px-5 py-3 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -75,8 +75,8 @@
 
       <div v-else class="p-10 text-center">
         <SearchX class="mx-auto h-10 w-10 text-slate-400" />
-        <h2 class="mt-4 text-lg font-semibold text-slate-950">Ch?a c? d? li?u</h2>
-        <p class="mt-2 text-sm text-slate-500">Ch?a c? l?ch h?n ho?c d? li?u ph? h?p v?i b?c s? ?ang ??ng nh?p.</p>
+        <h2 class="mt-4 text-lg font-semibold text-slate-950">Chưa có dữ liệu</h2>
+        <p class="mt-2 text-sm text-slate-500">Chưa có lịch hẹn hoặc dữ liệu phù hợp với bác sĩ đang đăng nhập.</p>
       </div>
     </div>
 
@@ -85,39 +85,39 @@
         <div class="flex items-start justify-between gap-4">
           <div>
             <p class="text-sm font-semibold uppercase tracking-wide text-teal-700">N2 Medical Record</p>
-            <h2 class="mt-1 text-2xl font-bold text-slate-950">Phi?u kh?m & k? ??n</h2>
-            <p class="mt-2 text-sm text-slate-500">T?o b?nh ?n t? l?ch h?n, sau ?? ho?n t?t l?ch h?n ? N1.</p>
+            <h2 class="mt-1 text-2xl font-bold text-slate-950">Phiếu khám & kê đơn</h2>
+            <p class="mt-2 text-sm text-slate-500">Tạo bệnh án từ lịch hẹn, sau đó hoàn tất lịch hẹn ở N1.</p>
           </div>
-          <button type="button" class="rounded-xl p-2 text-slate-500 hover:bg-slate-100" @click="closeExamine">?</button>
+          <button type="button" class="rounded-xl p-2 text-slate-500 hover:bg-slate-100" @click="closeExamine">✕</button>
         </div>
 
         <div class="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
-          <p><strong class="text-slate-900">B?nh nh?n:</strong> {{ selectedRow?.patientName }}</p>
-          <p class="mt-1"><strong class="text-slate-900">L?ch h?n:</strong> #{{ selectedRow?.id }} ? {{ selectedRow?.dateTime }}</p>
+          <p><strong class="text-slate-900">Bệnh nhân:</strong> {{ selectedRow?.patientName }}</p>
+          <p class="mt-1"><strong class="text-slate-900">Lịch hẹn:</strong> #{{ selectedRow?.id }} · {{ selectedRow?.dateTime }}</p>
         </div>
 
         <form class="mt-5 space-y-4" @submit.prevent="submitExamination">
           <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Tri?u ch?ng</span>
-            <textarea v-model="examForm.symptoms" rows="3" required class="form-textarea" placeholder="V? d?: s?t, ho, ?au ng?c..."></textarea>
+            <span class="mb-2 block text-sm font-medium text-slate-700">Triệu chứng</span>
+            <textarea v-model="examForm.symptoms" rows="3" required class="form-textarea" placeholder="Ví dụ: sốt, ho, đau ngực..."></textarea>
           </label>
           <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Ch?n ?o?n</span>
-            <textarea v-model="examForm.diagnosis" rows="3" required class="form-textarea" placeholder="Ch?n ?o?n s? b? ho?c k?t lu?n kh?m"></textarea>
+            <span class="mb-2 block text-sm font-medium text-slate-700">Chẩn đoán</span>
+            <textarea v-model="examForm.diagnosis" rows="3" required class="form-textarea" placeholder="Chẩn đoán sơ bộ hoặc kết luận khám"></textarea>
           </label>
           <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">??n thu?c / ghi ch? ?i?u tr?</span>
-            <textarea v-model="examForm.doctorNotes" rows="4" class="form-textarea" placeholder="T?n thu?c, li?u d?ng, h??ng d?n t?i kh?m"></textarea>
+            <span class="mb-2 block text-sm font-medium text-slate-700">Đơn thuốc / ghi chú điều trị</span>
+            <textarea v-model="examForm.doctorNotes" rows="4" class="form-textarea" placeholder="Tên thuốc, liều dùng, hướng dẫn tái khám"></textarea>
           </label>
           <div class="grid gap-4 sm:grid-cols-2">
-            <BaseInput v-model="examForm.recheckDate" label="Ng?y t?i kh?m" type="date" />
-            <BaseInput v-model="examForm.prescriptionCode" label="M? ??n thu?c n?i b?" placeholder="VD: RX-001" />
+            <BaseInput v-model="examForm.recheckDate" label="Ngày tái khám" type="date" />
+            <BaseInput v-model="examForm.prescriptionCode" label="Mã đơn thuốc nội bộ" placeholder="VD: RX-001" />
           </div>
           <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <BaseButton type="button" variant="outline" @click="closeExamine">??ng</BaseButton>
+            <BaseButton type="button" variant="outline" @click="closeExamine">Đóng</BaseButton>
             <BaseButton type="submit" :loading="savingExam">
               <template #icon><FileHeart class="h-4 w-4" /></template>
-              L?u b?nh ?n & ho?n t?t kh?m
+              Lưu bệnh án & hoàn tất khám
             </BaseButton>
           </div>
         </form>
@@ -183,17 +183,17 @@ const fallbackSchedules: DoctorSchedule[] = fallbackDoctors.map((doctor, index) 
   isAvailable: true,
 }))
 const fallbackRecords: MedicalRecord[] = [
-  { recordId: 'MR001', patientId: '12', appointmentId: '2201', doctorId: 1, doctorName: 'B?c s? Nguy?n V?n A', diagnosis: 'Theo d?i tim m?ch', symptoms: '?au ng?c nh?', doctorNotes: 'T?i kh?m sau 7 ng?y', createdAt: new Date().toISOString() },
-  { recordId: 'MR002', patientId: '13', appointmentId: '2202', doctorId: 2, doctorName: 'B?c s? Tr?n Th? B', diagnosis: 'Vi?m h? h?p tr?n', symptoms: 'S?t, ho', doctorNotes: 'K? thu?c v? ngh? ng?i', createdAt: new Date().toISOString() },
-  { recordId: 'MR003', patientId: '14', appointmentId: '2203', doctorId: 3, doctorName: 'B?c s? L? V?n C', diagnosis: 'D? ?ng da', symptoms: 'N?i m?n ??', doctorNotes: 'Theo d?i ph?n ?ng thu?c', createdAt: new Date().toISOString() },
+  { recordId: 'MR001', patientId: '12', appointmentId: '2201', doctorId: 1, doctorName: 'Bác sĩ Nguyễn Văn A', diagnosis: 'Theo dõi tim mạch', symptoms: 'Đau ngực nhẹ', doctorNotes: 'Tái khám sau 7 ngày', createdAt: new Date().toISOString() },
+  { recordId: 'MR002', patientId: '13', appointmentId: '2202', doctorId: 2, doctorName: 'Bác sĩ Trần Thị B', diagnosis: 'Viêm hô hấp trên', symptoms: 'Sốt, ho', doctorNotes: 'Kê thuốc và nghỉ ngơi', createdAt: new Date().toISOString() },
+  { recordId: 'MR003', patientId: '14', appointmentId: '2203', doctorId: 3, doctorName: 'Bác sĩ Lê Văn C', diagnosis: 'Dị ứng da', symptoms: 'Nổi mẩn đỏ', doctorNotes: 'Theo dõi phản ứng thuốc', createdAt: new Date().toISOString() },
 ]
 
 const configs: Record<Resource, Config> = {
-  queue: cfg('H?ng ??i kh?m', 'N1 Waiting Queue', 'Danh s?ch b?nh nh?n ?ang ch?, ?ang kh?m ho?c ?? ho?n t?t trong ng?y c?a b?c s? ?ang ??ng nh?p.', 'GET /api/waiting-queue?date=today', Users, 'bg-teal-50 text-teal-700', ['patientName','doctorName','status'], cols(['queueNumber','STT', true], ['patientName','B?nh nh?n', false, false, true], ['doctorName','B?c s?'], ['slotTime','Gi?'], ['status','Tr?ng th?i', false, true])),
-  appointments: cfg('L?ch h?n h?m nay', 'N1 Appointment', 'C?c l?ch h?n c?a b?c s? ?ang ??ng nh?p, ?u ti?n ??c t? endpoint theo doctorId.', 'GET /api/appointments/doctor/{doctorId}', CalendarClock, 'bg-cyan-50 text-cyan-700', ['patientName','doctorName','status','reason'], cols(['id','M?'], ['patientName','B?nh nh?n', false, false, true], ['doctorName','B?c s?'], ['dateTime','Ng?y gi?'], ['reason','L? do'], ['status','Tr?ng th?i', false, true])),
-  examine: cfg('Kh?m & K? ??n', 'N1 + N2', 'B?c s? kh?m b?nh, t?o b?nh ?n N2 v? ho?n t?t l?ch h?n N1.', 'POST /api/medical-records ? PUT /api/appointments/{id}/complete', Stethoscope, 'bg-blue-50 text-blue-700', ['patientName','doctorName','action','status'], cols(['id','M?'], ['patientName','B?nh nh?n', false, false, true], ['doctorName','B?c s?'], ['dateTime','Ng?y gi?'], ['action','Thao t?c'], ['status','Tr?ng th?i', false, true])),
-  records: cfg('L?ch s? b?nh ?n', 'N2 Medical Record', 'Tra c?u b?nh ?n, tri?u ch?ng, ch?n ?o?n v? ghi ch? c?a b?c s? ?ang ??ng nh?p.', 'GET /api/medical-records', FileHeart, 'bg-indigo-50 text-indigo-700', ['id','patientId','diagnosis','symptoms'], cols(['id','M? BA'], ['patientId','B?nh nh?n', false, false, true], ['diagnosis','Ch?n ?o?n'], ['symptoms','Tri?u ch?ng'], ['doctorNotes','Ghi ch?'], ['createdAt','Ng?y t?o'])),
-  schedule: cfg('L?ch l?m vi?c c? nh?n', 'N1 Doctor Schedule', 'Ca l?m vi?c v? slot kh?m c?a b?c s? ?ang ??ng nh?p.', 'GET /api/doctor-schedules/doctor/{doctorId}', ClipboardList, 'bg-emerald-50 text-emerald-700', ['doctorName','workDate','timeRange','status'], cols(['id','M?'], ['doctorName','B?c s?', false, false, true], ['workDate','Ng?y l?m'], ['timeRange','Ca kh?m'], ['duration','Slot'], ['status','Tr?ng th?i', false, true])),
+  queue: cfg('Hàng đợi khám', 'N1 Waiting Queue', 'Danh sách bệnh nhân đang chờ, đang khám hoặc đã hoàn tất trong ngày của bác sĩ đang đăng nhập.', 'GET /api/waiting-queue?date=today', Users, 'bg-teal-50 text-teal-700', ['patientName','doctorName','status'], cols(['queueNumber','STT', true], ['patientName','Bệnh nhân', false, false, true], ['doctorName','Bác sĩ'], ['slotTime','Giờ'], ['status','Trạng thái', false, true])),
+  appointments: cfg('Lịch hẹn hôm nay', 'N1 Appointment', 'Các lịch hẹn của bác sĩ đang đăng nhập, ưu tiên đọc từ endpoint theo doctorId.', 'GET /api/appointments/doctor/{doctorId}', CalendarClock, 'bg-cyan-50 text-cyan-700', ['patientName','doctorName','status','reason'], cols(['id','Mã'], ['patientName','Bệnh nhân', false, false, true], ['doctorName','Bác sĩ'], ['dateTime','Ngày giờ'], ['reason','Lý do'], ['status','Trạng thái', false, true])),
+  examine: cfg('Khám & Kê đơn', 'N1 + N2', 'Bác sĩ khám bệnh, tạo bệnh án N2 và hoàn tất lịch hẹn N1.', 'POST /api/medical-records ? PUT /api/appointments/{id}/complete', Stethoscope, 'bg-blue-50 text-blue-700', ['patientName','doctorName','action','status'], cols(['id','Mã'], ['patientName','Bệnh nhân', false, false, true], ['doctorName','Bác sĩ'], ['dateTime','Ngày giờ'], ['action','Thao tác'], ['status','Trạng thái', false, true])),
+  records: cfg('Lịch sử bệnh án', 'N2 Medical Record', 'Tra cứu bệnh án, triệu chứng, chẩn đoán và ghi chú của bác sĩ đang đăng nhập.', 'GET /api/medical-records', FileHeart, 'bg-indigo-50 text-indigo-700', ['id','patientId','diagnosis','symptoms'], cols(['id','Mã BA'], ['patientId','Bệnh nhân', false, false, true], ['diagnosis','Chẩn đoán'], ['symptoms','Triệu chứng'], ['doctorNotes','Ghi chú'], ['createdAt','Ngày tạo'])),
+  schedule: cfg('Lịch làm việc cá nhân', 'N1 Doctor Schedule', 'Ca làm việc và slot khám của bác sĩ đang đăng nhập.', 'GET /api/doctor-schedules/doctor/{doctorId}', ClipboardList, 'bg-emerald-50 text-emerald-700', ['doctorName','workDate','timeRange','status'], cols(['id','Mã'], ['doctorName','Bác sĩ', false, false, true], ['workDate','Ngày làm'], ['timeRange','Ca khám'], ['duration','Slot'], ['status','Trạng thái', false, true])),
 }
 
 watch(resource, () => { query.value = ''; void loadData() }, { immediate: true })
@@ -204,11 +204,11 @@ async function loadData() {
   note.value = ''
   try {
     const doctorId = currentDoctorId(authStore.user)
-    if (resource.value === 'queue') rows.value = await loadRows(() => appointmentApi.getWaitingQueue(today).then((items) => filterQueueForDoctor(items, authStore.user)), filterQueueForDoctor(fallbackQueue, authStore.user), mapQueue, '?? ??c h?ng ??i t? N1 v? l?c theo b?c s?.')
-    if (resource.value === 'appointments') rows.value = await loadRows(() => (doctorId ? appointmentApi.getAppointmentsByDoctor(doctorId) : appointmentApi.getAppointments()).then((items) => filterAppointmentsForDoctor(items, authStore.user)), filterAppointmentsForDoctor(fallbackAppointments, authStore.user), mapAppointment, '?? ??c l?ch h?n t? N1 theo b?c s?.')
-    if (resource.value === 'examine') rows.value = await loadRows(() => (doctorId ? appointmentApi.getAppointmentsByDoctor(doctorId) : appointmentApi.getAppointments()).then((items) => filterAppointmentsForDoctor(items, authStore.user)), filterAppointmentsForDoctor(fallbackAppointments, authStore.user), mapExamine, '?? ??c danh s?ch kh?m t? N1 theo b?c s?.')
-    if (resource.value === 'records') rows.value = await loadRows(() => medicalRecordApi.getMedicalRecords().then((items) => filterRecordsForDoctor(items, authStore.user)), filterRecordsForDoctor(fallbackRecords, authStore.user), mapRecord, '?? ??c b?nh ?n t? N2 theo b?c s?.')
-    if (resource.value === 'schedule') rows.value = await loadRows(() => (doctorId ? appointmentApi.getDoctorSchedulesByDoctor(doctorId) : appointmentApi.getDoctorSchedules()).then((items) => filterSchedulesForDoctor(items, authStore.user)), filterSchedulesForDoctor(fallbackSchedules, authStore.user), mapSchedule, '?? ??c l?ch l?m vi?c t? N1 theo b?c s?.')
+    if (resource.value === 'queue') rows.value = await loadRows(() => appointmentApi.getWaitingQueue(today).then((items) => filterQueueForDoctor(items, authStore.user)), filterQueueForDoctor(fallbackQueue, authStore.user), mapQueue, 'Để đọc hàng đợi từ N1 và lọc theo bác sĩ.')
+    if (resource.value === 'appointments') rows.value = await loadRows(() => (doctorId ? appointmentApi.getAppointmentsByDoctor(doctorId) : appointmentApi.getAppointments()).then((items) => filterAppointmentsForDoctor(items, authStore.user)), filterAppointmentsForDoctor(fallbackAppointments, authStore.user), mapAppointment, 'Để đọc lịch hẹn từ N1 theo bác sĩ.')
+    if (resource.value === 'examine') rows.value = await loadRows(() => (doctorId ? appointmentApi.getAppointmentsByDoctor(doctorId) : appointmentApi.getAppointments()).then((items) => filterAppointmentsForDoctor(items, authStore.user)), filterAppointmentsForDoctor(fallbackAppointments, authStore.user), mapExamine, 'Để đọc danh sách khám từ N1 theo bác sĩ.')
+    if (resource.value === 'records') rows.value = await loadRows(() => medicalRecordApi.getMedicalRecords().then((items) => filterRecordsForDoctor(items, authStore.user)), filterRecordsForDoctor(fallbackRecords, authStore.user), mapRecord, 'Để đọc bệnh án từ N2 theo bác sĩ.')
+    if (resource.value === 'schedule') rows.value = await loadRows(() => (doctorId ? appointmentApi.getDoctorSchedulesByDoctor(doctorId) : appointmentApi.getDoctorSchedules()).then((items) => filterSchedulesForDoctor(items, authStore.user)), filterSchedulesForDoctor(fallbackSchedules, authStore.user), mapSchedule, 'Để đọc lịch làm việc từ N1 theo bác sĩ.')
   } finally {
     loading.value = false
   }
@@ -218,28 +218,28 @@ async function loadRows<T>(loader: () => Promise<T[]>, fallback: T[], mapper: (i
   try {
     const data = await loader()
     if (data.length) { note.value = successNote; return data.map(mapper) }
-    note.value = 'API tr? d? li?u r?ng cho b?c s? n?y, ?ang hi?n th? fallback t??ng ?ng ?? ki?m th? lu?ng.'
+    note.value = 'API trả dữ liệu rỗng cho bác sĩ này, đang hiển thị fallback tương ứng để kiểm thử luồng.'
     return fallback.map(mapper)
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError)
-    note.value = 'Endpoint ch?a ph?n h?i ?n ??nh, ?ang hi?n th? fallback theo b?c s?.'
+    note.value = 'Endpoint chưa phản hồi ổn định, đang hiển thị fallback theo bác sĩ.'
     return fallback.map(mapper)
   }
 }
 
 function mapQueue(item: WaitingQueueItem): Row { return { id: item.id || item.queueId || item.appointmentId, appointmentId: item.appointmentId, queueNumber: item.queueNumber, patientId: item.patientId, patientName: displayText(item.patientName), doctorName: displayText(item.doctorName), slotTime: item.slotTime || '-', status: item.status } }
-function mapAppointment(item: Appointment): Row { return { id: item.appointmentId, appointmentId: item.appointmentId, patientId: item.patientId, patientName: displayText(item.patientName), doctorName: displayText(item.doctorName), dateTime: `${formatDate(item.appointmentDate)} ? ${item.slotTime}`, reason: item.reason || 'Ch?a ghi nh?n', status: item.status } }
-function mapExamine(item: Appointment): Row { return { ...mapAppointment(item), action: 'M? phi?u kh?m / k? ??n' } }
-function mapRecord(item: MedicalRecord): Row { return { id: item.recordId || item.medicalRecordId || 'MR', patientId: item.patientId, diagnosis: item.diagnosis || 'Ch?a c? ch?n ?o?n', symptoms: item.symptoms || 'Ch?a ghi nh?n', doctorNotes: item.doctorNotes || 'Ch?a ghi ch?', createdAt: formatDate(item.examDate || item.createdAt) } }
-function mapSchedule(item: DoctorSchedule): Row { return { id: item.scheduleId, doctorName: displayText(item.doctorName), workDate: formatDate(item.workDate), timeRange: `${item.startTime} - ${item.endTime}`, duration: `${item.slotDurationMinutes || 30} ph?t`, status: item.isAvailable === false ? 'T?m ng?ng' : '?ang m?' } }
+function mapAppointment(item: Appointment): Row { return { id: item.appointmentId, appointmentId: item.appointmentId, patientId: item.patientId, patientName: displayText(item.patientName), doctorName: displayText(item.doctorName), dateTime: `${formatDate(item.appointmentDate)} · ${item.slotTime}`, reason: item.reason || 'Chưa ghi nhận', status: item.status } }
+function mapExamine(item: Appointment): Row { return { ...mapAppointment(item), action: 'Mở phiếu khám / kê đơn' } }
+function mapRecord(item: MedicalRecord): Row { return { id: item.recordId || item.medicalRecordId || 'MR', patientId: item.patientId, diagnosis: item.diagnosis || 'Chưa có chẩn đoán', symptoms: item.symptoms || 'Chưa ghi nhận', doctorNotes: item.doctorNotes || 'Chưa ghi chú', createdAt: formatDate(item.examDate || item.createdAt) } }
+function mapSchedule(item: DoctorSchedule): Row { return { id: item.scheduleId, doctorName: displayText(item.doctorName), workDate: formatDate(item.workDate), timeRange: `${item.startTime} - ${item.endTime}`, duration: `${item.slotDurationMinutes || 30} phút`, status: item.isAvailable === false ? 'Tạm ngưng' : 'Đang mở' } }
 
 function rowActions(row: Row) {
   const status = String(row.status || '').toLowerCase()
   const actions: Array<{ key: 'start' | 'done' | 'cancel' | 'examine'; label: string; className: string }> = []
-  if (resource.value === 'examine') actions.push({ key: 'examine', label: 'Kh?m b?nh', className: 'bg-blue-600 text-white hover:bg-blue-700' })
-  if (resource.value !== 'examine' && (status.includes('waiting') || status.includes('confirmed'))) actions.push({ key: 'start', label: 'B?t ??u kh?m', className: 'bg-blue-600 text-white hover:bg-blue-700' })
-  if (resource.value !== 'examine' && (status.includes('inprogress') || status.includes('?ang kh?m'))) actions.push({ key: 'done', label: 'Ho?n t?t', className: 'bg-teal-600 text-white hover:bg-teal-700' })
-  if (resource.value !== 'examine' && !status.includes('done') && !status.includes('completed') && !status.includes('cancel')) actions.push({ key: 'cancel', label: 'H?y', className: 'bg-rose-50 text-rose-700 hover:bg-rose-100' })
+  if (resource.value === 'examine') actions.push({ key: 'examine', label: 'Khám bệnh', className: 'bg-blue-600 text-white hover:bg-blue-700' })
+  if (resource.value !== 'examine' && (status.includes('waiting') || status.includes('confirmed'))) actions.push({ key: 'start', label: 'Bắt đầu khám', className: 'bg-blue-600 text-white hover:bg-blue-700' })
+  if (resource.value !== 'examine' && (status.includes('inprogress') || status.includes('đang khám'))) actions.push({ key: 'done', label: 'Hoàn tất', className: 'bg-teal-600 text-white hover:bg-teal-700' })
+  if (resource.value !== 'examine' && !status.includes('done') && !status.includes('completed') && !status.includes('cancel')) actions.push({ key: 'cancel', label: 'Hủy', className: 'bg-rose-50 text-rose-700 hover:bg-rose-100' })
   return actions
 }
 
@@ -253,7 +253,7 @@ async function runAction(action: 'start' | 'done' | 'cancel' | 'examine', row: R
     if (action === 'start') await appointmentApi.setQueueInProgress(id)
     if (action === 'done') await appointmentApi.setQueueDone(id)
     if (action === 'cancel') await appointmentApi.cancelQueueItem(id)
-    note.value = '?? c?p nh?t tr?ng th?i h?ng ch?.'
+    note.value = 'Đã cập nhật trạng thái hàng chờ.'
     await loadData()
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError)
@@ -277,12 +277,12 @@ async function submitExamination() {
       doctorName: authStore.user?.fullName,
       symptoms: examForm.symptoms.trim(),
       diagnosis: examForm.diagnosis.trim(),
-      doctorNotes: [examForm.doctorNotes, examForm.recheckDate ? `T?i kh?m: ${examForm.recheckDate}` : '', examForm.prescriptionCode ? `M? ??n: ${examForm.prescriptionCode}` : ''].filter(Boolean).join('\n'),
+      doctorNotes: [examForm.doctorNotes, examForm.recheckDate ? `Tái khám: ${examForm.recheckDate}` : '', examForm.prescriptionCode ? `Mã đơn: ${examForm.prescriptionCode}` : ''].filter(Boolean).join('\n'),
       examDate: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     })
     await appointmentApi.completeAppointment(appointmentId)
-    note.value = '?? t?o b?nh ?n N2 v? ho?n t?t l?ch h?n N1.'
+    note.value = 'Đã tạo bệnh án N2 và hoàn tất lịch hẹn N1.'
     closeExamine()
     await loadData()
   } catch (apiError) {
@@ -294,10 +294,10 @@ async function submitExamination() {
 
 function cfg(title: string, service: string, description: string, endpoint: string, icon: Component, iconClass: string, search: string[], columns: Column[]): Config { return { title, service, description, endpoint, icon, iconClass, search, columns } }
 function cols(...defs: [string, string, boolean?, boolean?, boolean?][]): Column[] { return defs.map(([key, label, right, badge, strong]) => ({ key, label, right, badge, strong })) }
-function value(row: Row, key: string) { return row[key] === undefined || row[key] === '' ? 'Ch?a c?p nh?t' : String(row[key]) }
-function formatDate(value?: string) { if (!value) return 'Ch?a c?p nh?t'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('vi-VN').format(date) }
+function value(row: Row, key: string) { return row[key] === undefined || row[key] === '' ? 'Chưa cập nhật' : String(row[key]) }
+function formatDate(value?: string) { if (!value) return 'Chưa cập nhật'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('vi-VN').format(date) }
 function addDays(days: number) { const date = new Date(); date.setDate(date.getDate() + days); return date }
-function statusClass(status?: string) { const value = String(status || '').toLowerCase(); if (value.includes('done') || value.includes('completed') || value.includes('confirmed') || value.includes('?ang m?')) return 'bg-teal-100 text-teal-700'; if (value.includes('inprogress') || value.includes('?ang kh?m')) return 'bg-blue-100 text-blue-700'; if (value.includes('waiting') || value.includes('pending') || value.includes('ch?')) return 'bg-amber-100 text-amber-700'; if (value.includes('cancel') || value.includes('t?m')) return 'bg-rose-100 text-rose-700'; return 'bg-slate-100 text-slate-700' }
+function statusClass(status?: string) { const value = String(status || '').toLowerCase(); if (value.includes('done') || value.includes('completed') || value.includes('confirmed') || value.includes('đang mở')) return 'bg-teal-100 text-teal-700'; if (value.includes('inprogress') || value.includes('đang khám')) return 'bg-blue-100 text-blue-700'; if (value.includes('waiting') || value.includes('pending') || value.includes('chờ')) return 'bg-amber-100 text-amber-700'; if (value.includes('cancel') || value.includes('tạm')) return 'bg-rose-100 text-rose-700'; return 'bg-slate-100 text-slate-700' }
 function isResource(value: unknown): value is Resource { return typeof value === 'string' && value in configs }
 </script>
 

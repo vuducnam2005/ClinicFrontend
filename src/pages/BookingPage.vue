@@ -186,8 +186,8 @@ async function findSlots() {
  const data = await appointmentApi.getAvailableSlots(Number(selectedDoctor.value), selectedDate.value)
  slots.value = data.length ? data : fallbackSlots
  if (!data.length) {
- toast.title = '?ang d?ng gi? kh?m d? ph?ng'
- toast.message = 'API slot tr? r?ng, frontend hi?n th? khung gi? m?u ?? b?n ti?p t?c test ??t l?ch.'
+ toast.title = 'Đang dùng giờ khám dự phòng'
+ toast.message = 'API slot trả rỗng, frontend hiển thị khung giờ mẫu để bạn tiếp tục test đặt lịch.'
  toast.type = 'success'
  toast.show = true
  }
