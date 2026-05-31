@@ -5,11 +5,11 @@ type ServiceName = 'appointment' | 'medicalRecord' | 'billing'
 
 const useGateway = import.meta.env.VITE_USE_GATEWAY === 'true'
 const defaultUrls: Record<ServiceName, string> = {
-  appointment: 'http://180.93.98.14:8080/appointment',
-  medicalRecord: 'http://180.93.98.14:8080/medical',
-  billing: 'http://180.93.98.14:8080/pharmacy',
+  appointment: 'https://api.hwpresents.site/appointment',
+  medicalRecord: 'https://api.hwpresents.site/medical',
+  billing: 'https://api.hwpresents.site/pharmacy',
 }
-const defaultGatewayUrl = 'http://180.93.98.14:8080/apigateway'
+const defaultGatewayUrl = 'https://api.hwpresents.site'
 
 function resolveRuntimeUrl(value: string | undefined, fallback: string) {
   if (!value) return fallback

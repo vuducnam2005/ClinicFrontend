@@ -87,10 +87,10 @@
  <span class="h-1.5 w-1.5 rounded-full bg-teal-500"></span>
  {{ n2DataMessage }}
  </p>
- <!-- N3 dynamic state / Mock status badge -->
+ <!-- N3 dynamic state -->
  <p v-if="service.key === 'billing'" class="mt-2 text-xs font-semibold text-slate-500 flex items-center gap-1.5">
- <span class="h-1.5 w-1.5 rounded-full" :class="n3UsingMock ? 'bg-cyan-500 animate-pulse' : 'bg-teal-500'"></span>
- {{ n3UsingMock ? 'Mock Layer đang hoạt động cục bộ.' : 'Đã kết nối với backend N3.' }}
+ <span class="h-1.5 w-1.5 rounded-full bg-teal-500"></span>
+ Đã kết nối với backend N3.
  </p>
  </div>
  </div>
@@ -108,16 +108,15 @@ import { medicalRecordApi } from '@/services/medicalRecordApi'
 import { billingApi } from '@/services/billingApi'
 
 type ServiceKey = 'appointment' | 'medicalRecord' | 'billing'
-type ServiceStatus = 'checking' | 'healthy' | 'error' | 'idle'
+type ServiceStatus = 'checking' | 'healthy' | 'error'
 
 const status = reactive<Record<ServiceKey, ServiceStatus>>({
- appointment: 'checking',
- medicalRecord: 'checking',
- billing: 'checking',
+  appointment: 'checking',
+  medicalRecord: 'checking',
+  billing: 'checking',
 })
 
 const n2DataMessage = ref('Đang kiểm tra kết nối hồ sơ...')
-const n3UsingMock = import.meta.env.VITE_USE_MOCK_N3 === 'true'
 
 const services: Array<{
  key: ServiceKey
@@ -205,42 +204,39 @@ async function checkMedicalRecord() {
 }
 
 async function checkBilling() {
- try {
- await billingApi.getHealth()
- status.billing = 'healthy'
- } catch {
- status.billing = 'idle'
- }
+  try {
+    await billingApi.getHealth()
+    status.billing = 'healthy'
+  } catch {
+    status.billing = 'error'
+  }
 }
 
 function statusLabel(key: ServiceKey) {
- const map: Record<ServiceStatus, string> = {
- checking: 'Checking',
- healthy: 'Healthy',
- error: 'Offline',
- idle: 'Mock Layer',
- }
- return map[status[key]]
+  const map: Record<ServiceStatus, string> = {
+    checking: 'Checking',
+    healthy: 'Healthy',
+    error: 'Offline',
+  }
+  return map[status[key]]
 }
 
 function statusClass(key: ServiceKey) {
- const map: Record<ServiceStatus, string> = {
- checking: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20',
- healthy: 'bg-teal-500/10 text-teal-600 border-teal-500/20',
- error: 'bg-rose-500/10 text-rose-600 border-rose-500/20',
- idle: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20',
- }
- return map[status[key]]
+  const map: Record<ServiceStatus, string> = {
+    checking: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20',
+    healthy: 'bg-teal-500/10 text-teal-600 border-teal-500/20',
+    error: 'bg-rose-500/10 text-rose-600 border-rose-500/20',
+  }
+  return map[status[key]]
 }
 
 function statusDotClass(key: ServiceKey) {
- const map: Record<ServiceStatus, string> = {
- checking: 'bg-cyan-500 animate-pulse',
- healthy: 'bg-teal-500 animate-pulse',
- error: 'bg-rose-500',
- idle: 'bg-cyan-500 animate-pulse',
- }
- return map[status[key]]
+  const map: Record<ServiceStatus, string> = {
+    checking: 'bg-cyan-500 animate-pulse',
+    healthy: 'bg-teal-500 animate-pulse',
+    error: 'bg-rose-500',
+  }
+  return map[status[key]]
 }
 </script>
 

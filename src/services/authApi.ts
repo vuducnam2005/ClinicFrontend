@@ -2,7 +2,6 @@ import { createServiceClient, readApiResponse } from '@/services/apiClient'
 import { RoleId, type User } from '@/types/user'
 
 const client = createServiceClient('billing')
-const useMock = import.meta.env.VITE_USE_MOCK_N3 === 'true'
 
 function roleIdFromName(role?: string | number): RoleId {
   if (typeof role === 'number') return role as RoleId
@@ -65,10 +64,6 @@ export interface RegisterRequest {
 
 export const authApi = {
   async login(payload: LoginRequest) {
-    if (useMock) {
-      const { authMock } = await import('@/mocks/auth.mock')
-      return authMock.login(payload.identifier, payload.password)
-    }
     const response = await client.post('/api/auth/login', {
       email: payload.identifier,
       password: payload.password,
@@ -77,10 +72,6 @@ export const authApi = {
   },
 
   async register(payload: RegisterRequest) {
-    if (useMock) {
-      const { authMock } = await import('@/mocks/auth.mock')
-      return authMock.register(payload)
-    }
     const response = await client.post('/api/auth/register', {
       fullName: payload.fullName,
       email: payload.email,
@@ -92,20 +83,11 @@ export const authApi = {
   },
 
   async getMe() {
-    if (useMock) {
-      const { authMock } = await import('@/mocks/auth.mock')
-      const token = localStorage.getItem('cliniccare_token') || ''
-      return authMock.getMe(token)
-    }
     const response = await client.get('/api/auth/profile')
     return normalizeUser(readApiResponse<any>(response.data))
   },
 
   async getUsers() {
-    if (useMock) {
-      const { authMock } = await import('@/mocks/auth.mock')
-      return authMock.getUsers()
-    }
     const responses = await Promise.all([
       client.get('/api/auth/users/doctors'),
       client.get('/api/auth/users/nurses'),

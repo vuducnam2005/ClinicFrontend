@@ -7,25 +7,25 @@ export default defineConfig({
   server: {
     proxy: {
       '/gateway': {
-        target: 'http://180.93.98.14:8080',
+        target: 'https://api.hwpresents.site',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/gateway/, '/apigateway'),
+        rewrite: (path) => path.replace(/^\/gateway/, ''),
       },
       '/n1': {
-        target: 'http://180.93.98.14:8080',
+        target: 'https://api.hwpresents.site',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/n1/, '/appointment'),
       },
       '/n2': {
-        target: 'http://180.93.98.14:8080',
+        target: 'https://api.hwpresents.site',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/n2/, '/medical'),
       },
       '/n3': {
-        target: 'http://180.93.98.14:8080',
+        target: 'https://api.hwpresents.site',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/n3/, '/pharmacy'),

@@ -181,7 +181,7 @@ import type { Medicine } from '@/types/medicine'
 import type { Specialty } from '@/types/specialty'
 import { displayText } from '@/utils/displayText'
 
-type ServiceStatus = 'loading' | 'online' | 'mock' | 'fallback'
+type ServiceStatus = 'loading' | 'online' | 'fallback'
 
 interface StatCard {
  label: string
@@ -207,8 +207,6 @@ const serviceStatuses = ref<Record<'n1' | 'n2' | 'n3', ServiceStatus>>({
  n2: 'loading',
  n3: 'loading',
 })
-
-const isMockN3 = import.meta.env.VITE_USE_MOCK_N3 === 'true'
 
 const fallbackSchedules: DoctorSchedule[] = fallbackDoctors.map((doctor, index) => ({
  scheduleId: 900 + index,
@@ -314,7 +312,7 @@ async function loadDashboard() {
 
  serviceStatuses.value.n1 = hasFulfilledData(results.slice(0, 4)) ? 'online' : 'fallback'
  serviceStatuses.value.n2 = hasFulfilledData(results.slice(4, 6)) ? 'online' : 'fallback'
- serviceStatuses.value.n3 = isMockN3 ? 'mock' : hasFulfilledData(results.slice(6, 8)) ? 'online' : 'fallback'
+ serviceStatuses.value.n3 = hasFulfilledData(results.slice(6, 8)) ? 'online' : 'fallback'
 
  const firstError = results.find((result) => result.status === 'rejected') as PromiseRejectedResult | undefined
  if (firstError) {
@@ -356,7 +354,6 @@ function serviceStatusLabel(status: ServiceStatus) {
  const labels: Record<ServiceStatus, string> = {
  loading: 'Đang kiểm tra',
  online: 'Đã kết nối',
- mock: 'Mock N3',
  fallback: 'Fallback',
  }
  return labels[status]
@@ -366,7 +363,6 @@ function serviceStatusClass(status: ServiceStatus) {
  const classes: Record<ServiceStatus, string> = {
  loading: 'bg-slate-100 text-slate-600',
  online: 'bg-teal-100 text-teal-700',
- mock: 'bg-blue-100 text-blue-700',
  fallback: 'bg-amber-100 text-amber-700',
  }
  return classes[status]
