@@ -28,7 +28,7 @@ export const useAppointmentStore = defineStore('appointment', {
         this.specialties = fallbackSpecialties
         this.doctors = fallbackDoctors
         this.usingFallback = true
-        this.error = error instanceof Error ? error.message : 'Không thể tải danh mục'
+        this.error = error instanceof Error ? error.message : 'Không thể tải danh mục từ API'
       } finally {
         this.loading = false
       }

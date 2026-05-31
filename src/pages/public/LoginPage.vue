@@ -1,73 +1,111 @@
 <template>
-  <div class="min-h-screen bg-slate-50 px-4 py-10 sm:px-6 lg:px-8">
-    <div class="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-      <section class="rounded-3xl bg-slate-950 p-8 text-white shadow-card">
-        <div class="flex items-center gap-3">
-          <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-500 text-white shadow-card">
-            <HeartPulse class="h-6 w-6" />
-          </div>
-          <div>
-            <p class="text-xl font-bold">ClinicCare</p>
-            <p class="text-sm text-slate-300">Smart Clinic Platform</p>
-          </div>
+  <div class="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
+    <div class="grid min-h-[650px] w-full max-w-[1180px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.14)] lg:grid-cols-[0.98fr_1fr]">
+    <section class="relative hidden overflow-hidden bg-[#08264c] lg:flex lg:items-center lg:justify-center">
+      <img
+        class="absolute inset-0 h-full w-full object-cover opacity-45"
+        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDyRtwvy8Z_0g8e99r-EzqhWt7QHKuXCFZNIVwnS6vhQEmVlrn0EKKugW3U1XUclfMcTovrIn3KjK2MXOzIsGMcPbuvprwPBC5-xPBUaG67A1_b4ZjTl_ogmUxRNa2Yf4qEoiXK_p_dZpjLQgaySKtCpHcQlN0D4BlaR-76GGmnaYsG7DPLZddE8O4LLdAHTlq7C51FQRUyXyvtGUqKrdUw95QAhPZmhYLanSxO-na1183viqpTnY914TXzpVr_7vzGXdxfcTEvxfXS"
+        alt="Không gian phòng khám MedicareDNU"
+      />
+      <div class="absolute inset-0 bg-gradient-to-b from-[#173d70]/90 via-[#0f52ba]/70 to-[#001b3d]/95"></div>
+
+      <div class="relative z-10 mx-auto max-w-lg px-10 text-center text-white">
+        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border-[3px] border-white/90 bg-white/10 shadow-2xl backdrop-blur">
+          <BriefcaseMedical class="h-9 w-9" />
         </div>
-        <h1 class="mt-10 text-3xl font-bold leading-tight">&#272;&#259;ng nh&#7853;p theo vai tr&#242; &#273;&#7875; xem &#273;&#250;ng nghi&#7879;p v&#7909;.</h1>
-        <p class="mt-4 text-sm leading-6 text-slate-300">
-          V&#7899;i mock N3, t&#224;i kho&#7843;n b&#225;c s&#297; &#273;&#432;&#7907;c g&#7855;n v&#7899;i doctorId c&#7911;a N1. Khi &#273;&#259;ng nh&#7853;p, b&#225;c s&#297; ch&#7881; th&#7845;y l&#7883;ch h&#7865;n, h&#224;ng &#273;&#7907;i v&#224; l&#7883;ch l&#224;m vi&#7879;c c&#7911;a ch&#237;nh m&#236;nh.
+        <h1 class="mt-7 text-4xl font-bold leading-tight tracking-normal">
+          Chào mừng trở lại<br />với MedicareDNU
+        </h1>
+        <p class="mx-auto mt-6 max-w-md text-lg leading-8 text-blue-100">
+          Hệ thống quản lý y tế chuyên nghiệp giúp bạn kết nối với bác sĩ và quản lý hồ sơ sức khỏe một cách an toàn và tinh gọn.
         </p>
+      </div>
+    </section>
 
-        <div class="mt-8 space-y-3">
-          <p class="text-xs font-semibold uppercase tracking-wide text-teal-200">T&#224;i kho&#7843;n b&#225;c s&#297; mock</p>
+    <section class="flex items-center justify-center bg-white px-5 py-8 sm:px-8">
+      <div class="w-full max-w-[470px]">
+        <div class="text-center">
+          <RouterLink to="/" class="inline-flex items-center justify-center">
+            <img :src="logoUrl" alt="MedicareDNU" class="h-12 w-auto max-w-[220px] object-contain" />
+          </RouterLink>
+          <h2 class="mt-7 text-3xl font-bold leading-tight tracking-normal text-slate-950">Đăng nhập tài khoản</h2>
+          <p class="mt-3 text-base leading-7 text-slate-600">Vui lòng nhập thông tin để tiếp tục</p>
+        </div>
+
+        <form class="mt-8 space-y-6" novalidate @submit.prevent="submitLogin">
+          <label class="block">
+            <span class="mb-3 block text-base font-medium text-slate-800">Email của bạn</span>
+            <span class="flex h-14 items-center rounded-lg border border-slate-300 bg-slate-50 px-4 transition focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100">
+              <Mail class="h-5 w-5 shrink-0 text-slate-500" />
+              <input
+                v-model="loginData.identifier"
+                class="h-full min-w-0 flex-1 bg-transparent pl-4 text-base text-slate-950 outline-none placeholder:text-slate-500"
+                type="email"
+                autocomplete="email"
+                placeholder="name@example.com"
+                maxlength="100"
+                required
+              />
+            </span>
+          </label>
+
+          <label class="block">
+            <span class="mb-3 block text-base font-medium text-slate-800">Mật khẩu</span>
+            <span class="flex h-14 items-center rounded-lg border border-slate-300 bg-slate-50 px-4 transition focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100">
+              <LockKeyhole class="h-5 w-5 shrink-0 text-slate-500" />
+              <input
+                v-model="loginData.password"
+                class="h-full min-w-0 flex-1 bg-transparent px-4 text-base text-slate-950 outline-none placeholder:text-slate-500"
+                :type="showPassword ? 'text' : 'password'"
+                autocomplete="current-password"
+                placeholder="••••••••"
+                required
+              />
+              <button
+                type="button"
+                class="rounded-md p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Hiện hoặc ẩn mật khẩu"
+                @click="showPassword = !showPassword"
+              >
+                <EyeOff v-if="showPassword" class="h-5 w-5" />
+                <Eye v-else class="h-5 w-5" />
+              </button>
+            </span>
+          </label>
+
+          <div class="flex items-center justify-between gap-4">
+            <label class="flex items-center gap-3 text-base text-slate-800">
+              <input
+                v-model="remember"
+                type="checkbox"
+                class="h-5 w-5 rounded-md border-slate-300 text-[#0F52BA] focus:ring-[#0F52BA]"
+              />
+              <span>Ghi nhớ đăng nhập</span>
+            </label>
+            <a href="#" class="text-base font-medium text-[#003c90] transition hover:text-[#0f52ba]">Quên mật khẩu?</a>
+          </div>
+
           <button
-            v-for="account in doctorAccounts"
-            :key="account.username"
-            type="button"
-            class="w-full rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition hover:border-teal-300/60 hover:bg-teal-400/10"
-            @click="fillDemo(account.username, account.password)"
+            type="submit"
+            class="flex h-14 w-full items-center justify-center rounded-lg bg-[#0F52BA] px-6 text-base font-semibold text-white transition hover:bg-[#0B4296] disabled:cursor-not-allowed disabled:opacity-70"
+            :disabled="authStore.loading"
           >
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <p class="font-semibold text-white">{{ account.name }}</p>
-                <p class="mt-1 text-xs text-slate-300">DoctorId #{{ account.doctorId }} ? {{ account.specialty }}</p>
-              </div>
-              <span class="rounded-full bg-teal-400/15 px-3 py-1 text-xs font-semibold text-teal-100">{{ account.username }}</span>
-            </div>
-            <p class="mt-2 font-mono text-xs text-slate-400">M&#7853;t kh&#7849;u: {{ account.password }} ho&#7863;c 123456</p>
+            <Loader2 v-if="authStore.loading" class="mr-2 h-5 w-5 animate-spin" />
+            Đăng nhập ngay
           </button>
-        </div>
-      </section>
+        </form>
 
-      <section>
-        <div class="mx-auto max-w-md">
-          <h2 class="text-center text-3xl font-bold tracking-tight text-slate-900">&#272;&#259;ng nh&#7853;p h&#7879; th&#7889;ng</h2>
-          <p class="mt-2 text-center text-sm text-slate-600">
-            Ch&#432;a c&#243; t&#224;i kho&#7843;n?
-            <RouterLink :to="{ path: '/register', query: route.query.redirect ? { redirect: route.query.redirect } : {} }" class="font-medium text-teal-600 hover:text-teal-500">
-              &#272;&#259;ng k&#253; ngay
-            </RouterLink>
-          </p>
-        </div>
-
-        <div class="mt-8 mx-auto max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-card sm:p-8">
-          <form class="space-y-6" @submit.prevent="submitLogin">
-            <BaseInput v-model="loginData.identifier" label="T&#234;n &#273;&#259;ng nh&#7853;p ho&#7863;c Email" required />
-            <BaseInput v-model="loginData.password" label="M&#7853;t kh&#7849;u" type="password" required />
-
-            <div class="flex items-center justify-between">
-              <label class="flex items-center text-sm text-slate-700">
-                <input id="remember-me" v-model="remember" name="remember-me" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500">
-                <span class="ml-2">Ghi nh&#7899; t&#244;i</span>
-              </label>
-              <a href="#" class="text-sm font-medium text-teal-600 hover:text-teal-500">Qu&#234;n m&#7853;t kh&#7849;u?</a>
-            </div>
-
-            <BaseButton class="flex w-full justify-center" size="lg" type="submit" :loading="authStore.loading">
-              <template #icon><LogIn class="h-4 w-4" /></template>
-              &#272;&#259;ng nh&#7853;p
-            </BaseButton>
-          </form>
-        </div>
-      </section>
+        <p class="mt-8 text-center text-sm text-slate-700">
+          Chưa có tài khoản?
+          <RouterLink
+            :to="{ path: '/register', query: route.query.redirect ? { redirect: route.query.redirect } : {} }"
+            class="font-semibold text-[#003c90] hover:text-[#0f52ba]"
+          >
+            Đăng ký ngay
+          </RouterLink>
+        </p>
+      </div>
+    </section>
     </div>
 
     <Toast
@@ -83,48 +121,72 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { HeartPulse, LogIn } from 'lucide-vue-next'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseInput from '@/components/ui/BaseInput.vue'
+import { BriefcaseMedical, Eye, EyeOff, Loader2, LockKeyhole, Mail } from 'lucide-vue-next'
 import Toast from '@/components/ui/Toast.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { getApiErrorMessage } from '@/services/apiClient'
+import logoUrl from '@/assets/logo.png'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
 const remember = ref(true)
+const showPassword = ref(false)
 const loginData = reactive({ identifier: '', password: '' })
-
-const doctorAccounts = [
-  { doctorId: 1, name: 'Bác sĩ Nguyễn Văn A', specialty: 'Tim mạch', username: 'doctor1', password: 'doctor1123' },
-  { doctorId: 2, name: 'Bác sĩ Trần Thị B', specialty: 'Nhi khoa', username: 'doctor2', password: 'doctor2123' },
-  { doctorId: 3, name: 'Bác sĩ Lê Văn C', specialty: 'Da liễu', username: 'doctor3', password: 'doctor3123' },
-]
-
 const toast = reactive({ show: false, title: '', message: '', type: 'success' as 'success' | 'error' })
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-function fillDemo(username: string, password: string) {
-  loginData.identifier = username
-  loginData.password = password
+function showValidationError(message: string) {
+  toast.title = 'Thông tin chưa hợp lệ'
+  toast.message = message
+  toast.type = 'error'
+  toast.show = true
+}
+
+function resolveDashboardPath() {
+  if (authStore.isAdmin) return '/admin/dashboard'
+  if (authStore.isDoctor) return '/doctor/dashboard'
+  if (authStore.isReceptionist) return '/nurse/dashboard'
+  if (authStore.isPatient) return '/patient/dashboard'
+  return '/'
+}
+
+function resolveRedirectPath() {
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
+  if (redirect && redirect !== '/login' && redirect !== '/register') return redirect
+  return resolveDashboardPath()
 }
 
 async function submitLogin() {
+  const email = loginData.identifier.trim()
+  const password = loginData.password
+
+  if (!email) {
+    showValidationError('Email là bắt buộc')
+    return
+  }
+  if (email.length > 100) {
+    showValidationError('Email không được vượt quá 100 ký tự')
+    return
+  }
+  if (!emailPattern.test(email)) {
+    showValidationError('Email không đúng định dạng')
+    return
+  }
+  if (!password) {
+    showValidationError('Mật khẩu là bắt buộc')
+    return
+  }
+
   try {
-    await authStore.login({ identifier: loginData.identifier, password: loginData.password })
+    await authStore.login({ identifier: email, password })
     toast.title = 'Thành công'
     toast.message = 'Đăng nhập thành công'
     toast.type = 'success'
     toast.show = true
     setTimeout(() => {
-      const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-      if (redirect && redirect !== '/login' && redirect !== '/register') { router.push(redirect); return }
-      if (authStore.isAdmin) router.push('/admin/dashboard')
-      else if (authStore.isDoctor) router.push('/doctor/dashboard')
-      else if (authStore.isReceptionist) router.push('/nurse/dashboard')
-      else if (authStore.isPatient) router.push('/patient/dashboard')
-      else router.push('/')
+      router.push(resolveRedirectPath())
     }, 500)
   } catch (error) {
     toast.title = 'Lỗi đăng nhập'
@@ -133,4 +195,5 @@ async function submitLogin() {
     toast.show = true
   }
 }
+
 </script>

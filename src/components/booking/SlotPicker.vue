@@ -16,8 +16,8 @@
         class="h-10 rounded-lg border text-sm font-semibold transition"
        :class="
           modelValue === slot
-            ? 'border-teal-600 bg-teal-600 text-white shadow-card'
-            : 'border-slate-200 bg-white text-slate-700 hover:border-teal-300 hover:bg-teal-50'
+            ? 'border-[#0F52BA] bg-[#0F52BA] text-white shadow-card'
+            : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50'
         "
         type="button"
         @click="$emit('update:modelValue', slot)"

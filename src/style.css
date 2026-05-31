@@ -19,9 +19,10 @@ html {
 body {
   margin: 0;
   min-width: 320px;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background:
-    radial-gradient(circle at 8% 0%, rgba(20, 184, 166, 0.13), transparent 35rem),
-    radial-gradient(circle at 88% 4%, rgba(14, 165, 233, 0.10), transparent 30rem),
+    radial-gradient(circle at 8% 0%, rgba(14, 165, 233, 0.14), transparent 35rem),
+    radial-gradient(circle at 88% 4%, rgba(56, 189, 248, 0.12), transparent 30rem),
     #f8fafc;
   color: #0f172a;
 }
@@ -45,11 +46,23 @@ textarea {
 }
 
 .section-title {
-  @apply text-4xl sm:text-5xl font-bold tracking-tight text-slate-900;
+  @apply text-3xl font-bold tracking-normal text-[#003c90] sm:text-4xl;
 }
 
 .section-subtitle {
-  @apply mt-6 max-w-2xl text-lg leading-relaxed text-slate-600;
+  @apply mt-4 max-w-2xl text-sm leading-6 text-slate-600;
+}
+
+.section-eyebrow {
+  @apply text-xs font-bold uppercase tracking-wider text-[#1d59c1];
+}
+
+.landing-card-title {
+  @apply text-lg font-semibold leading-7 text-slate-950;
+}
+
+.landing-card-body {
+  @apply text-sm leading-6 text-slate-600;
 }
 
 /* Design System - Shadows */
@@ -59,7 +72,7 @@ textarea {
 
 
 .shadow-medical {
-  box-shadow: 0 10px 40px -8px rgba(20, 184, 166, 0.14);
+  box-shadow: 0 10px 40px -8px rgba(14, 165, 233, 0.16);
 }
 
 
@@ -80,7 +93,7 @@ textarea {
 .clinic-surface {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.96)),
-    radial-gradient(circle at top right, rgba(45, 212, 191, 0.10), transparent 30rem);
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 30rem);
 }
 
 
@@ -98,8 +111,8 @@ textarea {
   opacity: 0;
   transform: translateY(16px);
   transition:
-    opacity 500ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 650ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 650ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .reveal.is-visible {
@@ -111,6 +124,47 @@ textarea {
   animation: fade-up 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.hero-photo-motion {
+  animation: hero-photo-motion 14s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+
+.float-soft {
+  animation: float-soft 5.5s ease-in-out infinite;
+}
+
+.pulse-soft {
+  animation: pulse-soft 2.8s ease-in-out infinite;
+}
+
+.shine-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.shine-sweep::after {
+  content: '';
+  position: absolute;
+  inset: -60% auto -60% -45%;
+  width: 32%;
+  transform: rotate(18deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  animation: shine-sweep 4.5s ease-in-out infinite;
+}
+
+.motion-card {
+  transition:
+    opacity 650ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 650ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 240ms ease,
+    border-color 240ms ease;
+}
+
+.motion-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 18px 40px -18px rgba(0, 60, 144, 0.22);
+}
+
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -119,6 +173,61 @@ textarea {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes hero-photo-motion {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.045);
+  }
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 60, 144, 0.22);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(0, 60, 144, 0);
+  }
+}
+
+@keyframes shine-sweep {
+  0%,
+  55% {
+    left: -45%;
+    opacity: 0;
+  }
+  68% {
+    opacity: 1;
+  }
+  100% {
+    left: 120%;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

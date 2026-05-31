@@ -8,7 +8,7 @@
       :required="required"
       :min="min"
      :class="[
-        'h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-100',
+        'h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100',
         error ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-100' : '',
       ]"
       @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"

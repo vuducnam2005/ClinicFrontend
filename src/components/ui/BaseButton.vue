@@ -46,11 +46,11 @@ const sizeClasses = computed(() => {
 
 const variantClasses = computed(() => {
   const variants = {
-    primary: 'bg-teal-600 text-white shadow-card hover:bg-teal-700 focus:ring-teal-100',
+    primary: 'bg-[#0F52BA] text-white shadow-card hover:bg-[#0B4296] focus:ring-blue-100',
     secondary: 'bg-slate-900 text-white shadow-card hover:bg-slate-800 focus:ring-slate-200',
     ghost: 'bg-transparent text-slate-700 hover:bg-slate-100 focus:ring-slate-100',
     outline:
-      'border border-slate-200 bg-white text-slate-800 hover:border-teal-200 hover:bg-teal-50 focus:ring-teal-100',
+      'border border-slate-200 bg-white text-slate-800 hover:border-blue-200 hover:bg-blue-50 focus:ring-blue-100',
   }
   return variants[props.variant]
 })

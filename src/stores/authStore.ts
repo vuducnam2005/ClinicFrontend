@@ -28,6 +28,19 @@ export const useAuthStore = defineStore('auth', {
         this.loading = false
       }
     },
+    async loginWithToken(token: string) {
+      this.loading = true
+      try {
+        this.token = token
+        localStorage.setItem('cliniccare_token', token)
+        this.user = await authApi.getMe()
+      } catch (error) {
+        this.logout()
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
     async fetchMe() {
       if (!this.token) return
       try {

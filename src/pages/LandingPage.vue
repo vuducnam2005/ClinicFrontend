@@ -2,10 +2,9 @@
  <HeroSection />
  <QuickBookingPanel />
  <SpecialtySection />
+ <BookingProcessSection />
+ <WhyChooseSection />
  <DoctorSection />
- <HowItWorksSection />
- <QueuePreviewSection />
- <ServiceIntegrationSection />
  <TestimonialsSection />
  <FinalCtaSection />
 </template>
@@ -14,10 +13,9 @@
 import HeroSection from '@/components/landing/HeroSection.vue'
 import QuickBookingPanel from '@/components/landing/QuickBookingPanel.vue'
 import SpecialtySection from '@/components/landing/SpecialtySection.vue'
+import BookingProcessSection from '@/components/landing/BookingProcessSection.vue'
+import WhyChooseSection from '@/components/landing/WhyChooseSection.vue'
 import DoctorSection from '@/components/landing/DoctorSection.vue'
-import HowItWorksSection from '@/components/landing/HowItWorksSection.vue'
-import QueuePreviewSection from '@/components/landing/QueuePreviewSection.vue'
-import ServiceIntegrationSection from '@/components/landing/ServiceIntegrationSection.vue'
 import TestimonialsSection from '@/components/landing/TestimonialsSection.vue'
 import FinalCtaSection from '@/components/landing/FinalCtaSection.vue'
 </script>

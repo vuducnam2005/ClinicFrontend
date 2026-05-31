@@ -4,7 +4,7 @@
     <select
       :value="modelValue"
       :required="required"
-      class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
+      class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
       @change="$emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
     >
       <option value="">{{ placeholder }}</option>

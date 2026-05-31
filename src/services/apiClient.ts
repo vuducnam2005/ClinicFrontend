@@ -6,14 +6,14 @@ type ServiceName = 'appointment' | 'medicalRecord' | 'billing'
 const useGateway = import.meta.env.VITE_USE_GATEWAY === 'true'
 
 const urls: Record<ServiceName, string> = {
-  appointment: import.meta.env.VITE_APPOINTMENT_SERVICE_URL || 'https://localhost:7174',
-  medicalRecord: import.meta.env.VITE_MEDICAL_RECORD_SERVICE_URL || 'https://localhost:7002',
-  billing: import.meta.env.VITE_PHARMACY_BILLING_SERVICE_URL || 'https://localhost:7003',
+  appointment: import.meta.env.VITE_APPOINTMENT_SERVICE_URL || 'http://180.93.98.14:8080/appointment',
+  medicalRecord: import.meta.env.VITE_MEDICAL_RECORD_SERVICE_URL || 'http://180.93.98.14:8080/medical',
+  billing: import.meta.env.VITE_PHARMACY_BILLING_SERVICE_URL || 'http://180.93.98.14:8080/pharmacy',
 }
 
 export const apiConfig = {
   useGateway,
-  gatewayUrl: import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:5000',
+  gatewayUrl: import.meta.env.VITE_API_GATEWAY_URL || 'http://180.93.98.14:8080/apigateway',
   urls,
 }
 
@@ -37,7 +37,8 @@ export function createServiceClient(service: ServiceName): AxiosInstance {
   client.interceptors.response.use(
     (response) => response,
     (error) => {
-      if (error.response?.status === 401) {
+      const hadToken = Boolean(localStorage.getItem('cliniccare_token'))
+      if (error.response?.status === 401 && hadToken) {
         localStorage.removeItem('cliniccare_token')
         if (window.location.pathname !== '/login') {
           window.location.href = '/login'
