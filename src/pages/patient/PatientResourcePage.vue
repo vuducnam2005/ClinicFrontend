@@ -127,7 +127,7 @@ import type { Invoice, Prescription } from '@/types/billing'
 import type { MedicalRecord } from '@/types/medicalRecord'
 
 type Resource = 'appointments' | 'records' | 'prescriptions' | 'bills' | 'profile'
-type Row = Record<string, string | number | undefined>
+type Row = Record<string, any>
 interface Column { key: string; label: string; right?: boolean; badge?: boolean; strong?: boolean }
 interface Config {
   title: string
@@ -362,12 +362,15 @@ function mapPrescription(item: Prescription): Row {
   }
 }
 
-function mapInvoice(item: Invoice): Row {
+function mapInvoice(item: Invoice & Record<string, any>): Row {
+  const amount = invoiceAmount(item)
   return {
-    id: item.invoiceId,
-    appointmentId: item.appointmentId ? `#${item.appointmentId}` : '-',
-    amount: formatCurrency(item.amount),
-    status: statusLabel(item.status),
+    id: toNumber(item.invoiceId, item.InvoiceId, item.id, item.Id),
+    appointmentId: item.appointmentId || item.AppointmentId ? `#${item.appointmentId || item.AppointmentId}` : '-',
+    amount: formatCurrency(amount),
+    amountValue: amount,
+    status: statusLabel(item.status || item.Status),
+    raw: item,
   }
 }
 
@@ -377,7 +380,7 @@ async function pay(row: Row) {
   actingId.value = row.id || null
   error.value = ''
   try {
-    await billingApi.payInvoice(id)
+    await billingApi.payInvoice(id, toNumber(row.amountValue))
     note.value = 'Đã cập nhật thanh toán hóa đơn.'
     await loadData()
   } catch (apiError) {
@@ -398,6 +401,18 @@ function value(row: Row, key: string) {
 }
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0))
+}
+
+function toNumber(...values: unknown[]) {
+  for (const value of values) {
+    const numberValue = Number(value)
+    if (Number.isFinite(numberValue) && numberValue > 0) return numberValue
+  }
+  return 0
+}
+
+function invoiceAmount(item: Invoice & Record<string, any>) {
+  return toNumber(item.amount, item.Amount, item.totalAmount, item.TotalAmount, item.examinationFee, item.ExaminationFee, item.examFee, item.ExamFee)
 }
 function formatDate(value?: string) {
   if (!value) return 'Chưa cập nhật'

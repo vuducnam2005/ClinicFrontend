@@ -18,6 +18,25 @@ function queueIdentity(item: WaitingQueueItem) {
   return item.id || item.queueId || item.appointmentId
 }
 
+function dateCandidates(date?: string) {
+  const today = new Date().toISOString().slice(0, 10)
+  return Array.from(new Set([date?.slice(0, 10), today].filter(Boolean) as string[]))
+}
+
+async function tryPut(paths: string[]) {
+  let lastError: unknown
+  for (const path of paths) {
+    try {
+      const response = await client.put(path)
+      return readApiResponse<WaitingQueueItem | Appointment>(response.data)
+    } catch (error: any) {
+      lastError = error
+      if (![404, 405].includes(Number(error?.response?.status))) break
+    }
+  }
+  throw lastError || new Error('Không tìm thấy endpoint phù hợp.')
+}
+
 export const appointmentApi = {
   async getSpecialties() {
     const response = await client.get('/api/specialties')
@@ -124,6 +143,47 @@ export const appointmentApi = {
   async completeAppointment(id: number) {
     const response = await client.put(`/api/appointments/${id}/complete`)
     return readApiResponse<Appointment>(response.data)
+  },
+  async ensureAppointmentInProgress(appointmentId: number, appointmentDate?: string) {
+    let lastError: unknown
+
+    for (const date of dateCandidates(appointmentDate)) {
+      try {
+        const queue = await this.getWaitingQueue(date)
+        const item = queue.find((row) => Number(row.appointmentId) === appointmentId)
+        if (item) return await this.setQueueInProgress(item)
+      } catch (error) {
+        lastError = error
+      }
+    }
+
+    try {
+      return await this.setQueueInProgress(appointmentId)
+    } catch (error) {
+      lastError = error
+    }
+
+    try {
+      return await tryPut([
+        `/api/appointments/${appointmentId}/in-progress`,
+        `/api/appointments/${appointmentId}/start`,
+        `/api/appointments/${appointmentId}/check-in`,
+      ])
+    } catch (error) {
+      lastError = error
+    }
+
+    throw lastError || new Error('Không thể chuyển lịch hẹn sang trạng thái đang khám.')
+  },
+  async completeAppointmentSafely(id: number, appointmentDate?: string) {
+    try {
+      return await this.completeAppointment(id)
+    } catch (error: any) {
+      const message = String(error?.response?.data?.message || error?.message || '').toLowerCase()
+      if (!message.includes('in-progress') && !message.includes('inprogress') && !message.includes('đang khám')) throw error
+      await this.ensureAppointmentInProgress(id, appointmentDate)
+      return await this.completeAppointment(id)
+    }
   },
   async getWaitingQueue(date: string) {
     const response = await client.get('/api/waiting-queue', { params: { date } })

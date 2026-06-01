@@ -497,7 +497,7 @@ async function runAction(action: string, row: Row) {
     if (action === 'cancel' && resource.value === 'queue') await appointmentApi.cancelQueueItem(id)
     if (action === 'cancel' && resource.value === 'appointments') await appointmentApi.cancelAppointment(id)
     if (action === 'confirm') await appointmentApi.confirmAppointment(id)
-    if (action === 'complete') await appointmentApi.completeAppointment(id)
+    if (action === 'complete') await appointmentApi.completeAppointmentSafely(id, String(row.appointmentDate || ''))
     note.value = 'Đã cập nhật trạng thái thành công.'
     await loadData()
   } catch (apiError) {
@@ -584,7 +584,7 @@ async function submitExamination() {
       recheckDate: examForm.recheckDate || undefined,
     })
     const completionMessage = await createPrescriptionForPharmacy(medicalRecord, appointmentId)
-    await appointmentApi.completeAppointment(appointmentId)
+    await appointmentApi.completeAppointmentSafely(appointmentId, String(selectedRow.value.appointmentDate || ''))
     note.value = completionMessage
     closeExamine()
     await loadData()
@@ -673,7 +673,7 @@ async function ensureVisitSynced(row: Row, appointmentId: number) {
 }
 
 async function markAppointmentInProgress(appointmentId: number) {
-  await appointmentApi.setQueueInProgress(appointmentId).catch(() => undefined)
+  await appointmentApi.ensureAppointmentInProgress(appointmentId, String(selectedRow.value?.appointmentDate || '')).catch(() => undefined)
 }
 
 async function createPrescriptionForPharmacy(medicalRecord: MedicalRecord, appointmentId: number) {

@@ -150,7 +150,7 @@ import { displayText } from '@/utils/displayText'
 
 type Resource = 'appointments' | 'patients' | 'queue' | 'bills' | 'prescriptions'
 type ActionKey = 'confirm' | 'checkin' | 'cancelAppointment' | 'invoice' | 'pay' | 'start' | 'done' | 'cancelQueue' | 'dispense'
-type Row = Record<string, string | number | undefined>
+type Row = Record<string, any>
 
 interface Column { key: string; label: string; right?: boolean; badge?: boolean; strong?: boolean }
 interface Config {
@@ -277,6 +277,7 @@ function mapAppointment(item: Appointment): Row {
     dateTime: `${formatDate(item.appointmentDate)} · ${item.slotTime || '-'}`,
     reason: item.reason || 'Chưa ghi nhận',
     status: status,
+    raw: item,
   }
 }
 
@@ -303,13 +304,16 @@ function mapQueue(item: WaitingQueueItem): Row {
   }
 }
 
-function mapInvoice(item: Invoice): Row {
+function mapInvoice(item: Invoice & Record<string, any>): Row {
+  const amount = invoiceAmount(item)
   return {
-    id: item.invoiceId,
-    patientId: item.patientId,
-    appointmentId: item.appointmentId ? `#${item.appointmentId}` : 'Không gán lịch',
-    amount: formatCurrency(invoiceAmount(item)),
-    status: item.status,
+    id: toNumber(item.invoiceId, item.InvoiceId, item.id, item.Id),
+    patientId: item.patientId || item.PatientId || 'Chưa cập nhật',
+    appointmentId: item.appointmentId || item.AppointmentId ? `#${item.appointmentId || item.AppointmentId}` : 'Không gán lịch',
+    amount: formatCurrency(amount),
+    amountValue: amount,
+    status: item.status || item.Status,
+    raw: item,
   }
 }
 
@@ -367,11 +371,11 @@ async function runAction(action: string, row: Row) {
       }
     }
     if (action === 'cancelAppointment') await appointmentApi.cancelAppointment(Number(row.appointmentId || row.id))
-    if (action === 'invoice') await billingApi.createInvoiceFromAppointment({ appointmentId: Number(row.appointmentId || row.id), patientId: Number(row.patientId || 0), examFee: Number(row.examFee || 0) })
+    if (action === 'invoice') await billingApi.createInvoiceFromAppointment(await invoicePayload(row))
     if (action === 'start') await appointmentApi.setQueueInProgress(id)
     if (action === 'done') await appointmentApi.setQueueDone(id)
     if (action === 'cancelQueue') await appointmentApi.cancelQueueItem(id)
-    if (action === 'pay') await billingApi.payInvoice(Number(row.id))
+    if (action === 'pay') await billingApi.payInvoice(Number(row.id), toNumber(row.amountValue))
     if (action === 'dispense') await dispenseMedicine(row)
     note.value = 'Đã cập nhật trạng thái thành công.'
     await loadData()
@@ -451,8 +455,29 @@ function value(row: Row, key: string) {
   return row[key] === undefined || row[key] === '' ? 'Chưa cập nhật' : String(row[key])
 }
 
+function toNumber(...values: unknown[]) {
+  for (const value of values) {
+    const numberValue = Number(value)
+    if (Number.isFinite(numberValue) && numberValue > 0) return numberValue
+  }
+  return 0
+}
+
+async function invoicePayload(row: Row) {
+  const doctorId = toNumber(row.doctorId, row.raw?.doctorId, row.raw?.DoctorId)
+  let examFee = toNumber(row.examFee, row.raw?.examFee, row.raw?.ExamFee, row.raw?.doctor?.examFee, row.raw?.Doctor?.ExamFee)
+  if (!examFee && doctorId) examFee = toNumber((await appointmentApi.getDoctor(doctorId).catch(() => null))?.examFee)
+  return {
+    ...row.raw,
+    appointmentId: Number(row.appointmentId || row.id),
+    patientId: toNumber(row.patientId, row.raw?.patientId, row.raw?.PatientId),
+    doctorId,
+    examFee,
+  }
+}
+
 function invoiceAmount(item: Invoice & Record<string, any>) {
-  return Number(item.amount ?? item.totalAmount ?? item.examinationFee ?? 0)
+  return toNumber(item.amount, item.Amount, item.totalAmount, item.TotalAmount, item.examinationFee, item.ExaminationFee, item.examFee, item.ExamFee)
 }
 
 function summarizeMedicine(item: Prescription) {

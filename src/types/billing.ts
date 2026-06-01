@@ -1,10 +1,18 @@
 export interface Invoice {
+  id?: number
   invoiceId: number
+  invoiceCode?: string
   appointmentId?: number
   patientId: number
   amount: number
+  totalAmount?: number
+  examinationFee?: number
+  examFee?: number
+  paidAmount?: number
+  paymentMethod?: string
   status: 'Unpaid' | 'Paid' | 'Cancelled' | string
   createdAt: string
+  paidAt?: string
 }
 
 export interface Payment {
