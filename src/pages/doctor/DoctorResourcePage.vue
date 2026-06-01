@@ -93,7 +93,7 @@
     </div>
 
     <div v-if="examineOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[1.5rem] bg-white p-6 shadow-2xl">
+      <div class="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-[1.5rem] bg-white p-6 shadow-2xl">
         <div class="flex items-start justify-between gap-4">
           <div>
             <p class="text-sm font-bold uppercase tracking-[0.18em] text-blue-700">N2 Medical Record</p>
@@ -127,8 +127,106 @@
           </label>
           <div class="grid gap-4 sm:grid-cols-2">
             <BaseInput v-model="examForm.recheckDate" label="Ngày tái khám" type="date" />
-            <BaseInput v-model="examForm.prescriptionCode" label="Mã đơn thuốc nội bộ" placeholder="VD: RX-001" />
           </div>
+          <section class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div class="flex items-center gap-2">
+                  <Pill class="h-5 w-5 text-blue-700" />
+                  <h3 class="text-base font-bold text-slate-950">Kê đơn thuốc</h3>
+                </div>
+                <p class="mt-1 text-sm text-slate-500">Chọn nhóm thuốc rồi chọn nhiều thuốc cần kê cho bệnh nhân.</p>
+              </div>
+              <span class="rounded-full bg-white px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-100">
+                {{ prescriptionItems.length }} thuốc đã chọn
+              </span>
+            </div>
+
+            <div v-if="medicineError" class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ medicineError }}</div>
+
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button
+                v-for="category in medicineCategories"
+                :key="category"
+                type="button"
+                :class="[
+                  'rounded-full px-3 py-2 text-xs font-bold transition',
+                  selectedMedicineType === category
+                    ? 'bg-blue-700 text-white shadow-sm'
+                    : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-blue-50 hover:text-blue-700'
+                ]"
+                @click="selectedMedicineType = category"
+              >
+                {{ category }}
+              </button>
+            </div>
+
+            <div v-if="medicineLoading" class="mt-4 rounded-xl bg-white px-4 py-3 text-sm text-slate-500 ring-1 ring-slate-200">Đang tải danh mục thuốc...</div>
+            <div v-else-if="filteredMedicines.length" class="mt-4 grid gap-3 md:grid-cols-2">
+              <button
+                v-for="medicine in filteredMedicines"
+                :key="medicineId(medicine)"
+                type="button"
+                :disabled="medicineStock(medicine) <= 0"
+                :class="[
+                  'flex min-h-[112px] items-start gap-3 rounded-xl border bg-white p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50',
+                  isMedicineSelected(medicineId(medicine))
+                    ? 'border-blue-500 ring-4 ring-blue-100'
+                    : 'border-slate-200 hover:border-blue-200 hover:bg-blue-50/40'
+                ]"
+                @click="toggleMedicine(medicine)"
+              >
+                <span
+                  :class="[
+                    'mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded border',
+                    isMedicineSelected(medicineId(medicine)) ? 'border-blue-700 bg-blue-700 text-white' : 'border-slate-300 bg-white'
+                  ]"
+                >
+                  <Check v-if="isMedicineSelected(medicineId(medicine))" class="h-3.5 w-3.5" />
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block font-bold text-slate-950">{{ medicineName(medicine) }}</span>
+                  <span class="mt-1 block text-xs font-semibold text-blue-700">{{ medicineType(medicine) }}</span>
+                  <span class="mt-2 block text-xs leading-5 text-slate-500">
+                    Hoạt chất: {{ medicineIngredient(medicine) || 'Chưa cập nhật' }} · Tồn: {{ medicineStock(medicine) }} {{ medicineUnit(medicine) }}
+                  </span>
+                </span>
+              </button>
+            </div>
+            <div v-else class="mt-4 rounded-xl bg-white px-4 py-3 text-sm text-slate-500 ring-1 ring-slate-200">Không có thuốc trong nhóm này.</div>
+
+            <div v-if="selectedMedicineItems.length" class="mt-5 space-y-3">
+              <div
+                v-for="{ item, medicine } in selectedMedicineItems"
+                :key="item.medicineId"
+                class="rounded-xl border border-slate-200 bg-white p-4"
+              >
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p class="font-bold text-slate-950">{{ medicine ? medicineName(medicine) : `Thuốc #${item.medicineId}` }}</p>
+                    <p class="mt-1 text-xs font-semibold text-slate-500">{{ medicine ? medicineType(medicine) : 'Chưa phân loại' }}</p>
+                  </div>
+                  <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-rose-600 transition hover:bg-rose-50" aria-label="Bỏ thuốc" @click="removeMedicine(item.medicineId)">
+                    <Trash2 class="h-4 w-4" />
+                  </button>
+                </div>
+                <div class="mt-3 grid gap-3 sm:grid-cols-[110px_1fr_1fr]">
+                  <label class="block">
+                    <span class="mb-1 block text-xs font-semibold text-slate-500">Số lượng</span>
+                    <input v-model.number="item.quantity" min="1" type="number" class="form-input" />
+                  </label>
+                  <label class="block">
+                    <span class="mb-1 block text-xs font-semibold text-slate-500">Liều dùng</span>
+                    <input v-model="item.dosage" type="text" class="form-input" placeholder="VD: 1 viên/lần, ngày 2 lần" />
+                  </label>
+                  <label class="block">
+                    <span class="mb-1 block text-xs font-semibold text-slate-500">Cách dùng</span>
+                    <input v-model="item.usageInstruction" type="text" class="form-input" placeholder="VD: Uống sau ăn" />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </section>
           <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <BaseButton type="button" variant="outline" @click="closeExamine">Đóng</BaseButton>
             <BaseButton type="submit" :loading="savingExam">
@@ -145,23 +243,34 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch, type Component } from 'vue'
 import { useRoute } from 'vue-router'
-import { CalendarClock, ClipboardList, FileHeart, RefreshCw, Search, SearchX, Stethoscope, Users, X } from 'lucide-vue-next'
+import { CalendarClock, Check, ClipboardList, FileHeart, Pill, RefreshCw, Search, SearchX, Stethoscope, Trash2, Users, X } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { getApiErrorMessage } from '@/services/apiClient'
 import { appointmentApi } from '@/services/appointmentApi'
+import { billingApi } from '@/services/billingApi'
 import { medicalRecordApi } from '@/services/medicalRecordApi'
+import { medicineApi } from '@/services/medicineApi'
 import { currentDoctorId, filterAppointmentsForDoctor, filterQueueForDoctor, filterRecordsForDoctor, filterSchedulesForDoctor } from '@/utils/doctorScope'
 import type { Appointment, WaitingQueueItem } from '@/types/appointment'
 import type { DoctorSchedule } from '@/types/doctor'
+import type { Medicine } from '@/types/medicine'
 import type { MedicalRecord } from '@/types/medicalRecord'
 import { displayText } from '@/utils/displayText'
 
 type Resource = 'queue' | 'appointments' | 'examine' | 'records' | 'schedule'
 type ActionKey = 'start' | 'done' | 'cancel' | 'confirm' | 'complete' | 'examine'
 type Row = Record<string, string | number | undefined>
+type MedicineRecord = Medicine & Record<string, any>
+
+interface PrescriptionDraft {
+  medicineId: number
+  quantity: number
+  dosage: string
+  usageInstruction: string
+}
 
 interface Column { key: string; label: string; right?: boolean; badge?: boolean; strong?: boolean }
 interface Config {
@@ -192,12 +301,37 @@ const hasActions = computed(() => ['queue', 'appointments', 'examine'].includes(
 const examineOpen = ref(false)
 const savingExam = ref(false)
 const selectedRow = ref<Row | null>(null)
-const examForm = reactive({ symptoms: '', diagnosis: '', doctorNotes: '', recheckDate: '', prescriptionCode: '' })
+const examForm = reactive({ symptoms: '', diagnosis: '', doctorNotes: '', recheckDate: '' })
+const medicines = ref<MedicineRecord[]>([])
+const medicineLoading = ref(false)
+const medicineError = ref('')
+const allMedicineTypes = 'Tất cả'
+const selectedMedicineType = ref(allMedicineTypes)
+const prescriptionItems = ref<PrescriptionDraft[]>([])
 
 const filteredRows = computed(() => {
   const keyword = query.value.trim().toLowerCase()
   if (!keyword) return rows.value
   return rows.value.filter((row) => config.value.search.some((key) => String(row[key] || '').toLowerCase().includes(keyword)))
+})
+
+const medicineCategories = computed(() => {
+  const categories = Array.from(new Set(medicines.value.map(medicineType).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'vi'))
+  return [allMedicineTypes, ...categories]
+})
+
+const filteredMedicines = computed(() => {
+  return medicines.value
+    .filter((medicine) => isMedicineActive(medicine))
+    .filter((medicine) => selectedMedicineType.value === allMedicineTypes || medicineType(medicine) === selectedMedicineType.value)
+    .sort((a, b) => medicineName(a).localeCompare(medicineName(b), 'vi'))
+})
+
+const selectedMedicineItems = computed(() => {
+  return prescriptionItems.value.map((item) => ({
+    item,
+    medicine: medicines.value.find((medicine) => medicineId(medicine) === item.medicineId),
+  }))
 })
 
 const metrics = computed(() => [
@@ -376,6 +510,7 @@ async function runAction(action: string, row: Row) {
 function openExamine(row: Row) {
   selectedRow.value = row
   examineOpen.value = true
+  void loadMedicines()
 }
 
 function closeExamine() {
@@ -385,7 +520,47 @@ function closeExamine() {
   examForm.diagnosis = ''
   examForm.doctorNotes = ''
   examForm.recheckDate = ''
-  examForm.prescriptionCode = ''
+  prescriptionItems.value = []
+  selectedMedicineType.value = allMedicineTypes
+}
+
+async function loadMedicines() {
+  if (medicines.value.length || medicineLoading.value) return
+  medicineLoading.value = true
+  medicineError.value = ''
+  try {
+    medicines.value = (await medicineApi.getMedicines()) as MedicineRecord[]
+  } catch (apiError) {
+    medicineError.value = getApiErrorMessage(apiError)
+    medicines.value = []
+  } finally {
+    medicineLoading.value = false
+  }
+}
+
+function toggleMedicine(medicine: MedicineRecord) {
+  const id = medicineId(medicine)
+  if (!id || medicineStock(medicine) <= 0) return
+  const exists = prescriptionItems.value.some((item) => item.medicineId === id)
+  if (exists) {
+    removeMedicine(id)
+    return
+  }
+
+  prescriptionItems.value.push({
+    medicineId: id,
+    quantity: 1,
+    dosage: '',
+    usageInstruction: '',
+  })
+}
+
+function removeMedicine(medicineId: number) {
+  prescriptionItems.value = prescriptionItems.value.filter((item) => item.medicineId !== medicineId)
+}
+
+function isMedicineSelected(medicineId: number) {
+  return prescriptionItems.value.some((item) => item.medicineId === medicineId)
 }
 
 async function submitExamination() {
@@ -397,15 +572,20 @@ async function submitExamination() {
     const visitId = await resolveVisitId(selectedRow.value, appointmentId)
     await markAppointmentInProgress(appointmentId)
 
-    const doctorNotes = [examForm.doctorNotes, examForm.symptoms ? `Triệu chứng: ${examForm.symptoms}` : '', examForm.prescriptionCode ? `Mã đơn: ${examForm.prescriptionCode}` : ''].filter(Boolean).join('\n')
-    await medicalRecordApi.createMedicalRecord({
+    const doctorNotes = [
+      examForm.doctorNotes.trim(),
+      examForm.symptoms ? `Triệu chứng: ${examForm.symptoms}` : '',
+      prescriptionNote(),
+    ].filter(Boolean).join('\n')
+    const medicalRecord = await medicalRecordApi.createMedicalRecord({
       visitId,
       diagnosis: examForm.diagnosis.trim(),
       doctorNotes,
       recheckDate: examForm.recheckDate || undefined,
     })
+    const completionMessage = await createPrescriptionForPharmacy(medicalRecord, appointmentId)
     await appointmentApi.completeAppointment(appointmentId)
-    note.value = 'Đã tạo bệnh án N2 và hoàn tất lịch hẹn N1.'
+    note.value = completionMessage
     closeExamine()
     await loadData()
   } catch (apiError) {
@@ -496,6 +676,103 @@ async function markAppointmentInProgress(appointmentId: number) {
   await appointmentApi.setQueueInProgress(appointmentId).catch(() => undefined)
 }
 
+async function createPrescriptionForPharmacy(medicalRecord: MedicalRecord, appointmentId: number) {
+  if (!selectedMedicineItems.value.length) return 'Đã tạo bệnh án N2 và hoàn tất lịch hẹn N1.'
+
+  try {
+    await billingApi.createPrescription({
+      medicalRecordId: toPositiveNumber(medicalRecord.medicalRecordId),
+      medicalRecordCode: medicalRecord.recordId,
+      patientId: toPositiveNumber(selectedRow.value?.patientId),
+      doctorId: toPositiveNumber(selectedRow.value?.doctorId || currentDoctorId(authStore.user)),
+      appointmentId,
+      status: 'Pending',
+      note: prescriptionNote(),
+      items: selectedMedicineItems.value.map(({ item, medicine }) => ({
+        medicineId: item.medicineId,
+        medicineNameSnapshot: medicine ? medicineName(medicine) : `Thuốc #${item.medicineId}`,
+        unitSnapshot: medicine ? medicineUnit(medicine) : undefined,
+        dosage: item.dosage.trim() || undefined,
+        quantity: Number(item.quantity || 1),
+        usageInstruction: item.usageInstruction.trim() || undefined,
+      })),
+    })
+    return 'Đã tạo bệnh án N2, gửi đơn thuốc N3 và hoàn tất lịch hẹn N1.'
+  } catch (apiError) {
+    return `Đã tạo bệnh án N2 và hoàn tất lịch hẹn N1, nhưng chưa gửi được đơn thuốc sang N3: ${getApiErrorMessage(apiError)}`
+  }
+}
+
+function prescriptionNote() {
+  if (!selectedMedicineItems.value.length) return ''
+
+  const lines = selectedMedicineItems.value.map(({ item, medicine }) => {
+    const name = medicine ? medicineName(medicine) : `Thuốc #${item.medicineId}`
+    const unit = medicine ? medicineUnit(medicine) : ''
+    const quantity = Number(item.quantity || 1)
+    const dosage = item.dosage.trim() || 'Chưa ghi liều dùng'
+    const usage = item.usageInstruction.trim() || 'Chưa ghi cách dùng'
+    return `- ${name}: SL ${quantity}${unit ? ` ${unit}` : ''}; Liều: ${dosage}; Cách dùng: ${usage}`
+  })
+
+  return ['Đơn thuốc:', ...lines].join('\n')
+}
+
+function toPositiveNumber(value: unknown) {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : undefined
+}
+
+function medicineId(medicine: MedicineRecord) {
+  return Number(medicine.medicineId ?? medicine.MedicineId ?? medicine.id ?? 0)
+}
+
+function medicineName(medicine: MedicineRecord) {
+  return String(medicine.medicineName ?? medicine.MedicineName ?? medicine.name ?? `Thuốc #${medicineId(medicine)}`)
+}
+
+function medicineIngredient(medicine: MedicineRecord) {
+  return String(medicine.activeIngredient ?? medicine.ActiveIngredient ?? medicine.ingredient ?? '').trim()
+}
+
+function medicineUnit(medicine: MedicineRecord) {
+  return String(medicine.unit ?? medicine.Unit ?? medicine.dosageForm ?? medicine.DosageForm ?? 'đơn vị')
+}
+
+function medicineStock(medicine: MedicineRecord) {
+  const value = Number(medicine.stockQuantity ?? medicine.StockQuantity ?? medicine.stock ?? 0)
+  return Number.isFinite(value) ? value : 0
+}
+
+function medicineType(medicine: MedicineRecord) {
+  const directType = String(medicine.medicineType ?? medicine.MedicineType ?? medicine.category ?? medicine.type ?? '').trim()
+  return directType || inferMedicineType(medicine)
+}
+
+function isMedicineActive(medicine: MedicineRecord) {
+  const status = String(medicine.status ?? medicine.Status ?? '').toLowerCase()
+  const active = medicine.isActive ?? medicine.IsActive
+  if (typeof active === 'boolean') return active
+  return !status || status.includes('active') || status.includes('đang')
+}
+
+function inferMedicineType(medicine: MedicineRecord) {
+  const text = `${medicineName(medicine)} ${medicineIngredient(medicine)}`.toLowerCase()
+  if (text.includes('omeprazole')) return 'Tiêu hóa'
+  if (text.includes('paracetamol')) return 'Giảm đau - hạ sốt'
+  if (text.includes('ibuprofen')) return 'Giảm đau - kháng viêm'
+  if (text.includes('amoxicillin')) return 'Kháng sinh'
+  if (text.includes('cetirizine')) return 'Dị ứng'
+  if (text.includes('salbutamol')) return 'Hô hấp'
+  if (text.includes('tobramycin')) return 'Mắt'
+  if (text.includes('metformin')) return 'Nội tiết - đái tháo đường'
+  if (text.includes('amlodipine') || text.includes('losartan')) return 'Tim mạch'
+  if (text.includes('atorvastatin')) return 'Rối loạn lipid máu'
+  if (text.includes('vitamin') || text.includes('calcium')) return 'Vitamin - khoáng chất'
+  if (text.includes('natri') || text.includes('sodium')) return 'Dung dịch truyền/rửa'
+  return 'Khác'
+}
+
 function cfg(title: string, service: string, description: string, endpoint: string, icon: Component, iconClass: string, search: string[], placeholder: string, emptyText: string, columns: Column[]): Config {
   return { title, service, description, endpoint, icon, iconClass, search, placeholder, emptyText, columns }
 }
@@ -554,5 +831,9 @@ function isResource(value: unknown): value is Resource {
 <style scoped>
 .form-textarea {
   @apply w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100;
+}
+
+.form-input {
+  @apply h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100;
 }
 </style>

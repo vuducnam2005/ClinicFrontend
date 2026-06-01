@@ -30,6 +30,10 @@ export const billingApi = {
       throw error
     }
   },
+  async createPrescription(payload: Partial<Prescription> & Record<string, any>) {
+    const response = await client.post('/api/prescriptions', payload)
+    return readApiResponse<Prescription>(response.data)
+  },
   async getAppointmentBillingInfo(appointmentId: number) {
     const response = await client.get(`/api/integration/appointments/${appointmentId}/billing-info`)
     return readApiResponse<Invoice>(response.data)
