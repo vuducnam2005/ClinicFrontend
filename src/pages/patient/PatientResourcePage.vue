@@ -124,7 +124,7 @@ import { medicalRecordApi } from '@/services/medicalRecordApi'
 import { getApiErrorMessage } from '@/services/apiClient'
 import type { Appointment } from '@/types/appointment'
 import type { Invoice, Prescription } from '@/types/billing'
-import type { MedicalRecord } from '@/types/medicalRecord'
+import type { MedicalRecord, Patient } from '@/types/medicalRecord'
 
 type Resource = 'appointments' | 'records' | 'prescriptions' | 'bills' | 'profile'
 type Row = Record<string, any>
@@ -151,7 +151,7 @@ const actingId = ref<string | number | null>(null)
 
 const resource = computed<Resource>(() => isResource(route.meta.patientResource) ? route.meta.patientResource : 'appointments')
 const config = computed(() => configs[resource.value])
-const patientId = computed(() => Number(authStore.user?.patientId || authStore.user?.id || 0))
+const patientId = computed(() => String(authStore.user?.patientId || authStore.user?.id || ''))
 
 const filteredRows = computed(() => {
   const keyword = query.value.trim().toLowerCase()
@@ -179,7 +179,7 @@ const configs: Record<Resource, Config> = {
 }
 
 const ProfilePanel = defineComponent({
-  props: { patientId: { type: Number, required: true } },
+  props: { patientId: { type: String, required: true } },
   setup(props) {
     const user = authStore.user
     const items = [
@@ -187,7 +187,7 @@ const ProfilePanel = defineComponent({
       ['Tên đăng nhập', user?.username || 'Chưa cập nhật'],
       ['Email', user?.email || 'Chưa cập nhật'],
       ['Số điện thoại', user?.phoneNumber || 'Chưa cập nhật'],
-      ['Patient ID', props.patientId ? `#${props.patientId}` : 'Chưa liên kết'],
+      ['Patient ID', props.patientId || 'Chưa liên kết'],
       ['Vai trò', 'Bệnh nhân'],
     ]
     return () => h('div', { class: 'grid gap-6 lg:grid-cols-[1fr_0.85fr]' }, [
@@ -231,83 +231,87 @@ async function loadData() {
   loading.value = true
   error.value = ''
   note.value = ''
-  
-  const userId = Number(authStore.user?.id || 0)
-  let resolvedN2Id = userId
 
   try {
-    // 1. Resolve N2 patient ID
-    try {
-      const appts = await appointmentApi.getAppointmentsByPatient(userId).catch(() => [])
-      const phone = appts.find(a => a.patientPhone)?.patientPhone
-      const patients = await medicalRecordApi.getPatients()
-      const match = patients.find(p => (phone && (p.phoneNumber === phone || p.phone === phone)) || p.fullName === authStore.user?.fullName)
-      if (match) {
-        resolvedN2Id = Number(match.id || match.patientId)
-        if (authStore.user) {
-          authStore.user.patientId = resolvedN2Id
-        }
-      }
-    } catch (e) {
-      console.error('Failed to resolve N2 Patient ID in PatientResourcePage', e)
-    }
+    const keys = await resolvePatientKeys()
+    const appointmentKeys = keys.filter((key) => /^\d+$/.test(key))
 
-    // 2. Fetch and merge data depending on resource type
     if (resource.value === 'appointments') {
-      const rows1 = await loadRows(() => appointmentApi.getAppointmentsByPatient(userId), mapAppointment, '')
-      const rows2 = resolvedN2Id !== userId ? await loadRows(() => appointmentApi.getAppointmentsByPatient(resolvedN2Id), mapAppointment, '') : []
-      const combined = [...rows1, ...rows2]
-      const seen = new Set()
-      rows.value = combined.filter(a => {
-        if (seen.has(a.id)) return false
-        seen.add(a.id)
-        return true
-      })
+      rows.value = uniqueRows((await Promise.all(appointmentKeys.map((key) => loadRows(() => appointmentApi.getAppointmentsByPatient(key), mapAppointment, '')))).flat())
       note.value = rows.value.length ? 'Đã tải lịch hẹn từ N1.' : 'Database chưa có dữ liệu cho bệnh nhân này.'
     }
     
     if (resource.value === 'records') {
-      const rows1 = await loadRows(() => medicalRecordApi.getMedicalRecords(String(userId)), mapRecord, '')
-      const rows2 = resolvedN2Id !== userId ? await loadRows(() => medicalRecordApi.getMedicalRecords(String(resolvedN2Id)), mapRecord, '') : []
-      const combined = [...rows1, ...rows2]
-      const seen = new Set()
-      rows.value = combined.filter(r => {
-        if (seen.has(r.id)) return false
-        seen.add(r.id)
-        return true
-      })
+      rows.value = uniqueRows((await Promise.all(keys.map((key) => loadRows(() => medicalRecordApi.getMedicalRecords(key), mapRecord, '')))).flat())
       note.value = rows.value.length ? 'Đã tải hồ sơ bệnh án từ N2.' : 'Database chưa có dữ liệu cho bệnh nhân này.'
     }
 
     if (resource.value === 'prescriptions') {
-      const rows1 = await loadRows(() => billingApi.getPrescriptions(userId), mapPrescription, '')
-      const rows2 = resolvedN2Id !== userId ? await loadRows(() => billingApi.getPrescriptions(resolvedN2Id), mapPrescription, '') : []
-      const combined = [...rows1, ...rows2]
-      const seen = new Set()
-      rows.value = combined.filter(p => {
-        if (seen.has(p.id)) return false
-        seen.add(p.id)
-        return true
-      })
+      rows.value = uniqueRows((await Promise.all(keys.map((key) => loadRows(() => billingApi.getPrescriptions(key), mapPrescription, '')))).flat())
       note.value = rows.value.length ? 'Đã tải đơn thuốc từ N3.' : 'Database chưa có dữ liệu cho bệnh nhân này.'
     }
 
     if (resource.value === 'bills') {
-      const rows1 = await loadRows(() => billingApi.getInvoices(userId), mapInvoice, '')
-      const rows2 = resolvedN2Id !== userId ? await loadRows(() => billingApi.getInvoices(resolvedN2Id), mapInvoice, '') : []
-      const combined = [...rows1, ...rows2]
-      const seen = new Set()
-      rows.value = combined.filter(b => {
-        if (seen.has(b.id)) return false
-        seen.add(b.id)
-        return true
-      })
+      rows.value = uniqueRows((await Promise.all(keys.map((key) => loadRows(() => billingApi.getInvoices(key), mapInvoice, '')))).flat())
       note.value = rows.value.length ? 'Đã tải viện phí từ N3.' : 'Database chưa có dữ liệu cho bệnh nhân này.'
     }
 
   } finally {
     loading.value = false
   }
+}
+
+async function resolvePatientKeys() {
+  const user = authStore.user
+  const keys = new Set<string>()
+  addKey(keys, user?.patientId)
+  addKey(keys, user?.id)
+
+  const numericUserId = String(user?.id || '')
+  const appointments = /^\d+$/.test(numericUserId)
+    ? await appointmentApi.getAppointmentsByPatient(numericUserId).catch(() => [] as Appointment[])
+    : []
+  for (const appointment of appointments) {
+    addKey(keys, appointment.patientId)
+    addKey(keys, (appointment as any).PatientId)
+  }
+
+  const phones = new Set([user?.phoneNumber, ...appointments.map((item) => item.patientPhone)].map(normalizeText).filter(Boolean))
+  const names = new Set([user?.fullName, ...appointments.map((item) => item.patientName)].map(normalizeText).filter(Boolean))
+  const patients = await medicalRecordApi.getPatients().catch(() => [] as Patient[])
+  const match = patients.find((patient) => {
+    const patientPhones = [patient.phone, patient.phoneNumber].map(normalizeText).filter(Boolean)
+    const patientName = normalizeText(patient.fullName)
+    return patientPhones.some((phone) => phones.has(phone)) || Boolean(patientName && names.has(patientName))
+  })
+
+  if (match) {
+    addKey(keys, match.patientId)
+    addKey(keys, match.patientCode)
+    addKey(keys, match.id)
+    if (authStore.user) authStore.user.patientId = String(match.patientId || match.patientCode || match.id || '')
+  }
+
+  return Array.from(keys).filter(Boolean)
+}
+
+function addKey(keys: Set<string>, value: unknown) {
+  const text = String(value ?? '').trim()
+  if (text && text !== '0' && text.toLowerCase() !== 'nan') keys.add(text)
+}
+
+function normalizeText(value: unknown) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+function uniqueRows(items: Row[]) {
+  const seen = new Set<string>()
+  return items.filter((item, index) => {
+    const key = String(item.id || `${item.appointmentId || ''}-${index}`)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 async function loadRows<T>(loader: () => Promise<T[]>, mapper: (item: T) => Row, successNote: string) {

@@ -3,7 +3,7 @@ export interface Invoice {
   invoiceId: number
   invoiceCode?: string
   appointmentId?: number
-  patientId: number
+  patientId: number | string
   amount: number
   totalAmount?: number
   examinationFee?: number
@@ -43,7 +43,7 @@ export interface Prescription {
   prescriptionCode?: string
   medicalRecordId?: number
   medicalRecordCode?: string
-  patientId?: number
+  patientId?: number | string
   doctorId?: number
   appointmentId?: number
   status?: string

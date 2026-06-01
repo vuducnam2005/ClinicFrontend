@@ -683,7 +683,8 @@ async function createPrescriptionForPharmacy(medicalRecord: MedicalRecord, appoi
     await billingApi.createPrescription({
       medicalRecordId: toPositiveNumber(medicalRecord.medicalRecordId),
       medicalRecordCode: medicalRecord.recordId,
-      patientId: toPositiveNumber(selectedRow.value?.patientId),
+      patientId: selectedRow.value?.patientId,
+      patientCode: selectedRow.value?.patientId,
       doctorId: toPositiveNumber(selectedRow.value?.doctorId || currentDoctorId(authStore.user)),
       appointmentId,
       status: 'Pending',

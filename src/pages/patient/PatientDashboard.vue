@@ -259,7 +259,7 @@ import { medicalRecordApi } from '@/services/medicalRecordApi'
 import { getApiErrorMessage } from '@/services/apiClient'
 import type { Appointment } from '@/types/appointment'
 import type { Invoice } from '@/types/billing'
-import type { MedicalRecord } from '@/types/medicalRecord'
+import type { MedicalRecord, Patient } from '@/types/medicalRecord'
 
 const authStore = useAuthStore()
 const loading = ref(true)
@@ -267,8 +267,8 @@ const error = ref('')
 const appointments = ref<Appointment[]>([])
 const invoices = ref<Invoice[]>([])
 const records = ref<MedicalRecord[]>([])
-const clinicalPatientId = computed(() => Number(authStore.user?.patientId || authStore.user?.id || 0))
-const billingPatientId = computed(() => Number(authStore.user?.patientId || authStore.user?.id || clinicalPatientId.value))
+const clinicalPatientId = computed(() => String(authStore.user?.patientId || authStore.user?.id || ''))
+const billingPatientId = computed(() => String(authStore.user?.patientId || authStore.user?.id || clinicalPatientId.value))
 
 const displayName = computed(() => authStore.user?.fullName || authStore.user?.username || 'bệnh nhân')
 const nextAppointment = computed(() => appointments.value[0])
@@ -294,51 +294,24 @@ async function loadData() {
   loading.value = true
   error.value = ''
   
-  const userId = Number(authStore.user?.id || 0)
-  
   try {
-    // 1. Fetch initial appointments for the N3 user ID
-    const initialAppts = await appointmentApi.getAppointmentsByPatient(userId).catch(() => [])
-    
-    // 2. Resolve the N2 Patient ID by scanning appointments for phone number, or falling back to name match
-    let resolvedN2Id = userId
-    const phone = initialAppts.find(a => a.patientPhone)?.patientPhone
-    try {
-      const patients = await medicalRecordApi.getPatients()
-      const match = patients.find(p => (phone && (p.phoneNumber === phone || p.phone === phone)) || p.fullName === authStore.user?.fullName)
-      if (match) {
-        resolvedN2Id = Number(match.id || match.patientId)
-        if (authStore.user) {
-          authStore.user.patientId = resolvedN2Id
-        }
-      }
-    } catch (e) {
-      console.error('Failed to resolve N2 Patient ID', e)
-    }
-
-    // 3. Fetch from both IDs to ensure we get all records, and merge them
+    const keys = await resolvePatientKeys()
+    const appointmentKeys = keys.filter((key) => /^\d+$/.test(key))
     const fetchPromises = [
-      appointmentApi.getAppointmentsByPatient(userId),
-      resolvedN2Id !== userId ? appointmentApi.getAppointmentsByPatient(resolvedN2Id).catch(() => [] as Appointment[]) : Promise.resolve([] as Appointment[]),
-      medicalRecordApi.getMedicalRecords(String(userId)).catch(() => [] as MedicalRecord[]),
-      resolvedN2Id !== userId ? medicalRecordApi.getMedicalRecords(String(resolvedN2Id)).catch(() => [] as MedicalRecord[]) : Promise.resolve([] as MedicalRecord[]),
-      billingApi.getInvoices(userId).catch(() => [] as Invoice[]),
-      resolvedN2Id !== userId ? billingApi.getInvoices(resolvedN2Id).catch(() => [] as Invoice[]) : Promise.resolve([] as Invoice[]),
+      Promise.all(appointmentKeys.map((key) => appointmentApi.getAppointmentsByPatient(key).catch(() => [] as Appointment[]))).then((items) => items.flat()),
+      Promise.all(keys.map((key) => medicalRecordApi.getMedicalRecords(key).catch(() => [] as MedicalRecord[]))).then((items) => items.flat()),
+      Promise.all(keys.map((key) => billingApi.getInvoices(key).catch(() => [] as Invoice[]))).then((items) => items.flat()),
     ]
 
     const results = (await Promise.allSettled(fetchPromises)) as unknown as [
       PromiseSettledResult<Appointment[]>,
-      PromiseSettledResult<Appointment[]>,
       PromiseSettledResult<MedicalRecord[]>,
-      PromiseSettledResult<MedicalRecord[]>,
-      PromiseSettledResult<Invoice[]>,
       PromiseSettledResult<Invoice[]>,
     ]
     
     // Process Appointments
     const appts1 = readList(results[0])
-    const appts2 = readList(results[1])
-    const combinedAppts = [...appts1, ...appts2]
+    const combinedAppts = [...appts1]
     const seenAppts = new Set()
     appointments.value = combinedAppts.filter(a => {
       if (seenAppts.has(a.appointmentId)) return false
@@ -347,9 +320,8 @@ async function loadData() {
     })
 
     // Process Medical Records
-    const recs1 = readList(results[2])
-    const recs2 = readList(results[3])
-    const combinedRecs = [...recs1, ...recs2]
+    const recs1 = readList(results[1])
+    const combinedRecs = [...recs1]
     const seenRecs = new Set()
     records.value = combinedRecs.filter(r => {
       const rid = r.recordId || r.medicalRecordId
@@ -359,9 +331,8 @@ async function loadData() {
     })
 
     // Process Invoices
-    const invs1 = readList(results[4])
-    const invs2 = readList(results[5])
-    const combinedInvs = [...invs1, ...invs2]
+    const invs1 = readList(results[2])
+    const combinedInvs = [...invs1]
     const seenInvs = new Set()
     invoices.value = combinedInvs.filter(i => {
       if (seenInvs.has(i.invoiceId)) return false
@@ -383,6 +354,48 @@ async function loadData() {
 function readList<T>(result: PromiseSettledResult<T[]>, fallback: T[] = []) {
   return result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : fallback
 }
+
+async function resolvePatientKeys() {
+  const user = authStore.user
+  const keys = new Set<string>()
+  addKey(keys, user?.patientId)
+  addKey(keys, user?.id)
+
+  const userId = String(user?.id || '')
+  const initialAppts = /^\d+$/.test(userId) ? await appointmentApi.getAppointmentsByPatient(userId).catch(() => [] as Appointment[]) : []
+  for (const appointment of initialAppts) {
+    addKey(keys, appointment.patientId)
+    addKey(keys, (appointment as any).PatientId)
+  }
+
+  const phones = new Set([user?.phoneNumber, ...initialAppts.map((item) => item.patientPhone)].map(normalizeText).filter(Boolean))
+  const names = new Set([user?.fullName, ...initialAppts.map((item) => item.patientName)].map(normalizeText).filter(Boolean))
+  const patients = await medicalRecordApi.getPatients().catch(() => [] as Patient[])
+  const match = patients.find((patient) => {
+    const patientPhones = [patient.phone, patient.phoneNumber].map(normalizeText).filter(Boolean)
+    const patientName = normalizeText(patient.fullName)
+    return patientPhones.some((phone) => phones.has(phone)) || Boolean(patientName && names.has(patientName))
+  })
+
+  if (match) {
+    addKey(keys, match.patientId)
+    addKey(keys, match.patientCode)
+    addKey(keys, match.id)
+    if (authStore.user) authStore.user.patientId = String(match.patientId || match.patientCode || match.id || '')
+  }
+
+  return Array.from(keys).filter(Boolean)
+}
+
+function addKey(keys: Set<string>, value: unknown) {
+  const text = String(value ?? '').trim()
+  if (text && text !== '0' && text.toLowerCase() !== 'nan') keys.add(text)
+}
+
+function normalizeText(value: unknown) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
 function formatCurrency(value: number) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0)) }
 function formatDate(value?: string) { if (!value) return 'Chưa cập nhật'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('vi-VN').format(date) }
 function statusClass(status?: string) { const value = String(status || '').toLowerCase(); if (value.includes('paid') || value.includes('confirmed') || value.includes('completed')) return 'bg-teal-100 text-teal-700'; if (value.includes('pending') || value.includes('unpaid') || value.includes('waiting')) return 'bg-amber-100 text-amber-700'; if (value.includes('cancel')) return 'bg-rose-100 text-rose-700'; return 'bg-slate-100 text-slate-700' }

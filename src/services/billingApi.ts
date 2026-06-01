@@ -49,7 +49,7 @@ export const billingApi = {
     const response = await client.get('/api/health')
     return response.data
   },
-  async getInvoices(patientId?: number) {
+  async getInvoices(patientId?: number | string) {
     try {
       const paths = patientId
         ? [`/api/invoices/patient/${patientId}`, `/api/billing/invoices/patient/${patientId}`]
@@ -61,7 +61,7 @@ export const billingApi = {
       throw error
     }
   },
-  async getPrescriptions(patientId?: number) {
+  async getPrescriptions(patientId?: number | string) {
     try {
       const paths = patientId
         ? [`/api/prescriptions/patient/${patientId}`, `/api/billing/prescriptions/patient/${patientId}`]
@@ -84,7 +84,7 @@ export const billingApi = {
   },
   async createInvoiceFromAppointment(billingInfo: {
     appointmentId: number
-    patientId?: number
+    patientId?: number | string
     examFee?: number
     [key: string]: any
   }) {
@@ -93,7 +93,7 @@ export const billingApi = {
     const amount = amountValue(merged)
     const payload = {
       appointmentId: billingInfo.appointmentId,
-      patientId: Number(merged.patientId ?? merged.PatientId ?? 0) || undefined,
+      patientId: merged.patientId ?? merged.PatientId ?? undefined,
       doctorId: Number(merged.doctorId ?? merged.DoctorId ?? 0) || undefined,
       examinationFee: amount,
       examFee: amount,

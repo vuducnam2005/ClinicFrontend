@@ -2,7 +2,7 @@ export type AppointmentStatus = 'Pending' | 'Confirmed' | 'InProgress' | 'Cancel
 
 export interface Appointment {
   appointmentId: number
-  patientId: number
+  patientId: number | string
   patientName: string
   patientPhone: string
   doctorId: number
@@ -33,7 +33,7 @@ export interface WaitingQueueItem {
   id?: number
   queueId?: number
   appointmentId: number
-  patientId?: number
+  patientId?: number | string
   doctorId?: number
   queueNumber: number
   patientName?: string

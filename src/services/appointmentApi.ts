@@ -115,7 +115,7 @@ export const appointmentApi = {
     const response = await client.get('/api/appointments/confirmed')
     return readApiResponse<Appointment[]>(response.data)
   },
-  async getAppointmentsByPatient(patientId: number) {
+  async getAppointmentsByPatient(patientId: number | string) {
     try {
       const response = await client.get(`/api/appointments/patient/${patientId}`)
       return readApiResponse<Appointment[]>(response.data)

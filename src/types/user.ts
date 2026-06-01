@@ -19,5 +19,5 @@ export interface User {
   specialtyName?: string
   degree?: string
   examFee?: number
-  patientId?: number
+  patientId?: number | string
 }

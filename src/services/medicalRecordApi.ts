@@ -10,44 +10,93 @@ export interface PatientMedicalHistory {
   prescriptions: Array<Record<string, any>>
 }
 
-function normalizeRecords(payload: unknown): MedicalRecord[] {
+function arrayValue(...values: unknown[]) {
+  for (const value of values) {
+    if (Array.isArray(value)) return value
+  }
+  return []
+}
+
+function normalizeRecord(item: Record<string, any>, fallbackPatientId?: string): MedicalRecord {
+  return {
+    medicalRecordId: item.medicalRecordId ?? item.MedicalRecordId ?? item.id ?? item.Id,
+    recordId: item.recordId ?? item.RecordId ?? item.medicalRecordCode ?? item.MedicalRecordCode ?? item.recordCode ?? item.RecordCode,
+    patientId: String(item.patientId ?? item.PatientId ?? item.patientCode ?? item.PatientCode ?? fallbackPatientId ?? ''),
+    appointmentId: item.appointmentId ?? item.AppointmentId ? String(item.appointmentId ?? item.AppointmentId) : undefined,
+    doctorId: item.doctorId ?? item.DoctorId,
+    doctorName: item.doctorName ?? item.DoctorName,
+    symptoms: item.symptoms ?? item.Symptoms,
+    diagnosis: item.diagnosis ?? item.Diagnosis ?? item.diagnosisText ?? item.DiagnosisText,
+    doctorNotes: item.doctorNotes ?? item.DoctorNotes ?? item.doctorNote ?? item.DoctorNote ?? item.treatmentPlan ?? item.TreatmentPlan,
+    examDate: item.examDate ?? item.ExamDate ?? item.followUpDate ?? item.FollowUpDate ?? item.createdAt ?? item.CreatedAt,
+    createdAt: item.createdAt ?? item.CreatedAt,
+  }
+}
+
+function normalizeRecords(payload: unknown, fallbackPatientId?: string): MedicalRecord[] {
   const data = readApiResponse<any>(payload as any)
-  if (Array.isArray(data)) return data
-  if (Array.isArray(data?.medicalRecords)) {
-    return data.medicalRecords.map((item: any) => ({
-      medicalRecordId: item.medicalRecordId ?? item.id,
-      recordId: item.recordId ?? item.medicalRecordCode,
-      patientId: String(item.patientId ?? ''),
-      appointmentId: item.appointmentId ? String(item.appointmentId) : undefined,
-      doctorId: item.doctorId,
-      doctorName: item.doctorName,
-      symptoms: item.symptoms,
-      diagnosis: item.diagnosis ?? item.diagnosisText,
-      doctorNotes: item.doctorNotes ?? item.doctorNote ?? item.treatmentPlan,
-      examDate: item.examDate ?? item.followUpDate ?? item.createdAt,
-      createdAt: item.createdAt,
-    }))
+  if (Array.isArray(data)) return data.map((item) => normalizeRecord(item, fallbackPatientId))
+
+  const directRecords = arrayValue(data?.medicalRecords, data?.MedicalRecords, data?.records, data?.Records, data?.items, data?.Items)
+  const visitRecords = arrayValue(data?.visits, data?.Visits).flatMap((visit: any) => {
+    const nested = arrayValue(visit?.medicalRecords, visit?.MedicalRecords, visit?.records, visit?.Records)
+    const single = visit?.medicalRecord ?? visit?.MedicalRecord ?? visit?.record ?? visit?.Record
+    return nested.length ? nested : single ? [single] : []
+  })
+  const singleRecord = data?.medicalRecord ?? data?.MedicalRecord ?? data?.record ?? data?.Record
+  const records = [...directRecords, ...visitRecords, ...(singleRecord ? [singleRecord] : [])]
+
+  if (records.length) {
+    const patientId = String(data?.patient?.patientId ?? data?.patient?.id ?? data?.patient?.patientCode ?? data?.Patient?.PatientId ?? data?.Patient?.Id ?? data?.Patient?.PatientCode ?? fallbackPatientId ?? '')
+    return records.map((item: any) => normalizeRecord(item, patientId))
   }
   return []
 }
 
 function normalizeHistory(payload: unknown): PatientMedicalHistory {
   const data = readApiResponse<any>(payload as any)
+  const patient = data?.patient ?? data?.Patient
+  const fallbackPatientId = String(patient?.patientId ?? patient?.PatientId ?? patient?.id ?? patient?.Id ?? patient?.patientCode ?? patient?.PatientCode ?? '')
   return {
-    patient: data?.patient,
-    visits: Array.isArray(data?.visits) ? data.visits : [],
-    medicalRecords: normalizeRecords(data),
-    prescriptions: Array.isArray(data?.prescriptions) ? data.prescriptions : [],
+    patient,
+    visits: arrayValue(data?.visits, data?.Visits),
+    medicalRecords: normalizeRecords(data, fallbackPatientId),
+    prescriptions: arrayValue(data?.prescriptions, data?.Prescriptions),
   }
 }
 
 function normalizePatients(payload: unknown): Patient[] {
   const data = readApiResponse<any>(payload as any)
-  return Array.isArray(data) ? data : data?.items || data?.data || []
+  const patients = Array.isArray(data) ? data : data?.items || data?.Items || data?.data || data?.Data || data?.patients || data?.Patients || []
+  return patients.map((patient: any) => ({
+    patientId: String(patient.patientId ?? patient.PatientId ?? patient.patientCode ?? patient.PatientCode ?? patient.id ?? patient.Id ?? ''),
+    id: patient.id ?? patient.Id,
+    patientCode: patient.patientCode ?? patient.PatientCode,
+    fullName: patient.fullName ?? patient.FullName ?? patient.name ?? patient.Name ?? '',
+    phone: patient.phone ?? patient.Phone,
+    phoneNumber: patient.phoneNumber ?? patient.PhoneNumber,
+    dateOfBirth: patient.dateOfBirth ?? patient.DateOfBirth,
+    gender: patient.gender ?? patient.Gender,
+    medicalHistory: patient.medicalHistory ?? patient.MedicalHistory,
+    createdAt: patient.createdAt ?? patient.CreatedAt,
+  }))
 }
 
 function patientKey(patient: Partial<Patient> & Record<string, any>) {
-  return String(patient.patientId ?? patient.id ?? patient.userId ?? '')
+  return String(patient.patientId ?? patient.patientCode ?? patient.id ?? patient.userId ?? patient.PatientId ?? patient.PatientCode ?? patient.Id ?? patient.UserId ?? '')
+}
+
+function patientKeys(patient: Partial<Patient> & Record<string, any>) {
+  return Array.from(new Set([
+    patient.patientId,
+    patient.patientCode,
+    patient.id,
+    patient.userId,
+    patient.PatientId,
+    patient.PatientCode,
+    patient.Id,
+    patient.UserId,
+  ].map((value) => String(value ?? '').trim()).filter(Boolean)))
 }
 
 function toMedicalRecordPayload(payload: Partial<MedicalRecord> & Record<string, any>) {
@@ -114,7 +163,7 @@ export const medicalRecordApi = {
     }
 
     const patients = await this.getPatients()
-    const patientIds = patients.map(patientKey).filter(Boolean)
+    const patientIds = Array.from(new Set(patients.flatMap(patientKeys).filter(Boolean)))
     const histories = await Promise.allSettled(patientIds.map((id) => this.getPatientHistory(id)))
     return histories.flatMap((result) => (result.status === 'fulfilled' ? result.value.medicalRecords : []))
   },
