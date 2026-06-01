@@ -257,6 +257,7 @@ import { appointmentApi } from '@/services/appointmentApi'
 import { billingApi } from '@/services/billingApi'
 import { medicalRecordApi } from '@/services/medicalRecordApi'
 import { getApiErrorMessage } from '@/services/apiClient'
+import { localClinicalStore } from '@/services/localClinicalStore'
 import type { Appointment } from '@/types/appointment'
 import type { Invoice } from '@/types/billing'
 import type { MedicalRecord, Patient } from '@/types/medicalRecord'
@@ -321,7 +322,7 @@ async function loadData() {
 
     // Process Medical Records
     const recs1 = readList(results[1])
-    const combinedRecs = [...recs1]
+    const combinedRecs = [...recs1, ...localClinicalStore.getMedicalRecords(keys)]
     const seenRecs = new Set()
     records.value = combinedRecs.filter(r => {
       const rid = r.recordId || r.medicalRecordId
@@ -332,7 +333,7 @@ async function loadData() {
 
     // Process Invoices
     const invs1 = readList(results[2])
-    const combinedInvs = [...invs1]
+    const combinedInvs = [...invs1, ...localClinicalStore.getInvoices(keys)]
     const seenInvs = new Set()
     invoices.value = combinedInvs.filter(i => {
       if (seenInvs.has(i.invoiceId)) return false

@@ -253,6 +253,7 @@ import { appointmentApi } from '@/services/appointmentApi'
 import { billingApi } from '@/services/billingApi'
 import { medicalRecordApi } from '@/services/medicalRecordApi'
 import { medicineApi } from '@/services/medicineApi'
+import { localClinicalStore } from '@/services/localClinicalStore'
 import { currentDoctorId, filterAppointmentsForDoctor, filterQueueForDoctor, filterRecordsForDoctor, filterSchedulesForDoctor } from '@/utils/doctorScope'
 import type { Appointment, WaitingQueueItem } from '@/types/appointment'
 import type { DoctorSchedule } from '@/types/doctor'
@@ -385,7 +386,10 @@ async function loadData() {
     }
     if (resource.value === 'appointments') rows.value = await loadRows(() => (doctorId ? appointmentApi.getAppointmentsByDoctor(doctorId) : appointmentApi.getAppointments()).then((items) => filterAppointmentsForDoctor(items, authStore.user)), mapAppointment)
     if (resource.value === 'examine') rows.value = await loadRows(() => (doctorId ? appointmentApi.getAppointmentsByDoctor(doctorId) : appointmentApi.getAppointments()).then((items) => filterAppointmentsForDoctor(items, authStore.user)), mapExamine)
-    if (resource.value === 'records') rows.value = await loadRows(() => medicalRecordApi.getMedicalRecords().then((items) => filterRecordsForDoctor(items, authStore.user)), mapRecord)
+    if (resource.value === 'records') {
+      const remoteRows = await loadRows(() => medicalRecordApi.getMedicalRecords().then((items) => filterRecordsForDoctor(items, authStore.user)), mapRecord)
+      rows.value = uniqueRows([...remoteRows, ...localClinicalStore.getMedicalRecords().map(mapRecord)])
+    }
     if (resource.value === 'schedule') rows.value = await loadRows(() => (doctorId ? appointmentApi.getDoctorSchedulesByDoctor(doctorId) : appointmentApi.getDoctorSchedules()).then((items) => filterSchedulesForDoctor(items, authStore.user)), mapSchedule)
   } finally {
     loading.value = false
@@ -583,13 +587,24 @@ async function submitExamination() {
       doctorNotes,
       recheckDate: examForm.recheckDate || undefined,
     })
+    localClinicalStore.saveMedicalRecord({
+      row: selectedRow.value,
+      symptoms: examForm.symptoms.trim(),
+      diagnosis: examForm.diagnosis.trim(),
+      doctorNotes,
+      recheckDate: examForm.recheckDate || undefined,
+    })
     const completionMessage = await createPrescriptionForPharmacy(medicalRecord, appointmentId)
     await appointmentApi.completeAppointmentSafely(appointmentId, String(selectedRow.value.appointmentDate || ''))
     note.value = completionMessage
     closeExamine()
     await loadData()
   } catch (apiError) {
-    error.value = getApiErrorMessage(apiError)
+    const localRecord = saveLocalClinicalRecord()
+    await appointmentApi.completeAppointmentSafely(appointmentId, String(selectedRow.value.appointmentDate || '')).catch(() => undefined)
+    note.value = `N2/N3 chua dong bo duoc (${getApiErrorMessage(apiError)}). He thong da luu tam ho so ${localRecord.recordId || localRecord.medicalRecordId} de benh nhan, y ta va admin xem ngay.`
+    closeExamine()
+    await loadData()
   } finally {
     savingExam.value = false
   }
@@ -698,10 +713,61 @@ async function createPrescriptionForPharmacy(medicalRecord: MedicalRecord, appoi
         usageInstruction: item.usageInstruction.trim() || undefined,
       })),
     })
+    if (selectedRow.value) {
+      localClinicalStore.savePrescription({
+        row: selectedRow.value,
+        record: medicalRecord,
+        note: prescriptionNote(),
+        items: prescriptionPayloadItems(),
+      })
+    }
     return 'Đã tạo bệnh án N2, gửi đơn thuốc N3 và hoàn tất lịch hẹn N1.'
   } catch (apiError) {
+    if (selectedRow.value) {
+      localClinicalStore.savePrescription({
+        row: selectedRow.value,
+        record: medicalRecord,
+        note: prescriptionNote(),
+        items: prescriptionPayloadItems(),
+      })
+    }
     return `Đã tạo bệnh án N2 và hoàn tất lịch hẹn N1, nhưng chưa gửi được đơn thuốc sang N3: ${getApiErrorMessage(apiError)}`
   }
+}
+
+function saveLocalClinicalRecord() {
+  const doctorNotes = [
+    examForm.doctorNotes.trim(),
+    examForm.symptoms ? `Trieu chung: ${examForm.symptoms}` : '',
+    prescriptionNote(),
+  ].filter(Boolean).join('\n')
+  const record = localClinicalStore.saveMedicalRecord({
+    row: selectedRow.value || {},
+    symptoms: examForm.symptoms.trim(),
+    diagnosis: examForm.diagnosis.trim(),
+    doctorNotes,
+    recheckDate: examForm.recheckDate || undefined,
+  })
+  if (selectedRow.value && selectedMedicineItems.value.length) {
+    localClinicalStore.savePrescription({
+      row: selectedRow.value,
+      record,
+      note: prescriptionNote(),
+      items: prescriptionPayloadItems(),
+    })
+  }
+  return record
+}
+
+function prescriptionPayloadItems() {
+  return selectedMedicineItems.value.map(({ item, medicine }) => ({
+    medicineId: item.medicineId,
+    medicineNameSnapshot: medicine ? medicineName(medicine) : `Thuoc #${item.medicineId}`,
+    unitSnapshot: medicine ? medicineUnit(medicine) : undefined,
+    dosage: item.dosage.trim() || undefined,
+    quantity: Number(item.quantity || 1),
+    usageInstruction: item.usageInstruction.trim() || undefined,
+  }))
 }
 
 function prescriptionNote() {
@@ -784,6 +850,16 @@ function cols(...defs: [string, string, boolean?, boolean?, boolean?][]): Column
 
 function value(row: Row, key: string) {
   return row[key] === undefined || row[key] === '' ? 'Chưa cập nhật' : String(row[key])
+}
+
+function uniqueRows(items: Row[]) {
+  const seen = new Set<string>()
+  return items.filter((item, index) => {
+    const key = String(item.id || item.appointmentId || index)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 function formatDate(value?: string) {

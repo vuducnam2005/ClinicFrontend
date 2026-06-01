@@ -143,6 +143,7 @@ import { appointmentApi } from '@/services/appointmentApi'
 import { billingApi } from '@/services/billingApi'
 import { medicalRecordApi } from '@/services/medicalRecordApi'
 import { medicineApi } from '@/services/medicineApi'
+import { localClinicalStore } from '@/services/localClinicalStore'
 import type { Appointment, WaitingQueueItem } from '@/types/appointment'
 import type { Invoice, Prescription } from '@/types/billing'
 import type { Patient } from '@/types/medicalRecord'
@@ -237,8 +238,14 @@ async function loadData() {
         rows.value = []
       }
     }
-    if (resource.value === 'bills') rows.value = await loadRows(() => billingApi.getInvoices(), mapInvoice)
-    if (resource.value === 'prescriptions') rows.value = await loadRows(() => billingApi.getPrescriptions(), mapPrescription)
+    if (resource.value === 'bills') {
+      const remoteRows = await loadRows(() => billingApi.getInvoices(), mapInvoice)
+      rows.value = uniqueRows([...remoteRows, ...localClinicalStore.getInvoices().map(mapInvoice)])
+    }
+    if (resource.value === 'prescriptions') {
+      const remoteRows = await loadRows(() => billingApi.getPrescriptions(), mapPrescription)
+      rows.value = uniqueRows([...remoteRows, ...localClinicalStore.getPrescriptions().map(mapPrescription)])
+    }
   } finally {
     loading.value = false
   }
@@ -371,13 +378,20 @@ async function runAction(action: string, row: Row) {
       }
     }
     if (action === 'cancelAppointment') await appointmentApi.cancelAppointment(Number(row.appointmentId || row.id))
-    if (action === 'invoice') await billingApi.createInvoiceFromAppointment(await invoicePayload(row))
+    if (action === 'invoice') {
+      try {
+        await billingApi.createInvoiceFromAppointment(await invoicePayload(row))
+      } catch (invoiceError) {
+        localClinicalStore.saveInvoiceFromAppointment({ ...row.raw, ...row })
+        note.value = `N3 chua tao duoc hoa don that (${getApiErrorMessage(invoiceError)}). Da ghi tam hoa don de benh nhan va admin xem ngay.`
+      }
+    }
     if (action === 'start') await appointmentApi.setQueueInProgress(id)
     if (action === 'done') await appointmentApi.setQueueDone(id)
     if (action === 'cancelQueue') await appointmentApi.cancelQueueItem(id)
     if (action === 'pay') await billingApi.payInvoice(Number(row.id), toNumber(row.amountValue))
     if (action === 'dispense') await dispenseMedicine(row)
-    note.value = 'Đã cập nhật trạng thái thành công.'
+    if (!note.value) note.value = 'Đã cập nhật trạng thái thành công.'
     await loadData()
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError)
@@ -485,6 +499,16 @@ function summarizeMedicine(item: Prescription) {
   const first = item.items[0]
   const name = first.medicineNameSnapshot || first.medicineName || `Thuốc #${first.medicineId || ''}`
   return item.items.length > 1 ? `${name} +${item.items.length - 1}` : name
+}
+
+function uniqueRows(items: Row[]) {
+  const seen = new Set<string>()
+  return items.filter((item, index) => {
+    const key = String(item.id || item.appointmentId || index)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 function formatCurrency(value: number) {

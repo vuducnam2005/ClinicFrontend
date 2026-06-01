@@ -61,6 +61,7 @@ import { billingApi } from '@/services/billingApi'
 import { medicalRecordApi } from '@/services/medicalRecordApi'
 import { medicineApi } from '@/services/medicineApi'
 import { getApiErrorMessage } from '@/services/apiClient'
+import { localClinicalStore } from '@/services/localClinicalStore'
 import { fallbackAppointments, fallbackDoctors, fallbackSpecialties } from '@/services/fallbackData'
 import { RoleId } from '@/types/user'
 import type { Appointment } from '@/types/appointment'
@@ -133,8 +134,16 @@ async function loadData() {
     if (key.value === 'patients') rows.value = mapList(await medicalRecordApi.getPatients(), fallbackPatients, mapPatient)
     if (key.value === 'appointments') rows.value = mapList(await appointmentApi.getAppointments(), fallbackAppointments, mapAppointment)
     if (key.value === 'medicines') rows.value = mapList(await medicineApi.getMedicines(), fallbackMedicines, mapMedicine)
-    if (key.value === 'prescriptions') rows.value = mapList(await medicalRecordApi.getMedicalRecords(), fallbackRecords, mapPrescription)
-    if (key.value === 'bills') rows.value = mapList(await billingApi.getInvoices(), fallbackInvoices, mapInvoice)
+    if (key.value === 'prescriptions') {
+      const remoteRows = (await medicalRecordApi.getMedicalRecords().catch(() => [])).map(mapPrescription)
+      rows.value = uniqueRows([...remoteRows, ...localClinicalStore.getMedicalRecords().map(mapPrescription)])
+      if (!rows.value.length) rows.value = fallbackRecords.map(mapPrescription)
+    }
+    if (key.value === 'bills') {
+      const remoteRows = (await billingApi.getInvoices().catch(() => [])).map(mapInvoice)
+      rows.value = uniqueRows([...remoteRows, ...localClinicalStore.getInvoices().map(mapInvoice)])
+      if (!rows.value.length) rows.value = fallbackInvoices.map(mapInvoice)
+    }
     if (key.value === 'accounts') rows.value = mapList(await authApi.getUsers(), fallbackAccounts, mapUser)
     if (key.value === 'reports') rows.value = await loadReports()
     note.value = 'Đã tải dữ liệu. Nếu API rỗng hoặc lỗi, frontend dùng fallback an toàn.'
@@ -155,7 +164,7 @@ function medicinePayload() { return { medicineName: form.medicineName, dosageFor
 
 function actions(row: Row) { const a: Array<{key: Action; label: string; className: string}> = []; const st = String(row.status || '').toLowerCase(); if (['doctors','specialties','schedules','medicines'].includes(key.value)) a.push(btn('edit','Sửa','bg-slate-100 text-slate-700 hover:bg-slate-200'), btn('delete','Xóa','bg-rose-50 text-rose-700 hover:bg-rose-100')); if (key.value === 'appointments') { if (st.includes('pending')) a.push(btn('confirm','Xác nhận','bg-teal-600 text-white hover:bg-teal-700')); if (!st.includes('cancel') && !st.includes('completed')) a.push(btn('invoice','Tạo HĐ','bg-blue-600 text-white hover:bg-blue-700'), btn('cancel','Hủy','bg-rose-50 text-rose-700 hover:bg-rose-100')); if (st.includes('confirmed') || st.includes('inprogress')) a.push(btn('complete','Hoàn tất','bg-indigo-600 text-white hover:bg-indigo-700')) } if (key.value === 'bills' && !st.includes('paid')) a.push(btn('pay','Thu tiền','bg-teal-600 text-white hover:bg-teal-700')); return a }
 function btn(key: Action, label: string, className: string) { return { key, label, className } }
-async function runAction(action: Action, row: Row) { if (action === 'edit') return openForm(row); actingId.value = row.id; error.value = ''; try { const id = Number(row.id); if (action === 'delete') await deleteRow(id); if (action === 'confirm') await appointmentApi.confirmAppointment(id); if (action === 'cancel') await appointmentApi.cancelAppointment(id); if (action === 'complete') await appointmentApi.completeAppointmentSafely(id, String(row.raw?.appointmentDate || row.appointmentDate || '')); if (action === 'invoice') { await billingApi.createInvoiceFromAppointment(await invoicePayload(row)); note.value = 'Đã gửi yêu cầu tạo hóa đơn sang N3.' } if (action === 'pay') { await billingApi.payInvoice(id, row.amountValue); note.value = 'Đã gửi yêu cầu thanh toán sang N3.' } await loadData() } catch(e) { error.value = getApiErrorMessage(e) } finally { actingId.value = null } }
+async function runAction(action: Action, row: Row) { if (action === 'edit') return openForm(row); actingId.value = row.id; error.value = ''; try { const id = Number(row.id); if (action === 'delete') await deleteRow(id); if (action === 'confirm') await appointmentApi.confirmAppointment(id); if (action === 'cancel') await appointmentApi.cancelAppointment(id); if (action === 'complete') await appointmentApi.completeAppointmentSafely(id, String(row.raw?.appointmentDate || row.appointmentDate || '')); if (action === 'invoice') { try { await billingApi.createInvoiceFromAppointment(await invoicePayload(row)); note.value = 'Đã gửi yêu cầu tạo hóa đơn sang N3.' } catch (invoiceError) { localClinicalStore.saveInvoiceFromAppointment({ ...row.raw, ...row }); note.value = `N3 chua tao duoc hoa don that (${getApiErrorMessage(invoiceError)}). Da ghi tam hoa don de benh nhan, y ta va admin xem ngay.` } } if (action === 'pay') { await billingApi.payInvoice(id, row.amountValue); note.value = 'Đã gửi yêu cầu thanh toán sang N3.' } await loadData() } catch(e) { error.value = getApiErrorMessage(e) } finally { actingId.value = null } }
 async function deleteRow(id: number) { if (key.value === 'doctors') await appointmentApi.deleteDoctor(id); if (key.value === 'specialties') await appointmentApi.deleteSpecialty(id); if (key.value === 'schedules') await appointmentApi.deleteDoctorSchedule(id); if (key.value === 'medicines') await medicineApi.deleteMedicine(id) }
 async function invoicePayload(row: Row) { const doctorId = toNumber(row.doctorId, row.raw?.doctorId, row.raw?.DoctorId); let examFee = toNumber(row.feeValue, row.raw?.examFee, row.raw?.ExamFee, row.raw?.doctor?.examFee, row.raw?.Doctor?.ExamFee); if (!examFee && doctorId) examFee = toNumber((await appointmentApi.getDoctor(doctorId).catch(() => null))?.examFee); return { ...row.raw, appointmentId: Number(row.id || row.appointmentId), patientId: toNumber(row.patientId, row.raw?.patientId, row.raw?.PatientId), doctorId, examFee } }
 
@@ -173,6 +182,7 @@ function cols(...xs: [string, string, boolean?, boolean?, boolean?][]): Column[]
 function value(v: unknown) { return v === undefined || v === null || v === '' ? 'Chưa cập nhật' : String(v) }
 function toNumber(...values: unknown[]) { for (const value of values) { const numberValue = Number(value); if (Number.isFinite(numberValue) && numberValue > 0) return numberValue } return 0 }
 function invoiceAmount(item: Record<string, any>) { return toNumber(item.amount, item.Amount, item.totalAmount, item.TotalAmount, item.examinationFee, item.ExaminationFee, item.examFee, item.ExamFee) }
+function uniqueRows(items: Row[]) { const seen = new Set<string>(); return items.filter((item, index) => { const rowKey = String(item.id || item.appointmentId || index); if (seen.has(rowKey)) return false; seen.add(rowKey); return true }) }
 function statusClass(v: unknown) { const s = String(v || '').toLowerCase(); if (s.includes('đang') || s.includes('paid') || s.includes('confirmed') || s.includes('completed') || s.includes('đủ')) return 'bg-teal-100 text-teal-700'; if (s.includes('pending') || s.includes('unpaid') || s.includes('chờ') || s.includes('tồn thấp')) return 'bg-amber-100 text-amber-700'; if (s.includes('cancel') || s.includes('hết') || s.includes('tạm')) return 'bg-rose-100 text-rose-700'; return 'bg-slate-100 text-slate-700' }
 function money(v: number) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(v || 0)) }
 function date(v?: string) { if (!v) return 'Chưa cập nhật'; const d = new Date(v); return Number.isNaN(d.getTime()) ? v : new Intl.DateTimeFormat('vi-VN').format(d) }

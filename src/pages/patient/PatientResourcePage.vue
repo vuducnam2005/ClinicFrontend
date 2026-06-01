@@ -122,6 +122,7 @@ import { appointmentApi } from '@/services/appointmentApi'
 import { billingApi } from '@/services/billingApi'
 import { medicalRecordApi } from '@/services/medicalRecordApi'
 import { getApiErrorMessage } from '@/services/apiClient'
+import { localClinicalStore } from '@/services/localClinicalStore'
 import type { Appointment } from '@/types/appointment'
 import type { Invoice, Prescription } from '@/types/billing'
 import type { MedicalRecord, Patient } from '@/types/medicalRecord'
@@ -242,17 +243,20 @@ async function loadData() {
     }
     
     if (resource.value === 'records') {
-      rows.value = uniqueRows((await Promise.all(keys.map((key) => loadRows(() => medicalRecordApi.getMedicalRecords(key), mapRecord, '')))).flat())
+      const remoteRows = (await Promise.all(keys.map((key) => loadRows(() => medicalRecordApi.getMedicalRecords(key), mapRecord, '')))).flat()
+      rows.value = uniqueRows([...remoteRows, ...localClinicalStore.getMedicalRecords(keys).map(mapRecord)])
       note.value = rows.value.length ? 'Đã tải hồ sơ bệnh án từ N2.' : 'Database chưa có dữ liệu cho bệnh nhân này.'
     }
 
     if (resource.value === 'prescriptions') {
-      rows.value = uniqueRows((await Promise.all(keys.map((key) => loadRows(() => billingApi.getPrescriptions(key), mapPrescription, '')))).flat())
+      const remoteRows = (await Promise.all(keys.map((key) => loadRows(() => billingApi.getPrescriptions(key), mapPrescription, '')))).flat()
+      rows.value = uniqueRows([...remoteRows, ...localClinicalStore.getPrescriptions(keys).map(mapPrescription)])
       note.value = rows.value.length ? 'Đã tải đơn thuốc từ N3.' : 'Database chưa có dữ liệu cho bệnh nhân này.'
     }
 
     if (resource.value === 'bills') {
-      rows.value = uniqueRows((await Promise.all(keys.map((key) => loadRows(() => billingApi.getInvoices(key), mapInvoice, '')))).flat())
+      const remoteRows = (await Promise.all(keys.map((key) => loadRows(() => billingApi.getInvoices(key), mapInvoice, '')))).flat()
+      rows.value = uniqueRows([...remoteRows, ...localClinicalStore.getInvoices(keys).map(mapInvoice)])
       note.value = rows.value.length ? 'Đã tải viện phí từ N3.' : 'Database chưa có dữ liệu cho bệnh nhân này.'
     }
 

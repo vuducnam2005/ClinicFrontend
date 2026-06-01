@@ -53,6 +53,14 @@
             <div>
               <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Tóm tắt lịch khám</p>
               <h2 class="mt-2 text-lg font-bold text-slate-950">{{ displayText(doctor?.doctorName) || 'Chưa chọn bác sĩ' }}</h2>
+              <button
+                v-if="doctor"
+                type="button"
+                class="mt-2 text-sm font-semibold text-[#0F52BA] transition hover:text-[#003c90]"
+                @click="doctorDetailOpen = true"
+              >
+                Xem hồ sơ bác sĩ
+              </button>
             </div>
             <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[#0F52BA]">
               <Stethoscope class="h-5 w-5" />
@@ -96,6 +104,7 @@
       :type="toast.type"
       @close="toast.show = false"
     />
+    <DoctorDetailModal :doctor="doctorDetailOpen ? doctor || null : null" @close="doctorDetailOpen = false" />
   </section>
 </template>
 
@@ -104,6 +113,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { CalendarCheck, Search, Stethoscope } from 'lucide-vue-next'
 import AppointmentForm from '@/components/booking/AppointmentForm.vue'
+import DoctorDetailModal from '@/components/booking/DoctorDetailModal.vue'
 import SlotPicker from '@/components/booking/SlotPicker.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
@@ -130,6 +140,7 @@ const loadingSlots = ref(false)
 const loadingCatalog = ref(false)
 const submitting = ref(false)
 const apiMessage = ref('')
+const doctorDetailOpen = ref(false)
 const today = new Date().toISOString().slice(0, 10)
 const toast = reactive({
   show: false,
