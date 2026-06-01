@@ -82,7 +82,6 @@ import BaseInput from '@/components/ui/BaseInput.vue'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
 import { appointmentApi } from '@/services/appointmentApi'
 import { getApiErrorMessage } from '@/services/apiClient'
-import { fallbackAppointments } from '@/services/fallbackData'
 import type { Appointment } from '@/types/appointment'
 import { displayText } from '@/utils/displayText'
 
@@ -99,8 +98,8 @@ async function loadAppointments() {
  try {
  appointments.value = await appointmentApi.getAppointmentsByPatient(Number(patientId.value))
  } catch (apiError) {
- error.value = `${getApiErrorMessage(apiError)}. Đang hiển thị dữ liệu mẫu để trang không bị trống.`
- appointments.value = fallbackAppointments
+ error.value = getApiErrorMessage(apiError)
+ appointments.value = []
  } finally {
  loading.value = false
  }

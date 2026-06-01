@@ -43,7 +43,7 @@ const emit = defineEmits<{
 }>()
 
 const form = reactive({
-  patientId: props.initialPatientId ? String(props.initialPatientId) : '1',
+  patientId: props.initialPatientId ? String(props.initialPatientId) : '',
   patientNameSnapshot: props.initialPatientName || '',
   patientPhoneSnapshot: props.initialPatientPhone || '',
   reason: '',
@@ -52,7 +52,7 @@ const form = reactive({
 watch(
   () => [props.initialPatientId, props.initialPatientName, props.initialPatientPhone],
   ([patientId, patientName, patientPhone]) => {
-    form.patientId = patientId ? String(patientId) : '1'
+    form.patientId = patientId ? String(patientId) : ''
     if (patientName && !form.patientNameSnapshot) form.patientNameSnapshot = String(patientName)
     if (patientPhone && !form.patientPhoneSnapshot) form.patientPhoneSnapshot = String(patientPhone)
   },

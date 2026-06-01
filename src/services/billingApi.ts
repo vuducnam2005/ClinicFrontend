@@ -1,5 +1,5 @@
 import { createServiceClient, readApiResponse } from '@/services/apiClient'
-import type { Invoice } from '@/types/billing'
+import type { Invoice, Prescription } from '@/types/billing'
 
 const client = createServiceClient('billing')
 
@@ -9,8 +9,26 @@ export const billingApi = {
     return response.data
   },
   async getInvoices(patientId?: number) {
-    const response = await client.get('/api/billing/invoices', { params: { patientId } })
-    return readApiResponse<Invoice[]>(response.data)
+    try {
+      const response = patientId
+        ? await client.get(`/api/invoices/patient/${patientId}`)
+        : await client.get('/api/invoices')
+      return readApiResponse<Invoice[]>(response.data)
+    } catch (error: any) {
+      if (error?.response?.status === 404 || error?.response?.status === 403) return []
+      throw error
+    }
+  },
+  async getPrescriptions(patientId?: number) {
+    try {
+      const response = patientId
+        ? await client.get(`/api/prescriptions/patient/${patientId}`)
+        : await client.get('/api/prescriptions')
+      return readApiResponse<Prescription[]>(response.data)
+    } catch (error: any) {
+      if (error?.response?.status === 404 || error?.response?.status === 403) return []
+      throw error
+    }
   },
   async getAppointmentBillingInfo(appointmentId: number) {
     const response = await client.get(`/api/integration/appointments/${appointmentId}/billing-info`)
@@ -23,16 +41,16 @@ export const billingApi = {
     [key: string]: any
   }) {
     // In real N3, this maps to creating a manual bill or utilizing integration queues
-    const response = await client.post('/api/Bills/create-manual', {
+    const response = await client.post('/api/invoices', {
       appointmentId: billingInfo.appointmentId,
       patientId: billingInfo.patientId,
-      amount: billingInfo.examFee,
-      status: 'Unpaid'
+      examinationFee: billingInfo.examFee,
+      prescriptionId: billingInfo.prescriptionId || 1,
     })
     return readApiResponse<Invoice>(response.data)
   },
   async payInvoice(invoiceId: number) {
-    const response = await client.post(`/api/Bills/${invoiceId}/pay`)
+    const response = await client.post(`/api/invoices/${invoiceId}/pay`, { paymentMethod: 'Cash' })
     return readApiResponse<Invoice>(response.data)
   }
 }

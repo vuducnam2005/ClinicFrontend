@@ -1,5 +1,7 @@
 export interface Patient {
   patientId: string
+  id?: number | string
+  patientCode?: string
   fullName: string
   phone?: string
   phoneNumber?: string

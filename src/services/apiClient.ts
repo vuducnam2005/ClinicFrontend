@@ -10,6 +10,11 @@ const defaultUrls: Record<ServiceName, string> = {
   billing: 'https://api.hwpresents.site/pharmacy',
 }
 const defaultGatewayUrl = 'https://api.hwpresents.site'
+const gatewayPrefixes: Record<ServiceName, string> = {
+  appointment: '/appointment',
+  medicalRecord: '/medical',
+  billing: '/pharmacy',
+}
 
 function resolveRuntimeUrl(value: string | undefined, fallback: string) {
   if (!value) return fallback
@@ -29,9 +34,13 @@ export const apiConfig = {
   urls,
 }
 
+function joinUrl(baseUrl: string, path: string) {
+  return `${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
+}
+
 export function createServiceClient(service: ServiceName): AxiosInstance {
   const client = axios.create({
-    baseURL: useGateway ? apiConfig.gatewayUrl : urls[service],
+    baseURL: useGateway ? joinUrl(apiConfig.gatewayUrl, gatewayPrefixes[service]) : urls[service],
     timeout: 9000,
     headers: {
       'Content-Type': 'application/json',

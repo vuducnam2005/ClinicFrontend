@@ -5,32 +5,32 @@ const client = createServiceClient('billing') // N3 manages medicines and billin
 
 export const medicineApi = {
   async getMedicines() {
-    const response = await client.get('/api/Medicines')
+    const response = await client.get('/api/medicines')
     return readApiResponse<Medicine[]>(response.data)
   },
 
   async getMedicineById(medicineId: number) {
-    const response = await client.get(`/api/Medicines/${medicineId}`)
+    const response = await client.get(`/api/medicines/${medicineId}`)
     return readApiResponse<Medicine>(response.data)
   },
 
   async createMedicine(payload: Omit<Medicine, 'medicineId'>) {
-    const response = await client.post('/api/Medicines', payload)
+    const response = await client.post('/api/medicines', payload)
     return readApiResponse<Medicine>(response.data)
   },
 
   async updateMedicine(medicineId: number, payload: Partial<Medicine>) {
-    const response = await client.put(`/api/Medicines/${medicineId}`, payload)
+    const response = await client.put(`/api/medicines/${medicineId}`, payload)
     return readApiResponse<Medicine>(response.data)
   },
 
   async updateStock(medicineId: number, quantity: number) {
-    const response = await client.post(`/api/Medicines/${medicineId}/stock`, { quantity })
+    const response = await client.post('/api/inventory/adjust', { medicineId, newQuantity: quantity, reason: 'Frontend stock update' })
     return readApiResponse<Medicine>(response.data)
   },
 
   async deleteMedicine(medicineId: number) {
-    const response = await client.delete(`/api/Medicines/${medicineId}`)
+    const response = await client.delete(`/api/medicines/${medicineId}`)
     return readApiResponse<void>(response.data)
   },
 }

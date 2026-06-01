@@ -15,18 +15,8 @@
       </button>
 
       <RouterLink to="/" class="flex h-20 items-center px-3" :class="sidebarCollapsed ? 'justify-center px-0' : ''">
-        <img
-          v-if="sidebarCollapsed"
-          :src="relIconUrl"
-          alt="MedicareDNU"
-          class="h-11 w-11 rounded-xl object-contain"
-        />
-        <img
-          v-else
-          :src="logoUrl"
-          alt="MedicareDNU"
-          class="h-16 w-full object-contain"
-        />
+        <img v-if="sidebarCollapsed" :src="relIconUrl" alt="MedicareDNU" class="h-11 w-11 rounded-xl object-contain" />
+        <img v-else :src="logoUrl" alt="MedicareDNU" class="h-16 w-full object-contain" />
       </RouterLink>
 
       <nav class="flex-1 space-y-5 overflow-y-auto px-4 pb-5 pt-4">
@@ -147,7 +137,7 @@
         </aside>
       </div>
 
-      <main class="flex-1 overflow-y-auto">
+      <main ref="mainRef" class="flex-1 overflow-y-auto">
         <div class="mx-auto min-h-screen max-w-[1360px] px-4 py-5 sm:px-5 lg:px-6">
           <RouterView />
         </div>
@@ -157,7 +147,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Bell,
@@ -189,6 +179,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const mobileMenuOpen = ref(false)
 const sidebarCollapsed = ref(false)
+const mainRef = ref<HTMLElement | null>(null)
 
 const displayName = computed(() => authStore.user?.fullName || authStore.user?.username || 'Người dùng')
 const initials = computed(() => displayName.value.trim().charAt(0).toUpperCase() || 'U')
@@ -199,6 +190,13 @@ const roleName = computed(() => {
   if (authStore.isPatient) return 'Bệnh nhân'
   return 'Clinical Portal'
 })
+
+watch(
+  () => route.fullPath,
+  () => {
+    requestAnimationFrame(() => mainRef.value?.scrollTo({ top: 0, behavior: 'auto' }))
+  },
+)
 
 function isActive(to: string) {
   return route.path === to || route.path.startsWith(`${to}/`)

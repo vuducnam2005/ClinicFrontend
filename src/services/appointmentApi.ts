@@ -97,8 +97,13 @@ export const appointmentApi = {
     return readApiResponse<Appointment[]>(response.data)
   },
   async getAppointmentsByPatient(patientId: number) {
-    const response = await client.get(`/api/appointments/patient/${patientId}`)
-    return readApiResponse<Appointment[]>(response.data)
+    try {
+      const response = await client.get(`/api/appointments/patient/${patientId}`)
+      return readApiResponse<Appointment[]>(response.data)
+    } catch (error: any) {
+      if (error?.response?.status === 404) return []
+      throw error
+    }
   },
   async getAppointmentsByDoctor(doctorId: number) {
     const response = await client.get(`/api/appointments/doctor/${doctorId}`)

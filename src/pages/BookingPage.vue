@@ -1,90 +1,108 @@
 <template>
- <section class="bg-slate-50 py-12">
- <div class="container-page">
- <div class="grid gap-8 lg:grid-cols-[0.82fr_1.18fr]">
- <aside class="rounded-2xl bg-slate-950 p-6 text-white shadow-soft sm:p-8">
- <p class="text-sm font-semibold text-cyan-200">Đặt lịch khám</p>
- <h1 class="mt-3 text-3xl font-semibold sm:text-4xl">Chọn bác sĩ, giờ khám và xác nhận thông tin</h1>
- <p class="mt-4 text-slate-300">
- Form này gọi POST /api/appointments. Nếu endpoint slot chưa có, frontend tự hiển thị slot dự phòng.
- </p>
- <div class="mt-8 space-y-4">
- <div v-for="item in highlights" :key="item" class="flex items-center gap-3 text-sm text-slate-200">
- <CheckCircle2 class="h-5 w-5 text-teal-300" />
- {{ item }}
- </div>
- </div>
- </aside>
+  <section class="space-y-6">
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <div class="grid gap-6 xl:grid-cols-[0.9fr_1.1fr] xl:items-center">
+        <div>
+          <p class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[#0F52BA]">
+            <CalendarCheck class="h-4 w-4" />
+            Đặt lịch khám
+          </p>
+          <h1 class="mt-4 text-3xl font-bold leading-tight tracking-normal text-slate-950">
+            Chọn chuyên khoa, bác sĩ và khung giờ phù hợp
+          </h1>
+          <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+            Dữ liệu bác sĩ, chuyên khoa và lịch trống được đọc từ N1 Appointment Service qua API Gateway.
+          </p>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-3">
+          <div v-for="item in summary" :key="item.label" class="rounded-xl border border-slate-100 bg-slate-50 p-4">
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">{{ item.label }}</p>
+            <p class="mt-2 text-2xl font-bold text-slate-950">{{ item.value }}</p>
+            <p class="mt-1 text-sm text-slate-500">{{ item.note }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
 
- <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft sm:p-6">
- <div class="grid gap-4 sm:grid-cols-2">
- <BaseSelect v-model="selectedSpecialty" label="Chuyên khoa" :options="specialtyOptions" placeholder="Chọn chuyên khoa" />
- <BaseSelect v-model="selectedDoctor" label="Bác sĩ" :options="doctorOptions" placeholder="Chọn bác sĩ" required />
- <BaseInput v-model="selectedDate" label="Ngày khám" type="date" :min="today" />
- <div class="flex items-end">
- <BaseButton class="w-full" size="lg" :loading="loadingSlots" :disabled="!selectedDoctor || !selectedDate" @click="findSlots">
- <template #icon><Search class="h-4 w-4" /></template>
- Tìm giờ trống
- </BaseButton>
- </div>
- </div>
+    <div class="grid gap-6 xl:grid-cols-[1fr_420px]">
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div class="grid gap-4 md:grid-cols-2">
+          <BaseSelect v-model="selectedSpecialty" label="Chuyên khoa" :options="specialtyOptions" placeholder="Chọn chuyên khoa" />
+          <BaseSelect v-model="selectedDoctor" label="Bác sĩ" :options="doctorOptions" placeholder="Chọn bác sĩ" required />
+          <BaseInput v-model="selectedDate" label="Ngày khám" type="date" :min="today" />
+          <div class="flex items-end">
+            <BaseButton class="w-full" size="lg" :loading="loadingSlots" :disabled="!selectedDoctor || !selectedDate" @click="findSlots">
+              <template #icon><Search class="h-4 w-4" /></template>
+              Kiểm tra lịch trống
+            </BaseButton>
+          </div>
+        </div>
 
- <div class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
- <SlotPicker v-model="selectedSlot" :slots="slots" :loading="loadingSlots" />
- </div>
+        <div class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <SlotPicker v-model="selectedSlot" :slots="slots" :loading="loadingSlots" />
+        </div>
 
- <div class="mt-6 grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
- <div class="rounded-xl border border-slate-200 p-4">
- <p class="text-sm font-semibold text-slate-950">Thông tin lịch khám</p>
- <dl class="mt-4 space-y-3 text-sm">
- <div>
- <dt class="text-slate-500">Bác sĩ</dt>
- <dd class="mt-1 font-semibold text-slate-900">{{ displayText(doctor?.doctorName) || 'Chưa chọn' }}</dd>
- </div>
- <div>
- <dt class="text-slate-500">Chuyên khoa</dt>
- <dd class="mt-1 font-semibold text-slate-900">{{ displayText(doctor?.specialtyName) || 'Chưa chọn' }}</dd>
- </div>
- <div>
- <dt class="text-slate-500">Ngày giờ</dt>
- <dd class="mt-1 font-semibold text-slate-900">{{ selectedDate || 'Chưa chọn' }} - {{ selectedSlot || 'Chưa chọn' }}</dd>
- </div>
- <div>
- <dt class="text-slate-500">Phí khám</dt>
- <dd class="mt-1 font-semibold text-slate-900">{{ formatCurrency(doctor?.examFee || 0) }}</dd>
- </div>
- </dl>
- </div>
+        <div v-if="apiMessage" class="mt-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-[#003c90]">
+          {{ apiMessage }}
+        </div>
+      </div>
 
- <AppointmentForm
-:doctorId="doctor?.doctorId || 0"
-:appointmentDate="selectedDate"
-:slotTime="selectedSlot"
-:loading="submitting"
-:initialPatientId="bookingPatientId"
-:initialPatientName="bookingPatientName"
-:initialPatientPhone="bookingPatientPhone"
- @submit="submitBooking"
- />
- </div>
- </div>
- </div>
- </div>
+      <aside class="space-y-6">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Tóm tắt lịch khám</p>
+              <h2 class="mt-2 text-lg font-bold text-slate-950">{{ displayText(doctor?.doctorName) || 'Chưa chọn bác sĩ' }}</h2>
+            </div>
+            <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[#0F52BA]">
+              <Stethoscope class="h-5 w-5" />
+            </span>
+          </div>
+          <dl class="mt-5 space-y-4 text-sm">
+            <div class="rounded-xl bg-slate-50 p-3">
+              <dt class="text-slate-500">Chuyên khoa</dt>
+              <dd class="mt-1 font-bold text-slate-950">{{ displayText(doctor?.specialtyName) || 'Chưa chọn' }}</dd>
+            </div>
+            <div class="rounded-xl bg-slate-50 p-3">
+              <dt class="text-slate-500">Ngày giờ</dt>
+              <dd class="mt-1 font-bold text-slate-950">{{ selectedDate || 'Chưa chọn' }} - {{ selectedSlot || 'Chưa chọn' }}</dd>
+            </div>
+            <div class="rounded-xl bg-slate-50 p-3">
+              <dt class="text-slate-500">Phí khám</dt>
+              <dd class="mt-1 font-bold text-[#003c90]">{{ formatCurrency(doctor?.examFee || 0) }}</dd>
+            </div>
+          </dl>
+        </div>
 
- <Toast
-:show="toast.show"
-:title="toast.title"
-:message="toast.message"
-:type="toast.type"
- @close="toast.show = false"
- />
- </section>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <AppointmentForm
+            :doctorId="doctor?.doctorId || 0"
+            :appointmentDate="selectedDate"
+            :slotTime="selectedSlot"
+            :loading="submitting"
+            :initialPatientId="bookingPatientId"
+            :initialPatientName="bookingPatientName"
+            :initialPatientPhone="bookingPatientPhone"
+            @submit="submitBooking"
+          />
+        </div>
+      </aside>
+    </div>
+
+    <Toast
+      :show="toast.show"
+      :title="toast.title"
+      :message="toast.message"
+      :type="toast.type"
+      @close="toast.show = false"
+    />
+  </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { CheckCircle2, Search } from 'lucide-vue-next'
+import { CalendarCheck, Search, Stethoscope } from 'lucide-vue-next'
 import AppointmentForm from '@/components/booking/AppointmentForm.vue'
 import SlotPicker from '@/components/booking/SlotPicker.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -94,7 +112,6 @@ import Toast from '@/components/ui/Toast.vue'
 import { appointmentApi } from '@/services/appointmentApi'
 import { useAuthStore } from '@/stores/authStore'
 import { getApiErrorMessage } from '@/services/apiClient'
-import { fallbackDoctors, fallbackSlots, fallbackSpecialties } from '@/services/fallbackData'
 import type { CreateAppointmentRequest } from '@/types/appointment'
 import type { Doctor } from '@/types/doctor'
 import type { Specialty } from '@/types/specialty'
@@ -110,113 +127,128 @@ const selectedDate = ref(new Date().toISOString().slice(0, 10))
 const selectedSlot = ref('')
 const slots = ref<string[]>([])
 const loadingSlots = ref(false)
+const loadingCatalog = ref(false)
 const submitting = ref(false)
+const apiMessage = ref('')
 const today = new Date().toISOString().slice(0, 10)
 const toast = reactive({
- show: false,
- title: '',
- message: '',
- type: 'success' as 'success' | 'error',
+  show: false,
+  title: '',
+  message: '',
+  type: 'success' as 'success' | 'error',
 })
 
-const highlights = [
- 'Tự động lọc bác sĩ theo chuyên khoa',
- 'Lấy slot trống theo ngày khám',
- 'Dữ liệu dự phòng nếu API chưa hoàn thiện',
-]
+const summary = computed(() => [
+  { label: 'Chuyên khoa', value: specialties.value.length, note: 'Đang hoạt động' },
+  { label: 'Bác sĩ', value: doctors.value.length, note: 'Có thể đặt lịch' },
+  { label: 'Slot trống', value: slots.value.length, note: selectedDoctor.value ? 'Theo ngày đã chọn' : 'Chọn bác sĩ trước' },
+])
 
 const specialtyOptions = computed(() =>
- specialties.value.map((specialty) => ({ label: displayText(specialty.specialtyName), value: specialty.specialtyId })),
+  specialties.value.map((specialty) => ({ label: displayText(specialty.specialtyName), value: specialty.specialtyId })),
 )
 
 const filteredDoctors = computed(() =>
- selectedSpecialty.value
- ? doctors.value.filter((doctor) => doctor.specialtyId === Number(selectedSpecialty.value))
- : doctors.value,
+  selectedSpecialty.value
+    ? doctors.value.filter((doctor) => doctor.specialtyId === Number(selectedSpecialty.value))
+    : doctors.value,
 )
 
 const doctorOptions = computed(() =>
- filteredDoctors.value.map((doctor) => ({
- label: `${displayText(doctor.doctorName)} - ${displayText(doctor.specialtyName)}`,
- value: doctor.doctorId,
- })),
+  filteredDoctors.value.map((doctor) => ({
+    label: `${displayText(doctor.doctorName)} - ${displayText(doctor.specialtyName)}`,
+    value: doctor.doctorId,
+  })),
 )
 
 const doctor = computed(() => doctors.value.find((item) => item.doctorId === Number(selectedDoctor.value)))
-const bookingPatientId = computed(() => authStore.isPatient ? authStore.user?.patientId : undefined)
+const bookingPatientId = computed(() => authStore.isPatient ? authStore.user?.patientId || authStore.user?.id : undefined)
 const bookingPatientName = computed(() => authStore.isPatient ? authStore.user?.fullName : '')
 const bookingPatientPhone = computed(() => authStore.isPatient ? authStore.user?.phoneNumber : '')
 
 watch(selectedSpecialty, () => {
- if (selectedDoctor.value && !filteredDoctors.value.some((item) => item.doctorId === Number(selectedDoctor.value))) {
- selectedDoctor.value = ''
- }
- selectedSlot.value = ''
- slots.value = []
+  if (selectedDoctor.value && !filteredDoctors.value.some((item) => item.doctorId === Number(selectedDoctor.value))) {
+    selectedDoctor.value = ''
+  }
+  selectedSlot.value = ''
+  slots.value = []
 })
 
-onMounted(async () => {
- try {
- const [doctorData, specialtyData] = await Promise.all([
- appointmentApi.getDoctors(),
- appointmentApi.getSpecialties(),
- ])
- doctors.value = doctorData.length ? doctorData : fallbackDoctors
- specialties.value = specialtyData.length ? specialtyData : fallbackSpecialties
- } catch {
- doctors.value = fallbackDoctors
- specialties.value = fallbackSpecialties
- }
-
- const queryDoctorId = Number(route.query.doctorId)
- if (queryDoctorId) {
- const queryDoctor = doctors.value.find((item) => item.doctorId === queryDoctorId)
- if (queryDoctor) {
- selectedDoctor.value = String(queryDoctor.doctorId)
- selectedSpecialty.value = String(queryDoctor.specialtyId)
- }
- }
+watch([selectedDoctor, selectedDate], () => {
+  selectedSlot.value = ''
+  slots.value = []
+  apiMessage.value = ''
 })
+
+onMounted(loadCatalog)
+
+async function loadCatalog() {
+  loadingCatalog.value = true
+  apiMessage.value = ''
+  try {
+    const [doctorData, specialtyData] = await Promise.all([
+      appointmentApi.getDoctors(),
+      appointmentApi.getSpecialties(),
+    ])
+    doctors.value = doctorData
+    specialties.value = specialtyData
+    if (!doctorData.length || !specialtyData.length) {
+      apiMessage.value = 'Database chưa có đủ bác sĩ hoặc chuyên khoa để đặt lịch.'
+    }
+  } catch (error) {
+    doctors.value = []
+    specialties.value = []
+    apiMessage.value = getApiErrorMessage(error)
+  } finally {
+    loadingCatalog.value = false
+  }
+
+  const queryDoctorId = Number(route.query.doctorId)
+  if (queryDoctorId) {
+    const queryDoctor = doctors.value.find((item) => item.doctorId === queryDoctorId)
+    if (queryDoctor) {
+      selectedDoctor.value = String(queryDoctor.doctorId)
+      selectedSpecialty.value = String(queryDoctor.specialtyId)
+    }
+  }
+}
 
 async function findSlots() {
- if (!selectedDoctor.value || !selectedDate.value) return
- loadingSlots.value = true
- selectedSlot.value = ''
- try {
- const data = await appointmentApi.getAvailableSlots(Number(selectedDoctor.value), selectedDate.value)
- slots.value = data.length ? data : fallbackSlots
- if (!data.length) {
- toast.title = 'Đang dùng giờ khám dự phòng'
- toast.message = 'API slot trả rỗng, frontend hiển thị khung giờ mẫu để bạn tiếp tục test đặt lịch.'
- toast.type = 'success'
- toast.show = true
- }
- } catch {
- slots.value = fallbackSlots
- } finally {
- loadingSlots.value = false
- }
+  if (!selectedDoctor.value || !selectedDate.value) return
+  loadingSlots.value = true
+  selectedSlot.value = ''
+  apiMessage.value = ''
+  try {
+    const data = await appointmentApi.getAvailableSlots(Number(selectedDoctor.value), selectedDate.value)
+    slots.value = data
+    if (!data.length) apiMessage.value = 'Không có giờ trống trong database cho bác sĩ và ngày đã chọn.'
+  } catch (error) {
+    slots.value = []
+    apiMessage.value = getApiErrorMessage(error)
+  } finally {
+    loadingSlots.value = false
+  }
 }
 
 async function submitBooking(payload: CreateAppointmentRequest) {
- submitting.value = true
- try {
- const appointment = await appointmentApi.createAppointment(payload)
- toast.title = 'Đặt lịch thành công'
- toast.message = `Mã lịch hẹn: ${appointment.appointmentId || 'đang cập nhật'}`
- toast.type = 'success'
- toast.show = true
- } catch (error) {
- toast.title = 'Chưa thể đặt lịch'
- toast.message = getApiErrorMessage(error)
- toast.type = 'error'
- toast.show = true
- } finally {
- submitting.value = false
- }
+  submitting.value = true
+  try {
+    const appointment = await appointmentApi.createAppointment(payload)
+    toast.title = 'Đặt lịch thành công'
+    toast.message = `Mã lịch hẹn: ${appointment.appointmentId || 'đang cập nhật'}`
+    toast.type = 'success'
+    toast.show = true
+  } catch (error) {
+    toast.title = 'Chưa thể đặt lịch'
+    toast.message = getApiErrorMessage(error)
+    toast.type = 'error'
+    toast.show = true
+  } finally {
+    submitting.value = false
+  }
 }
 
 function formatCurrency(value: number) {
- return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
 }
 </script>
