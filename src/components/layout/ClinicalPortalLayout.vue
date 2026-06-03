@@ -138,7 +138,7 @@
       </div>
 
       <main ref="mainRef" class="flex-1 overflow-y-auto">
-        <div class="mx-auto min-h-screen max-w-[1360px] px-4 py-5 sm:px-5 lg:px-6">
+        <div class="mx-auto min-h-screen max-w-[1600px] px-4 py-5 sm:px-5 lg:px-6">
           <RouterView />
         </div>
       </main>

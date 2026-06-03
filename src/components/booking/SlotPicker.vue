@@ -9,18 +9,15 @@
       <span v-for="item in 5" :key="item" class="h-10 animate-pulse rounded-lg bg-slate-100"></span>
     </div>
 
-    <div v-else-if="slots.length" class="grid grid-cols-3 gap-2 sm:grid-cols-5">
+    <div v-else-if="displaySlots.length" class="grid grid-cols-3 gap-2 sm:grid-cols-5">
       <button
-        v-for="slot in slots"
+        v-for="slot in displaySlots"
         :key="slot"
-        class="h-10 rounded-lg border text-sm font-semibold transition"
-       :class="
-          modelValue === slot
-            ? 'border-[#0F52BA] bg-[#0F52BA] text-white shadow-card'
-            : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50'
-        "
+        class="h-10 rounded-lg border text-sm font-semibold transition disabled:cursor-not-allowed"
+        :class="slotClass(slot)"
+        :disabled="!isAvailable(slot)"
         type="button"
-        @click="$emit('update:modelValue', slot)"
+        @click="selectSlot(slot)"
       >
         {{ slot }}
       </button>
@@ -33,19 +30,52 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(
+import { computed } from 'vue'
+
+const props = withDefaults(
   defineProps<{
     slots: string[]
+    allSlots?: string[]
+    bookedSlots?: string[]
     modelValue?: string
     loading?: boolean
   }>(),
   {
+    allSlots: () => [],
+    bookedSlots: () => [],
     modelValue: '',
     loading: false,
   },
 )
 
-defineEmits<{
+const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
+
+const availableSet = computed(() => new Set(props.slots.map(normalizeSlot)))
+const bookedSet = computed(() => new Set(props.bookedSlots.map(normalizeSlot)))
+const displaySlots = computed(() => {
+  const source = props.allSlots.length ? props.allSlots : props.slots
+  return Array.from(new Set(source.map(normalizeSlot).filter(Boolean))).sort((a, b) => a.localeCompare(b))
+})
+
+function normalizeSlot(slot: string) {
+  return String(slot || '').slice(0, 5)
+}
+
+function isAvailable(slot: string) {
+  const value = normalizeSlot(slot)
+  return availableSet.value.has(value) && !bookedSet.value.has(value)
+}
+
+function slotClass(slot: string) {
+  if (!isAvailable(slot)) return 'border-slate-200 bg-slate-100 text-slate-400 opacity-80'
+  if (props.modelValue === slot) return 'border-[#0F52BA] bg-[#0F52BA] text-white shadow-card'
+  return 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50'
+}
+
+function selectSlot(slot: string) {
+  if (!isAvailable(slot)) return
+  emit('update:modelValue', slot)
+}
 </script>

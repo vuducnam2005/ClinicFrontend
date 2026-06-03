@@ -32,8 +32,62 @@
       <div v-if="filteredRows.length" class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-100 text-sm">
           <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"><tr><th v-for="col in config.columns" :key="col.key" :class="['px-5 py-3', col.right ? 'text-right' : 'text-left']">{{ col.label }}</th><th v-if="hasActions" class="px-5 py-3 text-right">Thao tác</th></tr></thead>
-          <tbody class="divide-y divide-slate-100"><tr v-for="row in filteredRows" :key="String(row.id)" class="hover:bg-slate-50"><td v-for="col in config.columns" :key="col.key" :class="['px-5 py-4 align-top', col.right ? 'text-right' : 'text-left']"><span v-if="col.badge" :class="['rounded-full px-2.5 py-1 text-xs font-semibold', statusClass(row[col.key])]">{{ value(row[col.key]) }}</span><span v-else :class="col.strong ? 'font-semibold text-slate-950' : 'text-slate-700'">{{ value(row[col.key]) }}</span></td><td v-if="hasActions" class="px-5 py-4 text-right"><div class="flex flex-wrap justify-end gap-2"><button v-for="action in actions(row)" :key="action.key" type="button" :disabled="actingId === row.id" :class="['rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60', action.className]" @click="runAction(action.key, row)">{{ action.label }}</button></div></td></tr></tbody>
+          <tbody class="divide-y divide-slate-100"><tr v-for="row in paginatedRows" :key="String(row.id)" class="hover:bg-slate-50"><td v-for="col in config.columns" :key="col.key" :class="['px-5 py-4 align-top', col.right ? 'text-right' : 'text-left']"><span v-if="col.badge" :class="['rounded-full px-2.5 py-1 text-xs font-semibold', statusClass(row[col.key])]">{{ value(row[col.key]) }}</span><span v-else :class="col.strong ? 'font-semibold text-slate-950' : 'text-slate-700'">{{ value(row[col.key]) }}</span></td><td v-if="hasActions" class="px-5 py-4 text-right"><div class="flex flex-wrap justify-end gap-2"><button v-for="action in actions(row)" :key="action.key" type="button" :disabled="actingId === row.id" :class="['rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60', action.className]" @click="runAction(action.key, row)">{{ action.label }}</button></div></td></tr></tbody>
         </table>
+
+        <!-- Pagination Footer -->
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 p-4 bg-slate-50/50">
+          <div class="flex items-center gap-2 text-sm text-slate-500">
+            <span>Hiển thị</span>
+            <select
+              v-model="itemsPerPage"
+              class="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+            >
+              <option :value="10">10</option>
+              <option :value="20">20</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+            </select>
+            <span>bản ghi mỗi trang</span>
+          </div>
+
+          <div class="text-sm font-medium text-slate-500">
+            Hiển thị {{ Math.min(filteredRows.length, (currentPage - 1) * itemsPerPage + 1) }} - {{ Math.min(filteredRows.length, currentPage * itemsPerPage) }} trên {{ filteredRows.length }} kết quả
+          </div>
+
+          <div v-if="totalPages > 1" class="flex items-center gap-1.5">
+            <button
+              type="button"
+              :disabled="currentPage === 1"
+              class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-500"
+              @click="currentPage--"
+            >
+              <ChevronLeft class="h-4 w-4" />
+            </button>
+            <button
+              v-for="page in totalPages"
+              :key="page"
+              type="button"
+              :class="[
+                'h-8 min-w-8 rounded-lg text-sm font-bold transition px-2',
+                currentPage === page
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+              ]"
+              @click="currentPage = page"
+            >
+              {{ page }}
+            </button>
+            <button
+              type="button"
+              :disabled="currentPage === totalPages"
+              class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-500"
+              @click="currentPage++"
+            >
+              <ChevronRight class="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </div>
       <div v-else class="p-10 text-center"><SearchX class="mx-auto h-10 w-10 text-slate-400" /><h2 class="mt-4 text-lg font-semibold text-slate-950">Chưa có dữ liệu</h2><p class="mt-2 text-sm text-slate-500">Service có thể chưa có dữ liệu hoặc endpoint chưa sẵn sàng.</p></div>
     </div>
@@ -50,7 +104,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch, type Component } from 'vue'
 import { useRoute } from 'vue-router'
-import { CalendarDays, ClipboardList, CreditCard, FileHeart, Pill, Plus, RefreshCw, Search, SearchX, Settings, Stethoscope, UserCog, UserRound } from 'lucide-vue-next'
+import { CalendarDays, ChevronLeft, ChevronRight, ClipboardList, CreditCard, FileHeart, Pill, Plus, RefreshCw, Search, SearchX, Settings, Stethoscope, UserCog, UserRound } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSelect, { type SelectOption } from '@/components/ui/BaseSelect.vue'
@@ -98,6 +152,22 @@ const filteredRows = computed(() => {
   const q = query.value.trim().toLowerCase()
   if (!q) return rows.value
   return rows.value.filter((row) => Object.values(row).some((v) => String(v ?? '').toLowerCase().includes(q)))
+})
+
+// Pagination
+const currentPage = ref(1)
+const itemsPerPage = ref(10)
+
+watch([key, query], () => {
+  currentPage.value = 1
+})
+
+const totalPages = computed(() => Math.ceil(filteredRows.value.length / itemsPerPage.value))
+
+const paginatedRows = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  const end = start + itemsPerPage.value
+  return filteredRows.value.slice(start, end)
 })
 const canCreate = computed(() => ['doctors', 'specialties', 'schedules', 'patients', 'medicines', 'accounts'].includes(key.value))
 const hasActions = computed(() => ['doctors', 'specialties', 'schedules', 'appointments', 'medicines', 'bills'].includes(key.value))

@@ -108,6 +108,10 @@ function formatCurrency(value: number) {
 async function createBooking(payload: CreateAppointmentRequest) {
   submitting.value = true
   try {
+    const latestSlots = await appointmentApi.getAvailableSlots(payload.doctorId, payload.appointmentDate)
+    if (!latestSlots.map((slot) => slot.slice(0, 5)).includes(payload.slotTime.slice(0, 5))) {
+      throw new Error('Khung giờ này vừa được người khác đặt. Vui lòng chọn giờ khác.')
+    }
     const appointment = await appointmentApi.createAppointment(payload)
     toast.title = 'Đặt lịch thành công'
     toast.message = `Mã lịch hẹn: ${appointment.appointmentId || 'đang cập nhật'}`

@@ -34,7 +34,7 @@
 
           <form class="mt-7 space-y-4" novalidate @submit.prevent="submitRegister">
             <label class="block">
-              <span class="mb-2 block text-sm font-medium text-slate-800">Họ và tên</span>
+              <span class="mb-2 block text-sm font-medium text-slate-800">Họ và tên <span class="text-red-500">*</span></span>
               <span class="flex h-12 items-center rounded-lg border border-slate-300 bg-slate-50 px-4 transition focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100">
                 <UserRound class="h-5 w-5 shrink-0 text-slate-500" />
                 <input
@@ -51,7 +51,7 @@
 
             <div class="grid gap-4 sm:grid-cols-2">
               <label class="block">
-                <span class="mb-2 block text-sm font-medium text-slate-800">Tên đăng nhập</span>
+                <span class="mb-2 block text-sm font-medium text-slate-800">Tên đăng nhập <span class="text-red-500">*</span></span>
                 <span class="flex h-12 items-center rounded-lg border border-slate-300 bg-slate-50 px-4 transition focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100">
                   <UserRound class="h-5 w-5 shrink-0 text-slate-500" />
                   <input
@@ -82,7 +82,7 @@
             </div>
 
             <label class="block">
-              <span class="mb-2 block text-sm font-medium text-slate-800">Email</span>
+              <span class="mb-2 block text-sm font-medium text-slate-800">Email <span class="text-red-500">*</span></span>
               <span class="flex h-12 items-center rounded-lg border border-slate-300 bg-slate-50 px-4 transition focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100">
                 <Mail class="h-5 w-5 shrink-0 text-slate-500" />
                 <input
@@ -99,7 +99,7 @@
 
             <div class="grid gap-4 sm:grid-cols-2">
               <label class="block">
-                <span class="mb-2 block text-sm font-medium text-slate-800">Mật khẩu</span>
+                <span class="mb-2 block text-sm font-medium text-slate-800">Mật khẩu <span class="text-red-500">*</span></span>
                 <span class="flex h-12 items-center rounded-lg border border-slate-300 bg-slate-50 px-4 transition focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100">
                   <LockKeyhole class="h-5 w-5 shrink-0 text-slate-500" />
                   <input
@@ -116,7 +116,7 @@
               </label>
 
               <label class="block">
-                <span class="mb-2 block text-sm font-medium text-slate-800">Xác nhận mật khẩu</span>
+                <span class="mb-2 block text-sm font-medium text-slate-800">Xác nhận mật khẩu <span class="text-red-500">*</span></span>
                 <span class="flex h-12 items-center rounded-lg border border-slate-300 bg-slate-50 px-4 transition focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100">
                   <ShieldCheck class="h-5 w-5 shrink-0 text-slate-500" />
                   <input
@@ -194,6 +194,7 @@ const toast = reactive({
   type: 'success' as 'success' | 'error',
 })
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const phonePattern = /^(0|\+84)(\d[\s.-]?){8,10}$/
 
 function showValidationError(message: string) {
   toast.title = 'Thông tin chưa hợp lệ'
@@ -221,8 +222,16 @@ async function submitRegister() {
     showValidationError('Tên đăng nhập là bắt buộc')
     return
   }
+  if (username.length < 3) {
+    showValidationError('Tên đăng nhập phải có ít nhất 3 ký tự')
+    return
+  }
   if (username.length > 50) {
     showValidationError('Tên đăng nhập không được vượt quá 50 ký tự')
+    return
+  }
+  if (registerData.phoneNumber.trim() && !phonePattern.test(registerData.phoneNumber.trim())) {
+    showValidationError('Số điện thoại không đúng định dạng')
     return
   }
   if (!email) {

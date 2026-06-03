@@ -1,20 +1,16 @@
 <template>
   <section class="space-y-6">
-    <div class="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-card sm:p-7">
-      <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex gap-4">
-          <span :class="['flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl', config.iconClass]">
-            <component :is="config.icon" class="h-6 w-6" />
-          </span>
-          <div>
-            <p class="text-sm font-bold uppercase tracking-[0.18em] text-blue-700">{{ config.service }}</p>
-            <h1 class="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">{{ config.title }}</h1>
-            <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{{ config.description }}</p>
-            <div class="mt-4 flex flex-wrap gap-2">
-              <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Bác sĩ: {{ authStore.user?.fullName || 'Chưa xác định' }}</span>
-              <span v-if="authStore.user?.doctorId" class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">DoctorId #{{ authStore.user.doctorId }}</span>
-              <span class="rounded-full bg-slate-100 px-3 py-1 font-mono text-xs font-semibold text-slate-600">{{ config.endpoint }}</span>
-            </div>
+    <div class="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">{{ config.service }}</p>
+          <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-950">{{ config.title }}</h1>
+          <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{{ config.description }}</p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+              Bác sĩ: {{ authStore.user?.fullName || 'Chưa xác định' }}
+            </span>
+            <span class="rounded-full bg-blue-50 px-3 py-1 font-mono text-xs font-semibold text-blue-700">{{ config.endpoint }}</span>
           </div>
         </div>
         <BaseButton variant="outline" :disabled="loading" @click="loadData">
@@ -35,11 +31,11 @@
     <div v-if="note" class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">{{ note }}</div>
     <div v-if="error" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{{ error }}</div>
 
-    <div v-if="loading" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <LoadingSkeleton v-for="item in 4" :key="item" />
+    <div v-if="loading" class="grid gap-4 md:grid-cols-3">
+      <LoadingSkeleton v-for="item in 3" :key="item" />
     </div>
 
-    <div v-else class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+    <div v-else class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div class="grid gap-3 border-b border-slate-100 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
         <label class="relative block">
           <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -56,14 +52,16 @@
         <table class="min-w-full divide-y divide-slate-100 text-sm">
           <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
-              <th v-for="column in config.columns" :key="column.key" :class="['px-5 py-3', column.right ? 'text-right' : 'text-left']">{{ column.label }}</th>
+              <th v-for="column in config.columns" :key="column.key" class="px-5 py-3">{{ column.label }}</th>
               <th v-if="hasActions" class="px-5 py-3 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="(row, index) in filteredRows" :key="String(row.id || index)" class="transition hover:bg-slate-50">
-              <td v-for="column in config.columns" :key="column.key" :class="['px-5 py-4 align-top', column.right ? 'text-right' : 'text-left']">
-                <span v-if="column.badge" :class="['rounded-full px-2.5 py-1 text-xs font-semibold', statusClass(value(row, column.key))]">{{ statusText(value(row, column.key)) }}</span>
+            <tr v-for="row in paginatedRows" :key="String(row.id)" class="transition hover:bg-slate-50">
+              <td v-for="column in config.columns" :key="column.key" class="px-5 py-4 align-top">
+                <span v-if="column.badge" :class="['rounded-full px-2.5 py-1 text-xs font-semibold', statusClass(row[column.key])]">
+                  {{ statusText(row[column.key]) }}
+                </span>
                 <span v-else :class="column.strong ? 'font-semibold text-slate-950' : 'text-slate-700'">{{ value(row, column.key) }}</span>
               </td>
               <td v-if="hasActions" class="px-5 py-4 text-right">
@@ -83,6 +81,60 @@
             </tr>
           </tbody>
         </table>
+
+        <!-- Pagination Footer -->
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 p-4 bg-slate-50/50">
+          <div class="flex items-center gap-2 text-sm text-slate-500">
+            <span>Hiển thị</span>
+            <select
+              v-model="itemsPerPage"
+              class="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            >
+              <option :value="10">10</option>
+              <option :value="20">20</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+            </select>
+            <span>bản ghi mỗi trang</span>
+          </div>
+
+          <div class="text-sm font-medium text-slate-500">
+            Hiển thị {{ Math.min(filteredRows.length, (currentPage - 1) * itemsPerPage + 1) }} - {{ Math.min(filteredRows.length, currentPage * itemsPerPage) }} trên {{ filteredRows.length }} kết quả
+          </div>
+
+          <div v-if="totalPages > 1" class="flex items-center gap-1.5">
+            <button
+              type="button"
+              :disabled="currentPage === 1"
+              class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-500"
+              @click="currentPage--"
+            >
+              <ChevronLeft class="h-4 w-4" />
+            </button>
+            <button
+              v-for="page in totalPages"
+              :key="page"
+              type="button"
+              :class="[
+                'h-8 min-w-8 rounded-lg text-sm font-bold transition px-2',
+                currentPage === page
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+              ]"
+              @click="currentPage = page"
+            >
+              {{ page }}
+            </button>
+            <button
+              type="button"
+              :disabled="currentPage === totalPages"
+              class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-500"
+              @click="currentPage++"
+            >
+              <ChevronRight class="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
       <div v-else class="p-10 text-center">
@@ -93,12 +145,12 @@
     </div>
 
     <div v-if="examineOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div class="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-[1.5rem] bg-white p-6 shadow-2xl">
+      <div class="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[1.5rem] bg-white p-6 shadow-2xl">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <p class="text-sm font-bold uppercase tracking-[0.18em] text-blue-700">N2 Medical Record</p>
-            <h2 class="mt-1 text-2xl font-bold text-slate-950">Phiếu khám bệnh</h2>
-            <p class="mt-2 text-sm text-slate-500">Tạo bệnh án từ lượt khám N2 tương ứng với lịch hẹn N1, sau đó hoàn tất lịch hẹn.</p>
+            <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">N2 Medical Record</p>
+            <h2 class="mt-1 text-2xl font-bold text-slate-950">Chi tiết lượt khám</h2>
+            <p class="mt-2 text-sm text-slate-500">Bắt đầu khám, lưu bệnh án, tạo chỉ định và kê đơn qua N2.</p>
           </div>
           <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" aria-label="Đóng" @click="closeExamine">
             <X class="h-5 w-5" />
@@ -106,186 +158,167 @@
         </div>
 
         <div class="mt-5 grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600 sm:grid-cols-2">
-          <p><strong class="text-slate-900">Bệnh nhân:</strong> {{ selectedRow?.patientName }}</p>
-          <p><strong class="text-slate-900">Lịch hẹn:</strong> #{{ selectedRow?.appointmentId || selectedRow?.id }}</p>
-          <p><strong class="text-slate-900">Thời gian:</strong> {{ selectedRow?.dateTime }}</p>
-          <p><strong class="text-slate-900">Lý do:</strong> {{ selectedRow?.reason || 'Chưa ghi nhận' }}</p>
+          <p><strong class="text-slate-900">Bệnh nhân:</strong> {{ activeVisit?.patientName || selectedRow?.patientName }}</p>
+          <p><strong class="text-slate-900">Visit:</strong> #{{ activeVisit?.visitId || selectedRow?.visitId }}</p>
+          <p><strong class="text-slate-900">Lịch hẹn:</strong> #{{ activeVisit?.appointmentId || selectedRow?.appointmentId || 'Không gắn lịch' }}</p>
+          <p><strong class="text-slate-900">Trạng thái:</strong> {{ statusText(activeVisit?.status || selectedRow?.status) }}</p>
+          <p class="sm:col-span-2"><strong class="text-slate-900">Lý do khám:</strong> {{ activeVisit?.chiefComplaint || selectedRow?.reason || 'Chưa ghi nhận' }}</p>
         </div>
 
-        <form class="mt-5 space-y-4" @submit.prevent="submitExamination">
-          <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Triệu chứng</span>
-            <textarea v-model="examForm.symptoms" rows="3" required class="form-textarea" placeholder="Ví dụ: sốt, ho, đau ngực..."></textarea>
-          </label>
-          <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Chẩn đoán</span>
-            <textarea v-model="examForm.diagnosis" rows="3" required class="form-textarea" placeholder="Chẩn đoán sơ bộ hoặc kết luận khám"></textarea>
-          </label>
-          <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Ghi chú điều trị</span>
-            <textarea v-model="examForm.doctorNotes" rows="4" class="form-textarea" placeholder="Hướng điều trị, dặn dò, chỉ định liên quan"></textarea>
-          </label>
-          <div class="grid gap-4 sm:grid-cols-2">
-            <BaseInput v-model="examForm.recheckDate" label="Ngày tái khám" type="date" />
-          </div>
+        <form class="mt-5 space-y-5" @submit.prevent="submitExamination">
+          <section class="rounded-2xl border border-slate-200 p-4">
+            <h3 class="text-base font-bold text-slate-950">1. Bắt đầu khám</h3>
+            <div class="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              <label class="block">
+                <span class="mb-2 block text-sm font-medium text-slate-700">Lý do khám <span class="text-rose-600">*</span></span>
+                <input v-model="examForm.chiefComplaint" type="text" class="form-input" placeholder="VD: đau mắt, sốt, khó thở..." />
+              </label>
+              <BaseButton type="button" variant="outline" :loading="savingExam" @click="startVisit">
+                Bắt đầu lượt khám
+              </BaseButton>
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-slate-200 p-4">
+            <h3 class="text-base font-bold text-slate-950">2. Bệnh án</h3>
+            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+              <label class="block sm:col-span-2">
+                <span class="mb-2 block text-sm font-medium text-slate-700">Triệu chứng</span>
+                <textarea v-model="examForm.symptoms" rows="3" class="form-textarea" placeholder="Ghi nhận triệu chứng lâm sàng"></textarea>
+              </label>
+              <BaseInput v-model="examForm.diagnosisCode" label="Mã ICD" placeholder="VD: H10" />
+              <BaseInput v-model="examForm.recheckDate" label="Ngày tái khám" type="date" />
+              <label class="block sm:col-span-2">
+                <span class="mb-2 block text-sm font-medium text-slate-700">Chẩn đoán <span class="text-rose-600">*</span></span>
+                <textarea v-model="examForm.diagnosis" rows="3" class="form-textarea" placeholder="Chẩn đoán hoặc kết luận khám"></textarea>
+              </label>
+              <label class="block sm:col-span-2">
+                <span class="mb-2 block text-sm font-medium text-slate-700">Ghi chú bác sĩ</span>
+                <textarea v-model="examForm.doctorNote" rows="3" class="form-textarea"></textarea>
+              </label>
+              <label class="block sm:col-span-2">
+                <span class="mb-2 block text-sm font-medium text-slate-700">Hướng điều trị</span>
+                <textarea v-model="examForm.treatmentPlan" rows="3" class="form-textarea"></textarea>
+              </label>
+            </div>
+            <div class="mt-4 flex justify-end">
+              <BaseButton type="button" variant="outline" :loading="savingExam" @click="saveMedicalRecord">Lưu bệnh án</BaseButton>
+            </div>
+          </section>
+
+          <section class="rounded-2xl border border-slate-200 p-4">
+            <h3 class="text-base font-bold text-slate-950">3. Chỉ định lâm sàng</h3>
+            <div class="mt-3 grid gap-3 md:grid-cols-[160px_1fr_1fr_auto] md:items-end">
+              <BaseSelect v-model="orderForm.orderType" label="Loại" :options="orderTypeOptions" />
+              <BaseInput v-model="orderForm.orderName" label="Tên chỉ định" placeholder="VD: X-quang phổi" />
+              <BaseInput v-model="orderForm.reason" label="Lý do" placeholder="Lý do chỉ định" />
+              <BaseButton type="button" variant="outline" :loading="savingExam" @click="addClinicalOrder">Thêm</BaseButton>
+            </div>
+            <div v-if="clinicalOrders.length" class="mt-3 flex flex-wrap gap-2">
+              <span v-for="order in clinicalOrders" :key="String(order.clinicalOrderId || order.id || order.orderCode)" class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                {{ order.orderType || order.OrderType }} - {{ order.orderName || order.OrderName }}
+              </span>
+            </div>
+          </section>
+
           <section class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div class="flex items-center gap-2">
                   <Pill class="h-5 w-5 text-blue-700" />
-                  <h3 class="text-base font-bold text-slate-950">Kê đơn thuốc</h3>
+                  <h3 class="text-base font-bold text-slate-950">4. Kê đơn thuốc</h3>
                 </div>
-                <p class="mt-1 text-sm text-slate-500">Chọn nhóm thuốc rồi chọn nhiều thuốc cần kê cho bệnh nhân.</p>
+                <p class="mt-1 text-sm text-slate-500">Danh mục thuốc được lấy qua N2 `/medical/api/v1/medical/medicines`.</p>
               </div>
-              <span class="rounded-full bg-white px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-100">
-                {{ prescriptionItems.length }} thuốc đã chọn
-              </span>
+              <span class="rounded-full bg-white px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-100">{{ prescriptionItems.length }} thuốc đã chọn</span>
             </div>
 
             <div v-if="medicineError" class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ medicineError }}</div>
-
-            <div class="mt-4 flex flex-wrap gap-2">
-              <button
-                v-for="category in medicineCategories"
-                :key="category"
-                type="button"
-                :class="[
-                  'rounded-full px-3 py-2 text-xs font-bold transition',
-                  selectedMedicineType === category
-                    ? 'bg-blue-700 text-white shadow-sm'
-                    : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-blue-50 hover:text-blue-700'
-                ]"
-                @click="selectedMedicineType = category"
-              >
-                {{ category }}
-              </button>
-            </div>
-
             <div v-if="medicineLoading" class="mt-4 rounded-xl bg-white px-4 py-3 text-sm text-slate-500 ring-1 ring-slate-200">Đang tải danh mục thuốc...</div>
-            <div v-else-if="filteredMedicines.length" class="mt-4 grid gap-3 md:grid-cols-2">
+            <div v-else class="mt-4 grid gap-3 md:grid-cols-2">
               <button
-                v-for="medicine in filteredMedicines"
+                v-for="medicine in medicines"
                 :key="medicineId(medicine)"
                 type="button"
                 :disabled="medicineStock(medicine) <= 0"
                 :class="[
-                  'flex min-h-[112px] items-start gap-3 rounded-xl border bg-white p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50',
-                  isMedicineSelected(medicineId(medicine))
-                    ? 'border-blue-500 ring-4 ring-blue-100'
-                    : 'border-slate-200 hover:border-blue-200 hover:bg-blue-50/40'
+                  'flex min-h-[92px] items-start gap-3 rounded-xl border bg-white p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50',
+                  isMedicineSelected(medicineId(medicine)) ? 'border-blue-500 ring-4 ring-blue-100' : 'border-slate-200 hover:border-blue-200'
                 ]"
                 @click="toggleMedicine(medicine)"
               >
-                <span
-                  :class="[
-                    'mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded border',
-                    isMedicineSelected(medicineId(medicine)) ? 'border-blue-700 bg-blue-700 text-white' : 'border-slate-300 bg-white'
-                  ]"
-                >
-                  <Check v-if="isMedicineSelected(medicineId(medicine))" class="h-3.5 w-3.5" />
-                </span>
                 <span class="min-w-0 flex-1">
                   <span class="block font-bold text-slate-950">{{ medicineName(medicine) }}</span>
-                  <span class="mt-1 block text-xs font-semibold text-blue-700">{{ medicineType(medicine) }}</span>
-                  <span class="mt-2 block text-xs leading-5 text-slate-500">
-                    Hoạt chất: {{ medicineIngredient(medicine) || 'Chưa cập nhật' }} · Tồn: {{ medicineStock(medicine) }} {{ medicineUnit(medicine) }}
-                  </span>
+                  <span class="mt-1 block text-xs leading-5 text-slate-500">Tồn: {{ medicineStock(medicine) }} {{ medicineUnit(medicine) }}</span>
                 </span>
               </button>
             </div>
-            <div v-else class="mt-4 rounded-xl bg-white px-4 py-3 text-sm text-slate-500 ring-1 ring-slate-200">Không có thuốc trong nhóm này.</div>
 
-            <div v-if="selectedMedicineItems.length" class="mt-5 space-y-3">
-              <div
-                v-for="{ item, medicine } in selectedMedicineItems"
-                :key="item.medicineId"
-                class="rounded-xl border border-slate-200 bg-white p-4"
-              >
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p class="font-bold text-slate-950">{{ medicine ? medicineName(medicine) : `Thuốc #${item.medicineId}` }}</p>
-                    <p class="mt-1 text-xs font-semibold text-slate-500">{{ medicine ? medicineType(medicine) : 'Chưa phân loại' }}</p>
-                  </div>
-                  <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-rose-600 transition hover:bg-rose-50" aria-label="Bỏ thuốc" @click="removeMedicine(item.medicineId)">
+            <div v-if="prescriptionItems.length" class="mt-5 space-y-3">
+              <div v-for="item in prescriptionItems" :key="item.medicineId" class="rounded-xl border border-slate-200 bg-white p-4">
+                <div class="flex items-start justify-between gap-3">
+                  <p class="font-bold text-slate-950">{{ item.medicineNameSnapshot }}</p>
+                  <button type="button" class="text-rose-600" @click="removeMedicine(item.medicineId)">
                     <Trash2 class="h-4 w-4" />
                   </button>
                 </div>
-                <div class="mt-3 grid gap-3 sm:grid-cols-[110px_1fr_1fr]">
-                  <label class="block">
-                    <span class="mb-1 block text-xs font-semibold text-slate-500">Số lượng</span>
-                    <input v-model.number="item.quantity" min="1" type="number" class="form-input" />
-                  </label>
-                  <label class="block">
-                    <span class="mb-1 block text-xs font-semibold text-slate-500">Liều dùng</span>
-                    <input v-model="item.dosage" type="text" class="form-input" placeholder="VD: 1 viên/lần, ngày 2 lần" />
-                  </label>
-                  <label class="block">
-                    <span class="mb-1 block text-xs font-semibold text-slate-500">Cách dùng</span>
-                    <input v-model="item.usageInstruction" type="text" class="form-input" placeholder="VD: Uống sau ăn" />
-                  </label>
+                <div class="mt-3 grid gap-3 md:grid-cols-5">
+                  <BaseInput v-model.number="item.quantity" label="SL" type="number" min="1" />
+                  <BaseInput v-model="item.dosage" label="Liều dùng" placeholder="1 viên/lần" />
+                  <BaseInput v-model="item.frequency" label="Tần suất" placeholder="2 lần/ngày" />
+                  <BaseInput v-model.number="item.durationDays" label="Số ngày" type="number" min="1" />
+                  <BaseInput v-model="item.usageInstruction" label="Cách dùng" placeholder="Sau ăn" />
                 </div>
               </div>
             </div>
           </section>
+
           <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <BaseButton type="button" variant="outline" @click="closeExamine">Đóng</BaseButton>
             <BaseButton type="submit" :loading="savingExam">
               <template #icon><FileHeart class="h-4 w-4" /></template>
-              Lưu bệnh án & hoàn tất khám
+              Lưu, chốt đơn & hoàn tất
             </BaseButton>
           </div>
         </form>
       </div>
     </div>
+
+    <Toast
+      :show="toast.show"
+      :title="toast.title"
+      :message="toast.message"
+      :type="toast.type"
+      @close="toast.show = false"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch, type Component } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { CalendarClock, Check, ClipboardList, FileHeart, Pill, RefreshCw, Search, SearchX, Stethoscope, Trash2, Users, X } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, FileHeart, Pill, RefreshCw, Search, SearchX, Trash2, X } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
+import Toast from '@/components/ui/Toast.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { getApiErrorMessage } from '@/services/apiClient'
 import { appointmentApi } from '@/services/appointmentApi'
-import { billingApi } from '@/services/billingApi'
-import { medicalRecordApi } from '@/services/medicalRecordApi'
-import { medicineApi } from '@/services/medicineApi'
-import { localClinicalStore } from '@/services/localClinicalStore'
+import { medicalRecordApi, type MedicalVisit, type PrescriptionItemPayload } from '@/services/medicalRecordApi'
 import { currentDoctorId, filterAppointmentsForDoctor, filterQueueForDoctor, filterRecordsForDoctor, filterSchedulesForDoctor } from '@/utils/doctorScope'
 import type { Appointment, WaitingQueueItem } from '@/types/appointment'
 import type { DoctorSchedule } from '@/types/doctor'
-import type { Medicine } from '@/types/medicine'
 import type { MedicalRecord } from '@/types/medicalRecord'
+import type { Medicine } from '@/types/medicine'
 import { displayText } from '@/utils/displayText'
 
 type Resource = 'queue' | 'appointments' | 'examine' | 'records' | 'schedule'
-type ActionKey = 'start' | 'done' | 'cancel' | 'confirm' | 'complete' | 'examine'
-type Row = Record<string, string | number | undefined>
-type MedicineRecord = Medicine & Record<string, any>
+type ActionKey = 'examine'
+type Row = Record<string, any>
 
-interface PrescriptionDraft {
-  medicineId: number
-  quantity: number
-  dosage: string
-  usageInstruction: string
-}
-
-interface Column { key: string; label: string; right?: boolean; badge?: boolean; strong?: boolean }
-interface Config {
-  title: string
-  service: string
-  description: string
-  endpoint: string
-  icon: Component
-  iconClass: string
-  search: string[]
-  placeholder: string
-  emptyText: string
-  columns: Column[]
-}
+interface Column { key: string; label: string; badge?: boolean; strong?: boolean }
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -295,20 +328,47 @@ const note = ref('')
 const query = ref('')
 const actingId = ref<string | number | null>(null)
 const rows = ref<Row[]>([])
-const resource = computed<Resource>(() => isResource(route.meta.doctorResource) ? route.meta.doctorResource : 'appointments')
+const toast = reactive({ show: false, title: '', message: '', type: 'success' as 'success' | 'error' })
+const resource = computed<Resource>(() => isResource(route.meta.doctorResource) ? route.meta.doctorResource : 'queue')
 const config = computed(() => configs[resource.value])
+const hasActions = computed(() => ['queue', 'examine'].includes(resource.value))
 const today = new Date().toISOString().slice(0, 10)
-const hasActions = computed(() => ['queue', 'appointments', 'examine'].includes(resource.value))
+
 const examineOpen = ref(false)
 const savingExam = ref(false)
 const selectedRow = ref<Row | null>(null)
-const examForm = reactive({ symptoms: '', diagnosis: '', doctorNotes: '', recheckDate: '' })
-const medicines = ref<MedicineRecord[]>([])
+const activeVisit = ref<MedicalVisit | null>(null)
+const activeRecord = ref<MedicalRecord | null>(null)
+const clinicalOrders = ref<Array<Record<string, any>>>([])
+const medicines = ref<Array<Medicine & Record<string, any>>>([])
 const medicineLoading = ref(false)
 const medicineError = ref('')
-const allMedicineTypes = 'Tất cả'
-const selectedMedicineType = ref(allMedicineTypes)
-const prescriptionItems = ref<PrescriptionDraft[]>([])
+
+const examForm = reactive({
+  chiefComplaint: '',
+  symptoms: '',
+  diagnosisCode: '',
+  diagnosis: '',
+  doctorNote: '',
+  treatmentPlan: '',
+  recheckDate: '',
+})
+const orderForm = reactive({ orderType: 'XetNghiem', orderName: '', reason: '' })
+const prescriptionItems = ref<PrescriptionItemPayload[]>([])
+const orderTypeOptions = [
+  { label: 'Xét nghiệm', value: 'XetNghiem' },
+  { label: 'Siêu âm', value: 'SieuAm' },
+  { label: 'X-quang', value: 'XQuang' },
+  { label: 'Khác', value: 'Khac' },
+]
+
+const configs: Record<Resource, { title: string; service: string; description: string; endpoint: string; search: string[]; placeholder: string; emptyText: string; columns: Column[] }> = {
+  queue: cfg('Hàng đợi khám', 'N2 Visits', 'Danh sách lượt khám hôm nay đã được N1/Nurse check-in và đồng bộ sang N2.', 'GET /medical/api/v1/medical/visits/today', ['patientName', 'doctorName', 'status', 'reason'], 'Tìm bệnh nhân, bác sĩ, trạng thái...', 'N2 chưa có lượt khám hôm nay.', cols(['id', 'Mã'], ['patientName', 'Bệnh nhân', false, true], ['doctorName', 'Bác sĩ'], ['dateTime', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
+  appointments: cfg('Lịch hẹn hôm nay', 'N1 Appointment', 'Xem lịch hẹn theo bác sĩ. Bác sĩ không tự tạo lượt khám N2 từ màn này.', 'GET /appointment/api/appointments/doctor/{doctorId}', ['patientName', 'doctorName', 'status', 'reason'], 'Tìm lịch hẹn...', 'Chưa có lịch hẹn.', cols(['id', 'Mã'], ['patientName', 'Bệnh nhân', false, true], ['dateTime', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
+  examine: cfg('Khám & kê đơn', 'N2 Clinical Flow', 'Mở lượt khám đã check-in, ghi bệnh án, chỉ định, kê đơn và hoàn tất lượt khám.', 'N2 visit -> record -> prescription', ['patientName', 'doctorName', 'status', 'reason'], 'Tìm bệnh nhân cần khám...', 'Không có lượt khám phù hợp.', cols(['id', 'Visit'], ['patientName', 'Bệnh nhân', false, true], ['doctorName', 'Bác sĩ'], ['dateTime', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
+  records: cfg('Lịch sử bệnh án', 'N2 Medical Record', 'Tra cứu bệnh án đã lưu theo bác sĩ đang đăng nhập.', 'GET /medical/api/v1/medical/patients/{id}/history', ['id', 'patientId', 'diagnosis', 'doctorNotes'], 'Tìm mã bệnh án, chẩn đoán...', 'N2 chưa có bệnh án phù hợp với bác sĩ này.', cols(['id', 'Mã BA'], ['patientId', 'Bệnh nhân'], ['diagnosis', 'Chẩn đoán', false, true], ['doctorNotes', 'Ghi chú'], ['createdAt', 'Ngày tạo'], ['status', 'Trạng thái', true])),
+  schedule: cfg('Lịch làm việc', 'N1 Schedule', 'Lịch làm việc của bác sĩ đang đăng nhập.', 'GET /appointment/api/doctor-schedules/doctor/{doctorId}', ['weekday', 'timeRange', 'room'], 'Tìm lịch làm việc...', 'Chưa có lịch làm việc.', cols(['id', 'Mã'], ['weekday', 'Ngày'], ['timeRange', 'Khung giờ'], ['room', 'Phòng'], ['status', 'Trạng thái', true])),
+}
 
 const filteredRows = computed(() => {
   const keyword = query.value.trim().toLowerCase()
@@ -316,38 +376,27 @@ const filteredRows = computed(() => {
   return rows.value.filter((row) => config.value.search.some((key) => String(row[key] || '').toLowerCase().includes(keyword)))
 })
 
-const medicineCategories = computed(() => {
-  const categories = Array.from(new Set(medicines.value.map(medicineType).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'vi'))
-  return [allMedicineTypes, ...categories]
+// Pagination
+const currentPage = ref(1)
+const itemsPerPage = ref(10)
+
+watch([resource, query], () => {
+  currentPage.value = 1
 })
 
-const filteredMedicines = computed(() => {
-  return medicines.value
-    .filter((medicine) => isMedicineActive(medicine))
-    .filter((medicine) => selectedMedicineType.value === allMedicineTypes || medicineType(medicine) === selectedMedicineType.value)
-    .sort((a, b) => medicineName(a).localeCompare(medicineName(b), 'vi'))
-})
+const totalPages = computed(() => Math.ceil(filteredRows.value.length / itemsPerPage.value))
 
-const selectedMedicineItems = computed(() => {
-  return prescriptionItems.value.map((item) => ({
-    item,
-    medicine: medicines.value.find((medicine) => medicineId(medicine) === item.medicineId),
-  }))
+const paginatedRows = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  const end = start + itemsPerPage.value
+  return filteredRows.value.slice(start, end)
 })
 
 const metrics = computed(() => [
   { label: 'Tổng dữ liệu', value: rows.value.length, note: 'Theo bộ lọc hiện tại' },
-  { label: 'Đang xử lý', value: rows.value.filter((row) => isActiveStatus(row.status)).length, note: 'Chờ, xác nhận hoặc đang khám' },
+  { label: 'Đang xử lý', value: rows.value.filter((row) => isActiveStatus(row.status)).length, note: 'Chờ hoặc đang khám' },
   { label: 'Hoàn tất', value: rows.value.filter((row) => isDoneStatus(row.status)).length, note: 'Đã hoàn thành' },
 ])
-
-const configs: Record<Resource, Config> = {
-  queue: cfg('Hàng đợi khám', 'N1 Waiting Queue', 'Danh sách bệnh nhân đang chờ, đang khám hoặc đã hoàn tất trong ngày của bác sĩ đang đăng nhập.', 'GET /appointment/api/waiting-queue?date=today', Users, 'bg-blue-50 text-blue-700', ['patientName','doctorName','status','reason'], 'Tìm bệnh nhân, bác sĩ, trạng thái...', 'Chưa có bệnh nhân trong hàng đợi của bác sĩ này.', cols(['queueNumber','STT', true], ['patientName','Bệnh nhân', false, false, true], ['doctorName','Bác sĩ'], ['slotTime','Giờ'], ['reason','Lý do'], ['status','Trạng thái', false, true])),
-  appointments: cfg('Lịch hẹn của bác sĩ', 'N1 Appointment', 'Các lịch hẹn được đọc từ endpoint theo doctorId và lọc theo tài khoản bác sĩ đang đăng nhập.', 'GET /appointment/api/appointments/doctor/{doctorId}', CalendarClock, 'bg-cyan-50 text-cyan-700', ['patientName','doctorName','status','reason'], 'Tìm bệnh nhân, lý do, trạng thái...', 'Không có lịch hẹn phù hợp với bác sĩ đang đăng nhập.', cols(['id','Mã'], ['patientName','Bệnh nhân', false, false, true], ['doctorName','Bác sĩ'], ['dateTime','Ngày giờ'], ['reason','Lý do'], ['status','Trạng thái', false, true])),
-  examine: cfg('Khám & kê đơn', 'N1 + N2', 'Bác sĩ mở phiếu khám, tạo bệnh án N2 theo visitId và hoàn tất lịch hẹn N1.', 'POST /medical/api/v1/medical/records', Stethoscope, 'bg-indigo-50 text-indigo-700', ['patientName','doctorName','action','status'], 'Tìm bệnh nhân cần khám...', 'Chưa có lịch hẹn để lập phiếu khám.', cols(['id','Mã'], ['patientName','Bệnh nhân', false, false, true], ['doctorName','Bác sĩ'], ['dateTime','Ngày giờ'], ['reason','Lý do'], ['status','Trạng thái', false, true])),
-  records: cfg('Lịch sử bệnh án', 'N2 Medical Record', 'Tra cứu bệnh án, chẩn đoán và ghi chú điều trị từ N2 theo bác sĩ đang đăng nhập.', 'GET /medical/api/v1/medical/patients/{id}/history', FileHeart, 'bg-violet-50 text-violet-700', ['id','patientId','diagnosis','symptoms','doctorNotes'], 'Tìm mã bệnh án, bệnh nhân, chẩn đoán...', 'N2 chưa có bệnh án phù hợp với bác sĩ này.', cols(['id','Mã BA'], ['patientId','Bệnh nhân', false, false, true], ['diagnosis','Chẩn đoán'], ['symptoms','Triệu chứng'], ['doctorNotes','Ghi chú'], ['createdAt','Ngày tạo'])),
-  schedule: cfg('Lịch làm việc cá nhân', 'N1 Doctor Schedule', 'Ca làm việc và slot khám của bác sĩ đang đăng nhập.', 'GET /appointment/api/doctor-schedules/doctor/{doctorId}', ClipboardList, 'bg-emerald-50 text-emerald-700', ['doctorName','workDate','timeRange','status'], 'Tìm ngày làm, ca khám...', 'Chưa có lịch làm việc cho bác sĩ này.', cols(['id','Mã'], ['doctorName','Bác sĩ', false, false, true], ['workDate','Ngày làm'], ['timeRange','Ca khám'], ['duration','Slot'], ['status','Trạng thái', false, true])),
-}
 
 watch(resource, () => { query.value = ''; void loadData() }, { immediate: true })
 
@@ -357,175 +406,112 @@ async function loadData() {
   note.value = ''
   try {
     const doctorId = currentDoctorId(authStore.user)
-    if (resource.value === 'queue') {
-      try {
-        const [queueData, appointments] = await Promise.all([
-          appointmentApi.getWaitingQueue(today),
-          (doctorId ? appointmentApi.getAppointmentsByDoctor(doctorId) : appointmentApi.getAppointments()).catch(() => [])
-        ])
-        const filteredQueue = filterQueueForDoctor(queueData, authStore.user)
-        note.value = filteredQueue.length ? 'Đã đồng bộ dữ liệu từ API Gateway.' : ''
-        rows.value = filteredQueue.map((item) => {
-          const appt = appointments.find((a) => a.appointmentId === item.appointmentId)
-          return {
-            id: item.id || item.queueId || item.appointmentId,
-            appointmentId: item.appointmentId,
-            patientId: item.patientId || appt?.patientId,
-            queueNumber: item.queueNumber,
-            patientName: displayText(item.patientName || appt?.patientName || ''),
-            doctorName: displayText(item.doctorName || appt?.doctorName || ''),
-            slotTime: item.slotTime || appt?.slotTime || '-',
-            reason: item.reason || appt?.reason || appt?.specialtyName || 'Chưa ghi nhận',
-            status: item.status,
-          }
-        })
-      } catch (apiError) {
-        error.value = getApiErrorMessage(apiError)
-        rows.value = []
-      }
+    if (['queue', 'examine'].includes(resource.value)) {
+      rows.value = await loadDoctorVisits(doctorId)
     }
-    if (resource.value === 'appointments') rows.value = await loadRows(() => (doctorId ? appointmentApi.getAppointmentsByDoctor(doctorId) : appointmentApi.getAppointments()).then((items) => filterAppointmentsForDoctor(items, authStore.user)), mapAppointment)
-    if (resource.value === 'examine') rows.value = await loadRows(() => (doctorId ? appointmentApi.getAppointmentsByDoctor(doctorId) : appointmentApi.getAppointments()).then((items) => filterAppointmentsForDoctor(items, authStore.user)), mapExamine)
+    if (resource.value === 'appointments') {
+      const appointments = doctorId ? await appointmentApi.getAppointmentsByDoctor(doctorId) : []
+      rows.value = filterAppointmentsForDoctor(appointments, authStore.user).map(mapAppointment)
+    }
     if (resource.value === 'records') {
-      const remoteRows = await loadRows(() => medicalRecordApi.getMedicalRecords().then((items) => filterRecordsForDoctor(items, authStore.user)), mapRecord)
-      rows.value = uniqueRows([...remoteRows, ...localClinicalStore.getMedicalRecords().map(mapRecord)])
+      rows.value = (await medicalRecordApi.getMedicalRecords()).filter((item) => filterRecordsForDoctor([item], authStore.user).length).map(mapRecord)
     }
-    if (resource.value === 'schedule') rows.value = await loadRows(() => (doctorId ? appointmentApi.getDoctorSchedulesByDoctor(doctorId) : appointmentApi.getDoctorSchedules()).then((items) => filterSchedulesForDoctor(items, authStore.user)), mapSchedule)
+    if (resource.value === 'schedule') {
+      const schedules = doctorId ? await appointmentApi.getDoctorSchedulesByDoctor(doctorId) : []
+      rows.value = filterSchedulesForDoctor(schedules, authStore.user).map(mapSchedule)
+    }
+  } catch (apiError) {
+    error.value = businessError(apiError)
+    showToast('Không tải được lượt khám', `${error.value} Thử sang Hàng đợi khám hoặc yêu cầu Nurse check-in lại N2.`, 'error')
+    rows.value = []
   } finally {
     loading.value = false
   }
 }
 
-async function loadRows<T>(loader: () => Promise<T[]>, mapper: (item: T) => Row) {
+async function loadDoctorVisits(doctorId: number) {
   try {
-    const data = await loader()
-    note.value = data.length ? 'Đã đồng bộ dữ liệu từ API Gateway.' : ''
-    return data.map(mapper)
+    const visits = await medicalRecordApi.getVisitsToday(doctorId || undefined)
+    note.value = visits.length ? 'Đã tải lượt khám từ N2.' : ''
+    return visits.map(mapVisit)
   } catch (apiError) {
-    error.value = getApiErrorMessage(apiError)
-    return []
-  }
-}
-
-function mapQueue(item: WaitingQueueItem): Row {
-  return {
-    id: item.id || item.queueId || item.appointmentId,
-    appointmentId: item.appointmentId,
-    patientId: item.patientId,
-    queueNumber: item.queueNumber,
-    patientName: displayText(item.patientName),
-    doctorName: displayText(item.doctorName),
-    slotTime: item.slotTime || '-',
-    reason: item.reason || item.specialtyName || 'Chưa ghi nhận',
-    status: item.status,
-  }
-}
-
-function mapAppointment(item: Appointment): Row {
-  return {
-    id: item.appointmentId,
-    appointmentId: item.appointmentId,
-    patientId: item.patientId,
-    patientPhone: item.patientPhone,
-    doctorId: item.doctorId,
-    specialtyId: item.specialtyId,
-    specialtyName: item.specialtyName,
-    appointmentDate: item.appointmentDate,
-    slotTime: item.slotTime,
-    queueNumber: item.queueNumber,
-    patientName: displayText(item.patientName),
-    doctorName: displayText(item.doctorName),
-    dateTime: `${formatDate(item.appointmentDate)} · ${item.slotTime || '-'}`,
-    reason: item.reason || 'Chưa ghi nhận',
-    status: item.status,
-  }
-}
-
-function mapExamine(item: Appointment): Row {
-  return { ...mapAppointment(item), action: 'Mở phiếu khám' }
-}
-
-function mapRecord(item: MedicalRecord): Row {
-  return {
-    id: item.recordId || item.medicalRecordId || 'MR',
-    patientId: item.patientId || 'Chưa cập nhật',
-    diagnosis: item.diagnosis || 'Chưa có chẩn đoán',
-    symptoms: item.symptoms || 'Chưa ghi nhận',
-    doctorNotes: item.doctorNotes || 'Chưa ghi chú',
-    createdAt: formatDate(item.examDate || item.createdAt),
-  }
-}
-
-function mapSchedule(item: DoctorSchedule): Row {
-  return {
-    id: item.scheduleId,
-    doctorName: displayText(item.doctorName),
-    workDate: formatDate(item.workDate),
-    timeRange: `${item.startTime} - ${item.endTime}`,
-    duration: `${item.slotDurationMinutes || 30} phút`,
-    status: item.isAvailable === false ? 'Tạm ngưng' : 'Đang mở',
+    const n1Queue = await appointmentApi.getWaitingQueue(today).catch(() => [] as WaitingQueueItem[])
+    const rowsWithVisits = await Promise.all(n1Queue.map(async (item) => {
+      const row = mapQueue(item)
+      const appointmentId = Number(row.appointmentId || row.id)
+      if (!appointmentId) return row
+      const visit = await medicalRecordApi.getVisitByAppointment(appointmentId).catch(() => null)
+      if (!visit) return row
+      const visitRow = mapVisit(visit)
+      return {
+        ...row,
+        ...visitRow,
+        reason: meaningfulText(visitRow.reason) || meaningfulText(row.reason) || 'Chưa ghi nhận',
+        source: 'N2',
+        n1Status: row.status,
+      }
+    }))
+    const scopedRows = rowsWithVisits.filter(isCurrentDoctorRow)
+    note.value = `N2 /visits/today đang lỗi (${getApiErrorMessage(apiError)}). Đang hiển thị hàng chờ N1 của bác sĩ; chỉ dòng có Visit N2 mới khám được.`
+    return scopedRows
   }
 }
 
 function rowActions(row: Row) {
-  const status = String(row.status || '').toLowerCase()
-  const actions: Array<{ key: ActionKey; label: string; className: string }> = []
-  if (resource.value === 'examine') {
-    if (status.includes('confirmed') || status.includes('inprogress')) {
-      return [{ key: 'examine', label: 'Khám bệnh', className: 'bg-blue-700 text-white hover:bg-blue-800' }]
-    }
-    return []
-  }
-  if (resource.value === 'queue') {
-    if (status.includes('waiting') || status.includes('pending') || status.includes('confirmed')) actions.push({ key: 'start', label: 'Bắt đầu khám', className: 'bg-blue-700 text-white hover:bg-blue-800' })
-    if (status.includes('inprogress')) actions.push({ key: 'done', label: 'Hoàn tất', className: 'bg-emerald-600 text-white hover:bg-emerald-700' })
-    if (!isDoneStatus(row.status) && !status.includes('cancel')) actions.push({ key: 'cancel', label: 'Hủy', className: 'bg-rose-50 text-rose-700 hover:bg-rose-100' })
-  }
-  if (resource.value === 'appointments') {
-    if (status.includes('pending') || status.includes('waiting')) actions.push({ key: 'confirm', label: 'Xác nhận', className: 'bg-blue-700 text-white hover:bg-blue-800' })
-    if (status.includes('confirmed') || status.includes('inprogress')) actions.push({ key: 'complete', label: 'Hoàn tất', className: 'bg-emerald-600 text-white hover:bg-emerald-700' })
-    if (!isDoneStatus(row.status) && !status.includes('cancel')) actions.push({ key: 'cancel', label: 'Hủy', className: 'bg-rose-50 text-rose-700 hover:bg-rose-100' })
-  }
-  return actions
+  if (!['queue', 'examine'].includes(resource.value)) return []
+  if (!Number(row.visitId)) return []
+  if (!canOpenExam(row.status)) return []
+  return [{ key: 'examine' as ActionKey, label: 'Khám bệnh', className: 'bg-blue-700 text-white hover:bg-blue-800' }]
 }
 
-async function runAction(action: string, row: Row) {
-  if (action === 'examine') { openExamine(row); return }
-  const id = Number(row.id || row.appointmentId)
-  if (!id) return
-  actingId.value = row.id || null
+async function runAction(action: ActionKey, row: Row) {
+  if (action !== 'examine') return
+  await openExamine(row)
+}
+
+async function openExamine(row: Row) {
+  actingId.value = row.id
   error.value = ''
   try {
-    if (action === 'start') await appointmentApi.setQueueInProgress(id)
-    if (action === 'done') await appointmentApi.setQueueDone(id)
-    if (action === 'cancel' && resource.value === 'queue') await appointmentApi.cancelQueueItem(id)
-    if (action === 'cancel' && resource.value === 'appointments') await appointmentApi.cancelAppointment(id)
-    if (action === 'confirm') await appointmentApi.confirmAppointment(id)
-    if (action === 'complete') await appointmentApi.completeAppointmentSafely(id, String(row.appointmentDate || ''))
-    note.value = 'Đã cập nhật trạng thái thành công.'
-    await loadData()
+    const visitId = Number(row.visitId || row.id)
+    if (!visitId) throw new Error('Lịch hẹn chưa được check-in hoặc N2 chưa tạo lượt khám.')
+    const visit = await medicalRecordApi.getVisit(visitId)
+    activeVisit.value = visit
+    selectedRow.value = row
+    examForm.chiefComplaint = String(visit.chiefComplaint || row.reason || '')
+    examForm.symptoms = String(visit.symptoms || '')
+    await loadExistingRecord(visitId)
+    await Promise.all([loadMedicines(), loadClinicalOrders()])
+    examineOpen.value = true
   } catch (apiError) {
-    error.value = getApiErrorMessage(apiError)
+    error.value = businessError(apiError)
+    showToast('Không mở được lượt khám', `${error.value} Hãy chuyển bệnh nhân qua Nurse/Receptionist để check-in N2 trước.`, 'error')
   } finally {
     actingId.value = null
   }
 }
 
-function openExamine(row: Row) {
-  selectedRow.value = row
-  examineOpen.value = true
-  void loadMedicines()
+async function loadExistingRecord(visitId: number) {
+  activeRecord.value = null
+  try {
+    const record = await medicalRecordApi.getMedicalRecordByVisit(visitId)
+    activeRecord.value = record
+    examForm.diagnosisCode = String(record.diagnosisCode || '')
+    examForm.diagnosis = String(record.diagnosisText || record.diagnosis || '')
+    examForm.doctorNote = String(record.doctorNote || record.doctorNotes || '')
+    examForm.treatmentPlan = String(record.treatmentPlan || '')
+    examForm.recheckDate = String(record.followUpDate || '').slice(0, 10)
+  } catch (apiError: any) {
+    if (apiError?.response?.status !== 404) throw apiError
+  }
 }
 
-function closeExamine() {
-  examineOpen.value = false
-  selectedRow.value = null
-  examForm.symptoms = ''
-  examForm.diagnosis = ''
-  examForm.doctorNotes = ''
-  examForm.recheckDate = ''
-  prescriptionItems.value = []
-  selectedMedicineType.value = allMedicineTypes
+async function loadClinicalOrders() {
+  clinicalOrders.value = []
+  const recordId = Number(activeRecord.value?.medicalRecordId)
+  const patientId = Number(activeVisit.value?.patientId)
+  if (!recordId && !patientId) return
+  clinicalOrders.value = await medicalRecordApi.getClinicalOrders({ medicalRecordId: recordId || undefined, patientId: patientId || undefined }).catch(() => [])
 }
 
 async function loadMedicines() {
@@ -533,28 +519,155 @@ async function loadMedicines() {
   medicineLoading.value = true
   medicineError.value = ''
   try {
-    medicines.value = (await medicineApi.getMedicines()) as MedicineRecord[]
+    medicines.value = (await medicalRecordApi.getMedicines({ status: 'Active' })) as Array<Medicine & Record<string, any>>
   } catch (apiError) {
-    medicineError.value = getApiErrorMessage(apiError)
+    medicineError.value = businessError(apiError)
     medicines.value = []
   } finally {
     medicineLoading.value = false
   }
 }
 
-function toggleMedicine(medicine: MedicineRecord) {
+async function startVisit() {
+  const visitId = Number(activeVisit.value?.visitId)
+  const doctorId = currentDoctorId(authStore.user) || Number(activeVisit.value?.doctorId || selectedRow.value?.doctorId || selectedRow.value?.raw?.doctorId || selectedRow.value?.raw?.DoctorId || 0)
+  if (!visitId) throwMessage('Lịch hẹn chưa được check-in hoặc N2 chưa tạo lượt khám.')
+  if (!doctorId) throwMessage('Không xác định được DoctorId của tài khoản hiện tại.')
+  if (!examForm.chiefComplaint.trim()) throwMessage('Vui lòng nhập lý do khám trước khi bắt đầu lượt khám.')
+  savingExam.value = true
+  error.value = ''
+  try {
+    await medicalRecordApi.startVisit(visitId, { doctorId, chiefComplaint: examForm.chiefComplaint.trim() })
+    activeVisit.value = await medicalRecordApi.getVisit(visitId)
+    note.value = 'Đã bắt đầu lượt khám N2.'
+    showToast('Đã bắt đầu lượt khám', 'Tiếp theo nhập chẩn đoán ở phần Bệnh án rồi bấm Lưu bệnh án.', 'success')
+  } catch (apiError) {
+    error.value = businessError(apiError)
+    showToast('Chưa thể bắt đầu khám', `${error.value} Kiểm tra lại lý do khám hoặc trạng thái visit N2.`, 'error')
+  } finally {
+    savingExam.value = false
+  }
+}
+
+async function saveMedicalRecord() {
+  const visitId = Number(activeVisit.value?.visitId)
+  if (!visitId) throwMessage('Lịch hẹn chưa được check-in hoặc N2 chưa tạo lượt khám.')
+  if (!examForm.diagnosis.trim()) throwMessage('Vui lòng nhập chẩn đoán trước khi lưu bệnh án.')
+  savingExam.value = true
+  error.value = ''
+  try {
+    const payload = {
+      visitId,
+      diagnosisCode: examForm.diagnosisCode.trim() || undefined,
+      diagnosisText: examForm.diagnosis.trim(),
+      doctorNote: examForm.doctorNote.trim() || undefined,
+      treatmentPlan: examForm.treatmentPlan.trim() || undefined,
+      followUpDate: examForm.recheckDate || undefined,
+    }
+    activeRecord.value = activeRecord.value?.medicalRecordId
+      ? await medicalRecordApi.updateMedicalRecord(activeRecord.value.medicalRecordId, payload)
+      : await medicalRecordApi.createMedicalRecord(payload)
+    note.value = 'Đã lưu bệnh án N2.'
+    showToast('Đã lưu bệnh án', 'Tiếp theo có thể thêm Chỉ định lâm sàng hoặc chuyển xuống Kê đơn thuốc.', 'success')
+    await loadClinicalOrders()
+  } catch (apiError) {
+    error.value = businessError(apiError)
+    showToast('Chưa lưu được bệnh án', `${error.value} Kiểm tra chẩn đoán và trạng thái lượt khám.`, 'error')
+  } finally {
+    savingExam.value = false
+  }
+}
+
+async function addClinicalOrder() {
+  const medicalRecordId = Number(activeRecord.value?.medicalRecordId)
+  if (!medicalRecordId) throwMessage('Cần lưu bệnh án trước khi tạo chỉ định lâm sàng.')
+  savingExam.value = true
+  error.value = ''
+  try {
+    await medicalRecordApi.createClinicalOrder({
+      medicalRecordId,
+      orderType: orderForm.orderType,
+      orderName: orderForm.orderName.trim(),
+      reason: orderForm.reason.trim() || undefined,
+    })
+    orderForm.orderName = ''
+    orderForm.reason = ''
+    await loadClinicalOrders()
+    note.value = 'Đã tạo chỉ định lâm sàng.'
+    showToast('Đã tạo chỉ định', 'Tiếp theo tiếp tục kê đơn hoặc hoàn tất khám nếu không cần thêm chỉ định.', 'success')
+  } catch (apiError) {
+    error.value = businessError(apiError)
+    showToast('Chưa tạo được chỉ định', `${error.value} Cần lưu bệnh án trước khi tạo chỉ định.`, 'error')
+  } finally {
+    savingExam.value = false
+  }
+}
+
+async function submitExamination() {
+  savingExam.value = true
+  error.value = ''
+  try {
+    await saveMedicalRecord()
+    const recordId = Number(activeRecord.value?.medicalRecordId)
+    if (!recordId) throw new Error('Cần lưu bệnh án trước khi kê đơn hoặc hoàn tất khám.')
+    if (prescriptionItems.value.length) {
+      validatePrescriptionItems()
+      const draft = await medicalRecordApi.createPrescription({ medicalRecordId: recordId, note: prescriptionNote() })
+      const prescriptionId = Number(draft.prescriptionId || draft.id)
+      for (const item of prescriptionItems.value) {
+        await medicalRecordApi.addPrescriptionItem(prescriptionId, item)
+      }
+      await medicalRecordApi.submitPrescription(prescriptionId, { medicalRecordId: recordId, note: prescriptionNote(), items: prescriptionItems.value })
+    }
+    await medicalRecordApi.completeMedicalRecord(recordId)
+    await medicalRecordApi.completeVisit(Number(activeVisit.value?.visitId))
+    const appointmentId = Number(activeVisit.value?.appointmentId || selectedRow.value?.appointmentId)
+    if (appointmentId) await appointmentApi.completeAppointmentSafely(appointmentId, String(selectedRow.value?.appointmentDate || '')).catch(() => undefined)
+    note.value = prescriptionItems.value.length
+      ? 'Đã hoàn tất bệnh án, chốt đơn thuốc qua N2 và hoàn tất lượt khám.'
+      : 'Đã hoàn tất bệnh án và lượt khám.'
+    showToast(
+      'Hoàn tất khám',
+      prescriptionItems.value.length
+        ? 'Đơn thuốc đã được chốt qua N2. Tiếp theo bệnh nhân có thể xem Đơn thuốc, y tá/thu ngân có thể xử lý viện phí.'
+        : 'Bệnh án đã hoàn tất. Tiếp theo bệnh nhân có thể xem Hồ sơ bệnh án.',
+      'success'
+    )
+    closeExamine()
+    await loadData()
+  } catch (apiError) {
+    error.value = businessError(apiError)
+    showToast('Chưa hoàn tất khám', `${error.value} Nếu lỗi ở đơn thuốc, kiểm tra đủ liều dùng, tần suất, số ngày và số lượng.`, 'error')
+  } finally {
+    savingExam.value = false
+  }
+}
+
+function validatePrescriptionItems() {
+  for (const item of prescriptionItems.value) {
+    if (!item.medicineId || !item.medicineNameSnapshot) throw new Error('Đơn thuốc có dòng thuốc không hợp lệ.')
+    if (!item.dosage.trim()) throw new Error('Vui lòng nhập liều dùng cho tất cả thuốc.')
+    if (!item.frequency.trim()) throw new Error('Vui lòng nhập tần suất dùng thuốc.')
+    if (!Number.isFinite(Number(item.durationDays)) || Number(item.durationDays) <= 0) throw new Error('Số ngày dùng thuốc phải lớn hơn 0.')
+    if (!Number.isFinite(Number(item.quantity)) || Number(item.quantity) <= 0) throw new Error('Số lượng thuốc phải lớn hơn 0.')
+  }
+}
+
+function toggleMedicine(medicine: Medicine & Record<string, any>) {
   const id = medicineId(medicine)
   if (!id || medicineStock(medicine) <= 0) return
-  const exists = prescriptionItems.value.some((item) => item.medicineId === id)
-  if (exists) {
+  if (isMedicineSelected(id)) {
     removeMedicine(id)
     return
   }
-
   prescriptionItems.value.push({
     medicineId: id,
-    quantity: 1,
+    medicineNameSnapshot: medicineName(medicine),
+    unitSnapshot: medicineUnit(medicine),
     dosage: '',
+    frequency: '',
+    durationDays: 1,
+    quantity: 1,
     usageInstruction: '',
   })
 }
@@ -567,299 +680,117 @@ function isMedicineSelected(medicineId: number) {
   return prescriptionItems.value.some((item) => item.medicineId === medicineId)
 }
 
-async function submitExamination() {
-  if (!selectedRow.value) return
-  savingExam.value = true
-  error.value = ''
-  const appointmentId = Number(selectedRow.value.appointmentId || selectedRow.value.id)
-  try {
-    const visitId = await resolveVisitId(selectedRow.value, appointmentId)
-    await markAppointmentInProgress(appointmentId)
+function closeExamine() {
+  examineOpen.value = false
+  selectedRow.value = null
+  activeVisit.value = null
+  activeRecord.value = null
+  clinicalOrders.value = []
+  prescriptionItems.value = []
+  Object.assign(examForm, { chiefComplaint: '', symptoms: '', diagnosisCode: '', diagnosis: '', doctorNote: '', treatmentPlan: '', recheckDate: '' })
+}
 
-    const doctorNotes = [
-      examForm.doctorNotes.trim(),
-      examForm.symptoms ? `Triệu chứng: ${examForm.symptoms}` : '',
-      prescriptionNote(),
-    ].filter(Boolean).join('\n')
-    const medicalRecord = await medicalRecordApi.createMedicalRecord({
-      visitId,
-      diagnosis: examForm.diagnosis.trim(),
-      doctorNotes,
-      recheckDate: examForm.recheckDate || undefined,
-    })
-    localClinicalStore.saveMedicalRecord({
-      row: selectedRow.value,
-      symptoms: examForm.symptoms.trim(),
-      diagnosis: examForm.diagnosis.trim(),
-      doctorNotes,
-      recheckDate: examForm.recheckDate || undefined,
-    })
-    const completionMessage = await createPrescriptionForPharmacy(medicalRecord, appointmentId)
-    await appointmentApi.completeAppointmentSafely(appointmentId, String(selectedRow.value.appointmentDate || ''))
-    note.value = completionMessage
-    closeExamine()
-    await loadData()
-  } catch (apiError) {
-    const localRecord = saveLocalClinicalRecord()
-    await appointmentApi.completeAppointmentSafely(appointmentId, String(selectedRow.value.appointmentDate || '')).catch(() => undefined)
-    note.value = `N2/N3 chua dong bo duoc (${getApiErrorMessage(apiError)}). He thong da luu tam ho so ${localRecord.recordId || localRecord.medicalRecordId} de benh nhan, y ta va admin xem ngay.`
-    closeExamine()
-    await loadData()
-  } finally {
-    savingExam.value = false
+function mapVisit(item: MedicalVisit): Row {
+  return {
+    id: item.visitId || item.id,
+    visitId: item.visitId || item.id,
+    appointmentId: item.appointmentId,
+    patientId: item.patientId,
+    patientName: displayText(item.patientName || item.patient?.fullName || item.Patient?.FullName || ''),
+    doctorId: item.doctorId,
+    doctorName: displayText(item.doctorName || item.doctor?.fullName || item.Doctor?.FullName || ''),
+    dateTime: formatDate(item.visitDate || item.createdAt),
+    reason: item.chiefComplaint || item.symptoms || 'Chưa ghi nhận',
+    status: item.status,
+    raw: item,
   }
 }
 
-async function resolveVisitId(row: Row, appointmentId: number) {
-  const candidateIds = new Set<string>()
-  if (row.patientId) candidateIds.add(String(row.patientId))
-
-  const patients = await medicalRecordApi.getPatients().catch(() => [])
-  const patientByIdentity = patients.find((patient) => {
-    const samePhone = normalizeText(patient.phone || patient.phoneNumber) && normalizeText(patient.phone || patient.phoneNumber) === normalizeText(String(row.patientPhone || ''))
-    const sameName = normalizeText(patient.fullName) && normalizeText(patient.fullName) === normalizeText(String(row.patientName || ''))
-    return samePhone || sameName
-  })
-  if (patientByIdentity?.patientId) candidateIds.add(String(patientByIdentity.patientId))
-
-  for (const patientId of candidateIds) {
-    try {
-      const history = await medicalRecordApi.getPatientHistory(patientId)
-      const visit = history.visits.find((item) => Number(item.appointmentId ?? item.appointmentID ?? item.appointment?.appointmentId) === appointmentId)
-      const visitId = Number(visit?.visitId ?? visit?.id)
-      if (visitId > 0) return visitId
-    } catch (apiError: any) {
-      if (apiError?.response?.status !== 404) throw apiError
-    }
-  }
-
-  await ensureVisitSynced(row, appointmentId)
-
-  const patientAfterSync = patients.find((patient) => {
-    const samePhone = normalizeText(patient.phone || patient.phoneNumber) && normalizeText(patient.phone || patient.phoneNumber) === normalizeText(String(row.patientPhone || ''))
-    const sameName = normalizeText(patient.fullName) && normalizeText(patient.fullName) === normalizeText(String(row.patientName || ''))
-    return samePhone || sameName
-  }) || (await medicalRecordApi.getPatients().catch(() => [])).find((patient) => {
-    const samePhone = normalizeText(patient.phone || patient.phoneNumber) && normalizeText(patient.phone || patient.phoneNumber) === normalizeText(String(row.patientPhone || ''))
-    const sameName = normalizeText(patient.fullName) && normalizeText(patient.fullName) === normalizeText(String(row.patientName || ''))
-    return samePhone || sameName
-  })
-  if (patientAfterSync?.patientId) candidateIds.add(String(patientAfterSync.patientId))
-
-  for (const patientId of candidateIds) {
-    try {
-      const history = await medicalRecordApi.getPatientHistory(patientId)
-      const visit = history.visits.find((item) => Number(item.appointmentId ?? item.appointmentID ?? item.appointment?.appointmentId) === appointmentId)
-      const visitId = Number(visit?.visitId ?? visit?.id)
-      if (visitId > 0) return visitId
-    } catch (apiError: any) {
-      if (apiError?.response?.status !== 404) throw apiError
-    }
-  }
-
-  if (!candidateIds.size) {
-    throw new Error('Không tìm thấy hồ sơ bệnh nhân tương ứng ở N2. Vui lòng tiếp nhận/tạo hồ sơ bệnh nhân trước khi khám.')
-  }
-  throw new Error('N2 chưa có lượt khám tương ứng với lịch hẹn này. Vui lòng check-in/tạo lượt khám cho bệnh nhân trước khi lưu bệnh án.')
-}
-
-function normalizeText(value?: string) {
-  return String(value || '').trim().toLowerCase()
-}
-
-async function ensureVisitSynced(row: Row, appointmentId: number) {
-  const payload = {
-    appointmentId,
-    patientName: row.patientName,
-    patientPhone: row.patientPhone,
-    doctorId: Number(row.doctorId || currentDoctorId(authStore.user)),
-    doctorName: row.doctorName || authStore.user?.fullName,
-    specialtyId: row.specialtyId,
-    specialtyName: row.specialtyName,
-    appointmentDate: row.appointmentDate,
-    slotTime: row.slotTime,
-    queueNumber: row.queueNumber,
-    status: 'Confirmed',
-  }
-
-  if (!payload.doctorId) return
-  await medicalRecordApi.syncAppointmentConfirmed(payload).catch(() => undefined)
-  await medicalRecordApi.syncPatientCheckedIn(payload).catch(() => undefined)
-}
-
-async function markAppointmentInProgress(appointmentId: number) {
-  await appointmentApi.ensureAppointmentInProgress(appointmentId, String(selectedRow.value?.appointmentDate || '')).catch(() => undefined)
-}
-
-async function createPrescriptionForPharmacy(medicalRecord: MedicalRecord, appointmentId: number) {
-  if (!selectedMedicineItems.value.length) return 'Đã tạo bệnh án N2 và hoàn tất lịch hẹn N1.'
-
-  try {
-    await billingApi.createPrescription({
-      medicalRecordId: toPositiveNumber(medicalRecord.medicalRecordId),
-      medicalRecordCode: medicalRecord.recordId,
-      patientId: selectedRow.value?.patientId,
-      patientCode: selectedRow.value?.patientId,
-      doctorId: toPositiveNumber(selectedRow.value?.doctorId || currentDoctorId(authStore.user)),
-      appointmentId,
-      status: 'Pending',
-      note: prescriptionNote(),
-      items: selectedMedicineItems.value.map(({ item, medicine }) => ({
-        medicineId: item.medicineId,
-        medicineNameSnapshot: medicine ? medicineName(medicine) : `Thuốc #${item.medicineId}`,
-        unitSnapshot: medicine ? medicineUnit(medicine) : undefined,
-        dosage: item.dosage.trim() || undefined,
-        quantity: Number(item.quantity || 1),
-        usageInstruction: item.usageInstruction.trim() || undefined,
-      })),
-    })
-    if (selectedRow.value) {
-      localClinicalStore.savePrescription({
-        row: selectedRow.value,
-        record: medicalRecord,
-        note: prescriptionNote(),
-        items: prescriptionPayloadItems(),
-      })
-    }
-    return 'Đã tạo bệnh án N2, gửi đơn thuốc N3 và hoàn tất lịch hẹn N1.'
-  } catch (apiError) {
-    if (selectedRow.value) {
-      localClinicalStore.savePrescription({
-        row: selectedRow.value,
-        record: medicalRecord,
-        note: prescriptionNote(),
-        items: prescriptionPayloadItems(),
-      })
-    }
-    return `Đã tạo bệnh án N2 và hoàn tất lịch hẹn N1, nhưng chưa gửi được đơn thuốc sang N3: ${getApiErrorMessage(apiError)}`
+function mapAppointment(item: Appointment): Row {
+  return {
+    id: item.appointmentId,
+    appointmentId: item.appointmentId,
+    patientId: item.patientId,
+    patientName: displayText(item.patientName),
+    doctorId: item.doctorId,
+    doctorName: displayText(item.doctorName),
+    appointmentDate: item.appointmentDate,
+    dateTime: `${formatDate(item.appointmentDate)} - ${item.slotTime || '-'}`,
+    reason: item.reason || item.specialtyName || 'Chưa ghi nhận',
+    status: item.status,
   }
 }
 
-function saveLocalClinicalRecord() {
-  const doctorNotes = [
-    examForm.doctorNotes.trim(),
-    examForm.symptoms ? `Trieu chung: ${examForm.symptoms}` : '',
-    prescriptionNote(),
-  ].filter(Boolean).join('\n')
-  const record = localClinicalStore.saveMedicalRecord({
-    row: selectedRow.value || {},
-    symptoms: examForm.symptoms.trim(),
-    diagnosis: examForm.diagnosis.trim(),
-    doctorNotes,
-    recheckDate: examForm.recheckDate || undefined,
-  })
-  if (selectedRow.value && selectedMedicineItems.value.length) {
-    localClinicalStore.savePrescription({
-      row: selectedRow.value,
-      record,
-      note: prescriptionNote(),
-      items: prescriptionPayloadItems(),
-    })
+function mapQueue(item: WaitingQueueItem): Row {
+  return {
+    id: item.id || item.queueId || item.appointmentId,
+    appointmentId: item.appointmentId,
+    patientId: item.patientId,
+    patientName: displayText(item.patientName || ''),
+    doctorId: item.doctorId,
+    doctorName: displayText(item.doctorName || ''),
+    appointmentDate: item.appointmentDate,
+    dateTime: `${formatDate(item.appointmentDate)} - ${item.slotTime || '-'}`,
+    reason: item.reason || item.specialtyName || 'Chưa ghi nhận',
+    status: item.status,
+    source: 'N1',
+    raw: item,
   }
-  return record
 }
 
-function prescriptionPayloadItems() {
-  return selectedMedicineItems.value.map(({ item, medicine }) => ({
-    medicineId: item.medicineId,
-    medicineNameSnapshot: medicine ? medicineName(medicine) : `Thuoc #${item.medicineId}`,
-    unitSnapshot: medicine ? medicineUnit(medicine) : undefined,
-    dosage: item.dosage.trim() || undefined,
-    quantity: Number(item.quantity || 1),
-    usageInstruction: item.usageInstruction.trim() || undefined,
-  }))
+function mapRecord(item: MedicalRecord): Row {
+  return {
+    id: item.recordId || item.medicalRecordCode || item.medicalRecordId,
+    medicalRecordId: item.medicalRecordId,
+    patientId: item.patientId,
+    diagnosis: item.diagnosisText || item.diagnosis || 'Chưa có chẩn đoán',
+    doctorNotes: item.doctorNote || item.doctorNotes || item.treatmentPlan || 'Chưa ghi chú',
+    createdAt: formatDate(item.createdAt || item.examDate),
+    status: item.status,
+  }
+}
+
+function mapSchedule(item: DoctorSchedule & Record<string, any>): Row {
+  return {
+    id: item.scheduleId || item.id,
+    weekday: item.workDate || item.dayOfWeek || item.weekday || 'Chưa cập nhật',
+    timeRange: `${item.startTime || '-'} - ${item.endTime || '-'}`,
+    room: item.roomName || item.room || 'Chưa cập nhật',
+    status: item.status || 'Đang mở',
+  }
 }
 
 function prescriptionNote() {
-  if (!selectedMedicineItems.value.length) return ''
-
-  const lines = selectedMedicineItems.value.map(({ item, medicine }) => {
-    const name = medicine ? medicineName(medicine) : `Thuốc #${item.medicineId}`
-    const unit = medicine ? medicineUnit(medicine) : ''
-    const quantity = Number(item.quantity || 1)
-    const dosage = item.dosage.trim() || 'Chưa ghi liều dùng'
-    const usage = item.usageInstruction.trim() || 'Chưa ghi cách dùng'
-    return `- ${name}: SL ${quantity}${unit ? ` ${unit}` : ''}; Liều: ${dosage}; Cách dùng: ${usage}`
-  })
-
-  return ['Đơn thuốc:', ...lines].join('\n')
+  return prescriptionItems.value.map((item) => `${item.medicineNameSnapshot}: ${item.quantity} ${item.unitSnapshot || ''}; ${item.dosage}; ${item.frequency}; ${item.durationDays} ngày`).join('\n')
 }
 
-function toPositiveNumber(value: unknown) {
-  const numberValue = Number(value)
-  return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : undefined
-}
-
-function medicineId(medicine: MedicineRecord) {
+function medicineId(medicine: Medicine & Record<string, any>) {
   return Number(medicine.medicineId ?? medicine.MedicineId ?? medicine.id ?? 0)
 }
 
-function medicineName(medicine: MedicineRecord) {
+function medicineName(medicine: Medicine & Record<string, any>) {
   return String(medicine.medicineName ?? medicine.MedicineName ?? medicine.name ?? `Thuốc #${medicineId(medicine)}`)
 }
 
-function medicineIngredient(medicine: MedicineRecord) {
-  return String(medicine.activeIngredient ?? medicine.ActiveIngredient ?? medicine.ingredient ?? '').trim()
-}
-
-function medicineUnit(medicine: MedicineRecord) {
+function medicineUnit(medicine: Medicine & Record<string, any>) {
   return String(medicine.unit ?? medicine.Unit ?? medicine.dosageForm ?? medicine.DosageForm ?? 'đơn vị')
 }
 
-function medicineStock(medicine: MedicineRecord) {
+function medicineStock(medicine: Medicine & Record<string, any>) {
   const value = Number(medicine.stockQuantity ?? medicine.StockQuantity ?? medicine.stock ?? 0)
   return Number.isFinite(value) ? value : 0
-}
-
-function medicineType(medicine: MedicineRecord) {
-  const directType = String(medicine.medicineType ?? medicine.MedicineType ?? medicine.category ?? medicine.type ?? '').trim()
-  return directType || inferMedicineType(medicine)
-}
-
-function isMedicineActive(medicine: MedicineRecord) {
-  const status = String(medicine.status ?? medicine.Status ?? '').toLowerCase()
-  const active = medicine.isActive ?? medicine.IsActive
-  if (typeof active === 'boolean') return active
-  return !status || status.includes('active') || status.includes('đang')
-}
-
-function inferMedicineType(medicine: MedicineRecord) {
-  const text = `${medicineName(medicine)} ${medicineIngredient(medicine)}`.toLowerCase()
-  if (text.includes('omeprazole')) return 'Tiêu hóa'
-  if (text.includes('paracetamol')) return 'Giảm đau - hạ sốt'
-  if (text.includes('ibuprofen')) return 'Giảm đau - kháng viêm'
-  if (text.includes('amoxicillin')) return 'Kháng sinh'
-  if (text.includes('cetirizine')) return 'Dị ứng'
-  if (text.includes('salbutamol')) return 'Hô hấp'
-  if (text.includes('tobramycin')) return 'Mắt'
-  if (text.includes('metformin')) return 'Nội tiết - đái tháo đường'
-  if (text.includes('amlodipine') || text.includes('losartan')) return 'Tim mạch'
-  if (text.includes('atorvastatin')) return 'Rối loạn lipid máu'
-  if (text.includes('vitamin') || text.includes('calcium')) return 'Vitamin - khoáng chất'
-  if (text.includes('natri') || text.includes('sodium')) return 'Dung dịch truyền/rửa'
-  return 'Khác'
-}
-
-function cfg(title: string, service: string, description: string, endpoint: string, icon: Component, iconClass: string, search: string[], placeholder: string, emptyText: string, columns: Column[]): Config {
-  return { title, service, description, endpoint, icon, iconClass, search, placeholder, emptyText, columns }
-}
-
-function cols(...defs: [string, string, boolean?, boolean?, boolean?][]): Column[] {
-  return defs.map(([key, label, right, badge, strong]) => ({ key, label, right, badge, strong }))
 }
 
 function value(row: Row, key: string) {
   return row[key] === undefined || row[key] === '' ? 'Chưa cập nhật' : String(row[key])
 }
 
-function uniqueRows(items: Row[]) {
-  const seen = new Set<string>()
-  return items.filter((item, index) => {
-    const key = String(item.id || item.appointmentId || index)
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
+function cfg(title: string, service: string, description: string, endpoint: string, search: string[], placeholder: string, emptyText: string, columns: Column[]) {
+  return { title, service, description, endpoint, search, placeholder, emptyText, columns }
+}
+
+function cols(...defs: [string, string, boolean?, boolean?][]): Column[] {
+  return defs.map(([key, label, badge, strong]) => ({ key, label, badge, strong }))
 }
 
 function formatDate(value?: string) {
@@ -868,36 +799,88 @@ function formatDate(value?: string) {
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('vi-VN').format(date)
 }
 
-function statusText(status?: string) {
-  const value = String(status || '')
-  const normalized = value.toLowerCase()
-  if (normalized.includes('confirmed')) return 'Đã xác nhận'
-  if (normalized.includes('inprogress')) return 'Đang khám'
-  if (normalized.includes('completed') || normalized.includes('done')) return 'Hoàn tất'
-  if (normalized.includes('cancel')) return 'Đã hủy'
-  if (normalized.includes('waiting') || normalized.includes('pending')) return 'Đang chờ'
-  if (normalized.includes('đang mở')) return 'Đang mở'
-  if (normalized.includes('tạm')) return 'Tạm ngưng'
-  return value || 'Chưa cập nhật'
+function normalizeDoctorName(value: unknown) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\b(bs|bac si|dr|doctor)\b\.?/g, '')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+}
+
+function meaningfulText(value: unknown) {
+  const textValue = String(value || '').trim()
+  const normalized = textValue.toLowerCase()
+  if (!textValue) return ''
+  if (normalized.includes('chưa ghi') || normalized.includes('chua ghi') || normalized.includes('chưa cập') || normalized.includes('chua cap')) return ''
+  return textValue
+}
+
+function isCurrentDoctorRow(row: Row) {
+  const doctorId = currentDoctorId(authStore.user)
+  if (doctorId && Number(row.doctorId || row.raw?.doctorId || row.raw?.DoctorId) === doctorId) return true
+  const currentName = normalizeDoctorName(authStore.user?.fullName)
+  const rowName = normalizeDoctorName(row.doctorName || row.raw?.doctorName || row.raw?.DoctorName)
+  return Boolean(currentName && rowName && (currentName === rowName || currentName.includes(rowName) || rowName.includes(currentName)))
+}
+
+function canOpenExam(status?: string | number) {
+  const value = String(status || '').toLowerCase()
+  return !value.includes('complete') && !value.includes('done') && !value.includes('cancel') && !value.includes('hoàn')
 }
 
 function isActiveStatus(status?: string | number) {
   const value = String(status || '').toLowerCase()
-  return value.includes('waiting') || value.includes('pending') || value.includes('confirmed') || value.includes('inprogress') || value.includes('đang mở')
+  return value.includes('waiting') || value.includes('checked') || value.includes('pending') || value.includes('confirmed') || value.includes('progress') || value.includes('chờ') || value.includes('đang')
 }
 
 function isDoneStatus(status?: string | number) {
   const value = String(status || '').toLowerCase()
-  return value.includes('done') || value.includes('completed') || value.includes('hoàn tất')
+  return value.includes('done') || value.includes('completed') || value.includes('hoàn')
 }
 
-function statusClass(status?: string) {
+function statusText(status?: string | number) {
+  const value = String(status || '')
+  const normalized = value.toLowerCase()
+  if (normalized.includes('checked')) return 'Đã check-in'
+  if (normalized.includes('confirmed')) return 'Đã xác nhận'
+  if (normalized.includes('progress')) return 'Đang khám'
+  if (normalized.includes('completed') || normalized.includes('done')) return 'Hoàn tất'
+  if (normalized.includes('cancel')) return 'Đã hủy'
+  if (normalized.includes('waiting') || normalized.includes('pending')) return 'Đang chờ'
+  return value || 'Chưa cập nhật'
+}
+
+function statusClass(status?: string | number) {
   const value = String(status || '').toLowerCase()
-  if (value.includes('done') || value.includes('completed') || value.includes('confirmed') || value.includes('đang mở')) return 'bg-emerald-100 text-emerald-700'
-  if (value.includes('inprogress')) return 'bg-blue-100 text-blue-700'
-  if (value.includes('waiting') || value.includes('pending') || value.includes('chờ')) return 'bg-amber-100 text-amber-700'
-  if (value.includes('cancel') || value.includes('tạm')) return 'bg-rose-100 text-rose-700'
+  if (value.includes('completed') || value.includes('done') || value.includes('confirmed') || value.includes('checked')) return 'bg-emerald-100 text-emerald-700'
+  if (value.includes('progress')) return 'bg-blue-100 text-blue-700'
+  if (value.includes('waiting') || value.includes('pending')) return 'bg-amber-100 text-amber-700'
+  if (value.includes('cancel')) return 'bg-rose-100 text-rose-700'
   return 'bg-slate-100 text-slate-700'
+}
+
+function businessError(error: unknown) {
+  const message = getApiErrorMessage(error)
+  const normalized = message.toLowerCase()
+  if (normalized.includes('visit') || normalized.includes('lượt khám') || normalized.includes('by-appointment')) return 'Lịch hẹn chưa được check-in hoặc N2 chưa tạo lượt khám.'
+  if (normalized.includes('record') && normalized.includes('complete')) return 'Cần hoàn tất bệnh án trước khi hoàn tất lượt khám.'
+  if (normalized.includes('diagnosis')) return 'Vui lòng nhập chẩn đoán hợp lệ trước khi lưu bệnh án.'
+  return message
+}
+
+function throwMessage(message: string): never {
+  error.value = message
+  showToast('Thông tin chưa hợp lệ', message, 'error')
+  throw new Error(message)
+}
+
+function showToast(title: string, message: string, type: 'success' | 'error' = 'success') {
+  toast.title = title
+  toast.message = message
+  toast.type = type
+  toast.show = true
 }
 
 function isResource(value: unknown): value is Resource {
@@ -911,6 +894,6 @@ function isResource(value: unknown): value is Resource {
 }
 
 .form-input {
-  @apply h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100;
+  @apply h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100;
 }
 </style>

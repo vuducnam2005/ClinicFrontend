@@ -14,6 +14,11 @@ function normalizeSlot(slot: unknown) {
   return String(slot || '').slice(0, 5)
 }
 
+function isActiveAppointmentStatus(status?: string) {
+  const value = String(status || '').toLowerCase()
+  return !value.includes('cancel')
+}
+
 function queueIdentity(item: WaitingQueueItem) {
   return item.id || item.queueId || item.appointmentId
 }
@@ -106,6 +111,14 @@ export const appointmentApi = {
     const response = await client.get(`/api/doctors/${doctorId}/available-slots`, { params: { date } })
     const data = readApiResponse<unknown[]>(response.data)
     return data.map(normalizeSlot).filter(Boolean)
+  },
+  async getBookedSlots(doctorId: number, date: string) {
+    const appointments = await this.getAppointmentsByDoctor(doctorId)
+    return appointments
+      .filter((item) => String(item.appointmentDate || '').slice(0, 10) === date)
+      .filter((item) => isActiveAppointmentStatus(item.status))
+      .map((item) => normalizeSlot(item.slotTime))
+      .filter(Boolean)
   },
   async getAppointments() {
     const response = await client.get('/api/appointments')

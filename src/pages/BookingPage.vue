@@ -39,7 +39,13 @@
         </div>
 
         <div class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <SlotPicker v-model="selectedSlot" :slots="slots" :loading="loadingSlots" />
+          <SlotPicker
+            v-model="selectedSlot"
+            :slots="slots"
+            :all-slots="displaySlots"
+            :booked-slots="bookedSlots"
+            :loading="loadingSlots"
+          />
         </div>
 
         <div v-if="apiMessage" class="mt-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-[#003c90]">
@@ -136,6 +142,7 @@ const selectedDoctor = ref('')
 const selectedDate = ref(new Date().toISOString().slice(0, 10))
 const selectedSlot = ref('')
 const slots = ref<string[]>([])
+const bookedSlots = ref<string[]>([])
 const loadingSlots = ref(false)
 const loadingCatalog = ref(false)
 const submitting = ref(false)
@@ -173,6 +180,7 @@ const doctorOptions = computed(() =>
 )
 
 const doctor = computed(() => doctors.value.find((item) => item.doctorId === Number(selectedDoctor.value)))
+const displaySlots = computed(() => mergeSlots(slots.value, bookedSlots.value))
 const bookingPatientId = computed(() => authStore.isPatient ? authStore.user?.patientId || authStore.user?.id : undefined)
 const bookingPatientName = computed(() => authStore.isPatient ? authStore.user?.fullName : '')
 const bookingPatientPhone = computed(() => authStore.isPatient ? authStore.user?.phoneNumber : '')
@@ -183,11 +191,13 @@ watch(selectedSpecialty, () => {
   }
   selectedSlot.value = ''
   slots.value = []
+  bookedSlots.value = []
 })
 
 watch([selectedDoctor, selectedDate], () => {
   selectedSlot.value = ''
   slots.value = []
+  bookedSlots.value = []
   apiMessage.value = ''
 })
 
@@ -230,11 +240,16 @@ async function findSlots() {
   selectedSlot.value = ''
   apiMessage.value = ''
   try {
-    const data = await appointmentApi.getAvailableSlots(Number(selectedDoctor.value), selectedDate.value)
+    const [data, booked] = await Promise.all([
+      appointmentApi.getAvailableSlots(Number(selectedDoctor.value), selectedDate.value),
+      appointmentApi.getBookedSlots(Number(selectedDoctor.value), selectedDate.value).catch(() => []),
+    ])
     slots.value = data
+    bookedSlots.value = booked
     if (!data.length) apiMessage.value = 'Không có giờ trống trong database cho bác sĩ và ngày đã chọn.'
   } catch (error) {
     slots.value = []
+    bookedSlots.value = []
     apiMessage.value = getApiErrorMessage(error)
   } finally {
     loadingSlots.value = false
@@ -244,11 +259,18 @@ async function findSlots() {
 async function submitBooking(payload: CreateAppointmentRequest) {
   submitting.value = true
   try {
+    const latestSlots = await appointmentApi.getAvailableSlots(payload.doctorId, payload.appointmentDate)
+    if (!latestSlots.map((slot) => slot.slice(0, 5)).includes(payload.slotTime.slice(0, 5))) {
+      selectedSlot.value = ''
+      await findSlots()
+      throw new Error('Khung giờ này vừa được người khác đặt. Vui lòng chọn giờ khác.')
+    }
     const appointment = await appointmentApi.createAppointment(payload)
     toast.title = 'Đặt lịch thành công'
     toast.message = `Mã lịch hẹn: ${appointment.appointmentId || 'đang cập nhật'}`
     toast.type = 'success'
     toast.show = true
+    await findSlots()
   } catch (error) {
     toast.title = 'Chưa thể đặt lịch'
     toast.message = getApiErrorMessage(error)
@@ -261,5 +283,9 @@ async function submitBooking(payload: CreateAppointmentRequest) {
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
+}
+
+function mergeSlots(...groups: string[][]) {
+  return Array.from(new Set(groups.flat().map((slot) => String(slot || '').slice(0, 5)).filter(Boolean))).sort((a, b) => a.localeCompare(b))
 }
 </script>

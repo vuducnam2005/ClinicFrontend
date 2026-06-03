@@ -8,19 +8,25 @@ export interface Invoice {
   totalAmount?: number
   examinationFee?: number
   examFee?: number
+  medicineTotal?: number
   paidAmount?: number
   paymentMethod?: string
   status: 'Unpaid' | 'Paid' | 'Cancelled' | string
   createdAt: string
   paidAt?: string
+  payments?: Payment[]
 }
 
 export interface Payment {
   paymentId: number
   invoiceId: number
   amount: number
-  method: string
+  paymentMethod: string
+  paymentStatus: string
+  paidBy: number
+  paidByName: string
   paidAt?: string
+  note?: string
 }
 
 export interface PrescriptionItem {
@@ -44,11 +50,14 @@ export interface Prescription {
   medicalRecordId?: number
   medicalRecordCode?: string
   patientId?: number | string
+  patientCode?: string
   doctorId?: number
   appointmentId?: number
   status?: string
   note?: string
   createdAt?: string
+  submittedAt?: string
   sentToPharmacyAt?: string
   items?: PrescriptionItem[]
+  prescriptionItems?: PrescriptionItem[]
 }

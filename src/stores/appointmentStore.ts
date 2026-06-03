@@ -43,5 +43,12 @@ export const useAppointmentStore = defineStore('appointment', {
         return fallbackSlots
       }
     },
+    async loadBookedSlots(doctorId: number, date: string) {
+      try {
+        return await appointmentApi.getBookedSlots(doctorId, date)
+      } catch {
+        return []
+      }
+    },
   },
 })

@@ -32,7 +32,13 @@
         </div>
 
         <div v-if="slots.length || loadingSlots || searchedSlots" class="mt-6 border-t border-slate-100 pt-5">
-          <SlotPicker v-model="selectedSlot" :slots="slots" :loading="loadingSlots" />
+          <SlotPicker
+            v-model="selectedSlot"
+            :slots="slots"
+            :all-slots="displaySlots"
+            :booked-slots="bookedSlots"
+            :loading="loadingSlots"
+          />
         </div>
       </div>
     </div>
@@ -43,6 +49,7 @@
       :appointmentDate="selectedDate"
       :slotTime="selectedSlot"
       @close="modalOpen = false"
+      @booked="findSlots"
     />
   </section>
 </template>
@@ -68,6 +75,7 @@ const selectedDoctor = ref('')
 const selectedDate = ref(new Date().toISOString().slice(0, 10))
 const selectedSlot = ref('')
 const slots = ref<string[]>([])
+const bookedSlots = ref<string[]>([])
 const loadingSlots = ref(false)
 const searchedSlots = ref(false)
 const modalOpen = ref(false)
@@ -96,12 +104,21 @@ const doctorOptions = computed(() =>
 )
 
 const doctor = computed(() => store.doctors.find((item) => item.doctorId === Number(selectedDoctor.value)))
+const displaySlots = computed(() => mergeSlots(slots.value, bookedSlots.value))
 
 watch(selectedSpecialty, () => {
   if (selectedDoctor.value && !filteredDoctors.value.some((item) => item.doctorId === Number(selectedDoctor.value))) {
     selectedDoctor.value = ''
   }
   slots.value = []
+  bookedSlots.value = []
+  selectedSlot.value = ''
+  searchedSlots.value = false
+})
+
+watch([selectedDoctor, selectedDate], () => {
+  slots.value = []
+  bookedSlots.value = []
   selectedSlot.value = ''
   searchedSlots.value = false
 })
@@ -122,8 +139,17 @@ async function findSlots() {
   if (!selectedDoctor.value || !selectedDate.value) return
   loadingSlots.value = true
   selectedSlot.value = ''
-  slots.value = await store.loadSlots(Number(selectedDoctor.value), selectedDate.value)
+  const [available, booked] = await Promise.all([
+    store.loadSlots(Number(selectedDoctor.value), selectedDate.value),
+    store.loadBookedSlots(Number(selectedDoctor.value), selectedDate.value),
+  ])
+  slots.value = available
+  bookedSlots.value = booked
   searchedSlots.value = true
   loadingSlots.value = false
+}
+
+function mergeSlots(...groups: string[][]) {
+  return Array.from(new Set(groups.flat().map((slot) => String(slot || '').slice(0, 5)).filter(Boolean))).sort((a, b) => a.localeCompare(b))
 }
 </script>

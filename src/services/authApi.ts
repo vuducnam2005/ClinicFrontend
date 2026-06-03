@@ -64,8 +64,10 @@ export interface RegisterRequest {
 
 export const authApi = {
   async login(payload: LoginRequest) {
+    const identifier = payload.identifier.trim()
     const response = await client.post('/api/auth/login', {
-      email: payload.identifier,
+      email: identifier,
+      username: identifier,
       password: payload.password,
     })
     return normalizeLoginResponse(response.data)

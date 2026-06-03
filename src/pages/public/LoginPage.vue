@@ -34,15 +34,15 @@
 
         <form class="mt-8 space-y-6" novalidate @submit.prevent="submitLogin">
           <label class="block">
-            <span class="mb-3 block text-base font-medium text-slate-800">Email của bạn</span>
+            <span class="mb-3 block text-base font-medium text-slate-800">Email hoặc tên đăng nhập <span class="text-red-500">*</span></span>
             <span class="flex h-14 items-center rounded-lg border border-slate-300 bg-slate-50 px-4 transition focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100">
               <Mail class="h-5 w-5 shrink-0 text-slate-500" />
               <input
                 v-model="loginData.identifier"
                 class="h-full min-w-0 flex-1 bg-transparent pl-4 text-base text-slate-950 outline-none placeholder:text-slate-500"
-                type="email"
-                autocomplete="email"
-                placeholder="name@example.com"
+                type="text"
+                autocomplete="username"
+                placeholder="email@example.com hoặc username"
                 maxlength="100"
                 required
               />
@@ -50,7 +50,7 @@
           </label>
 
           <label class="block">
-            <span class="mb-3 block text-base font-medium text-slate-800">Mật khẩu</span>
+            <span class="mb-3 block text-base font-medium text-slate-800">Mật khẩu <span class="text-red-500">*</span></span>
             <span class="flex h-14 items-center rounded-lg border border-slate-300 bg-slate-50 px-4 transition focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100">
               <LockKeyhole class="h-5 w-5 shrink-0 text-slate-500" />
               <input
@@ -135,7 +135,6 @@ const remember = ref(true)
 const showPassword = ref(false)
 const loginData = reactive({ identifier: '', password: '' })
 const toast = reactive({ show: false, title: '', message: '', type: 'success' as 'success' | 'error' })
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function showValidationError(message: string) {
   toast.title = 'Thông tin chưa hợp lệ'
@@ -159,28 +158,28 @@ function resolveRedirectPath() {
 }
 
 async function submitLogin() {
-  const email = loginData.identifier.trim()
+  const identifier = loginData.identifier.trim()
   const password = loginData.password
 
-  if (!email) {
-    showValidationError('Email là bắt buộc')
+  if (!identifier) {
+    showValidationError('Email hoặc tên đăng nhập là bắt buộc')
     return
   }
-  if (email.length > 100) {
-    showValidationError('Email không được vượt quá 100 ký tự')
-    return
-  }
-  if (!emailPattern.test(email)) {
-    showValidationError('Email không đúng định dạng')
+  if (identifier.length > 100) {
+    showValidationError('Email hoặc tên đăng nhập không được vượt quá 100 ký tự')
     return
   }
   if (!password) {
     showValidationError('Mật khẩu là bắt buộc')
     return
   }
+  if (password.length < 6) {
+    showValidationError('Mật khẩu phải có ít nhất 6 ký tự')
+    return
+  }
 
   try {
-    await authStore.login({ identifier: email, password })
+    await authStore.login({ identifier, password })
     toast.title = 'Thành công'
     toast.message = 'Đăng nhập thành công'
     toast.type = 'success'

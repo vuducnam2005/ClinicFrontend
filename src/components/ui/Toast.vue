@@ -29,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 import { AlertCircle, CheckCircle2, X } from 'lucide-vue-next'
 
 const props = withDefaults(
@@ -45,11 +45,30 @@ const props = withDefaults(
   },
 )
 
-defineEmits<{
+const emit = defineEmits<{
   close: []
 }>()
 
 const toneClasses = computed(() =>
   props.type === 'success' ? 'border-teal-100' : 'border-rose-100',
 )
+
+let closeTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(
+  () => props.show,
+  (show) => {
+    if (closeTimer) clearTimeout(closeTimer)
+    if (show) {
+      closeTimer = setTimeout(() => {
+        emit('close')
+      }, 3000)
+    }
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  if (closeTimer) clearTimeout(closeTimer)
+})
 </script>

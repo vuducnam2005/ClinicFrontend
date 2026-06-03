@@ -2,23 +2,12 @@
   <section class="space-y-6">
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex gap-4">
-          <span :class="['flex h-12 w-12 shrink-0 items-center justify-center rounded-xl', config.iconClass]">
-            <component :is="config.icon" class="h-6 w-6" />
-          </span>
-          <div>
-            <p class="text-xs font-bold uppercase tracking-[0.14em] text-[#0F52BA]">{{ config.service }}</p>
-            <h1 class="mt-2 text-2xl font-bold tracking-normal text-slate-950 sm:text-3xl">{{ config.title }}</h1>
-            <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{{ config.description }}</p>
-          </div>
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[0.14em] text-[#0F52BA]">{{ config.service }}</p>
+          <h1 class="mt-2 text-2xl font-bold tracking-normal text-slate-950 sm:text-3xl">{{ config.title }}</h1>
+          <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{{ config.description }}</p>
         </div>
-        <button
-          v-if="resource !== 'profile'"
-          type="button"
-          class="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-[#003c90] disabled:cursor-not-allowed disabled:opacity-60"
-          :disabled="loading"
-          @click="loadData"
-        >
+        <button v-if="resource !== 'profile'" type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-[#003c90]" :disabled="loading" @click="loadData">
           <RefreshCw :class="['h-4 w-4', loading ? 'animate-spin' : '']" />
           Tải lại
         </button>
@@ -36,7 +25,36 @@
     <div v-if="note" class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-[#003c90]">{{ note }}</div>
     <div v-if="error" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{{ error }}</div>
 
-    <ProfilePanel v-if="resource === 'profile'" :patient-id="patientId" />
+    <div v-if="resource === 'profile'" class="grid gap-6 lg:grid-cols-[1fr_0.85fr]">
+      <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex items-center gap-4">
+          <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-[#0F52BA]">
+            <UserRound class="h-7 w-7" />
+          </div>
+          <div>
+            <p class="text-sm font-bold uppercase tracking-wide text-[#0F52BA]">Thông tin tài khoản</p>
+            <h2 class="mt-1 text-2xl font-bold text-slate-950">{{ authStore.user?.fullName || authStore.user?.username || 'Bệnh nhân' }}</h2>
+          </div>
+        </div>
+        <dl class="mt-6 grid gap-4 sm:grid-cols-2">
+          <div v-for="[label, textValue] in profileItems" :key="label" class="rounded-xl border border-slate-100 bg-slate-50 p-4">
+            <dt class="text-xs font-bold uppercase tracking-wide text-slate-400">{{ label }}</dt>
+            <dd class="mt-2 break-words font-semibold text-slate-900">{{ textValue }}</dd>
+          </div>
+        </dl>
+      </section>
+      <section class="rounded-2xl border border-blue-100 bg-blue-50 p-6 text-[#003c90]">
+        <div class="flex items-center gap-3">
+          <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-white"><ShieldCheck class="h-5 w-5" /></span>
+          <h3 class="font-bold">Liên kết dữ liệu</h3>
+        </div>
+        <div class="mt-5 space-y-3 text-sm leading-6">
+          <p>N1 đọc lịch hẹn theo Patient ID.</p>
+          <p>N2 đọc lịch sử khám, bệnh án và đơn thuốc theo Patient ID.</p>
+          <p>N3 đọc viện phí theo tài khoản hoặc Patient ID.</p>
+        </div>
+      </section>
+    </div>
 
     <div v-else-if="loading" class="grid gap-4 md:grid-cols-3">
       <LoadingSkeleton v-for="item in 3" :key="item" />
@@ -46,11 +64,7 @@
       <div class="grid gap-3 border-b border-slate-100 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
         <label class="relative block">
           <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            v-model="query"
-            class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
-            :placeholder="config.placeholder"
-          />
+          <input v-model="query" class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100" :placeholder="config.placeholder" />
         </label>
         <span class="rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-[#003c90]">{{ filteredRows.length }} dòng</span>
       </div>
@@ -59,87 +73,140 @@
         <table class="min-w-full divide-y divide-slate-100 text-sm">
           <thead class="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
             <tr>
-              <th v-for="column in config.columns" :key="column.key" :class="['px-5 py-3', column.right ? 'text-right' : 'text-left']">
-                {{ column.label }}
-              </th>
-              <th v-if="resource === 'bills'" class="px-5 py-3 text-right">Thao tác</th>
+              <th v-for="column in config.columns" :key="column.key" class="px-5 py-3">{{ column.label }}</th>
+              <th v-if="['records', 'prescriptions', 'bills'].includes(resource)" class="px-5 py-3 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="(row, index) in filteredRows" :key="String(row.id || index)" class="transition hover:bg-slate-50">
-              <td v-for="column in config.columns" :key="column.key" :class="['px-5 py-4 align-top', column.right ? 'text-right' : 'text-left']">
-                <span v-if="column.badge" :class="['rounded-full px-2.5 py-1 text-xs font-bold', statusClass(value(row, column.key))]">
-                  {{ value(row, column.key) }}
-                </span>
-                <span v-else :class="column.strong ? 'font-bold text-slate-950' : 'text-slate-700'">
-                  {{ value(row, column.key) }}
-                </span>
+            <tr v-for="row in paginatedRows" :key="String(row.id)" class="transition hover:bg-slate-50">
+              <td v-for="column in config.columns" :key="column.key" class="px-5 py-4 align-top">
+                <span v-if="column.badge" :class="['rounded-full px-2.5 py-1 text-xs font-bold', statusClass(value(row, column.key))]">{{ value(row, column.key) }}</span>
+                <span v-else :class="column.strong ? 'font-bold text-slate-950' : 'text-slate-700'">{{ value(row, column.key) }}</span>
               </td>
-              <td v-if="resource === 'bills'" class="px-5 py-4 text-right">
-                <button
-                  v-if="String(row.status).toLowerCase() !== 'paid' && !String(row.status).toLowerCase().includes('đã thanh toán')"
-                  type="button"
-                  class="rounded-lg bg-[#0F52BA] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#003c90] disabled:opacity-60"
-                  :disabled="actingId === row.id"
-                  @click="pay(row)"
-                >
+              <td v-if="['records', 'prescriptions', 'bills'].includes(resource)" class="px-5 py-4 text-right">
+                <button v-if="resource !== 'bills'" type="button" class="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#003c90] transition hover:bg-blue-100" @click="openDetail(row)">
+                  Chi tiết
+                </button>
+                <button v-else-if="String(row.status).toLowerCase() !== 'paid' && !String(row.status).toLowerCase().includes('đã thanh toán')" type="button" class="rounded-lg bg-[#0F52BA] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#003c90]" :disabled="actingId === row.id" @click="pay(row)">
                   Thanh toán
                 </button>
               </td>
             </tr>
           </tbody>
         </table>
+
+        <!-- Pagination Footer -->
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 p-4 bg-slate-50/50">
+          <div class="flex items-center gap-2 text-sm text-slate-500">
+            <span>Hiển thị</span>
+            <select
+              v-model="itemsPerPage"
+              class="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            >
+              <option :value="10">10</option>
+              <option :value="20">20</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+            </select>
+            <span>bản ghi mỗi trang</span>
+          </div>
+
+          <div class="text-sm font-medium text-slate-500">
+            Hiển thị {{ Math.min(filteredRows.length, (currentPage - 1) * itemsPerPage + 1) }} - {{ Math.min(filteredRows.length, currentPage * itemsPerPage) }} trên {{ filteredRows.length }} kết quả
+          </div>
+
+          <div v-if="totalPages > 1" class="flex items-center gap-1.5">
+            <button
+              type="button"
+              :disabled="currentPage === 1"
+              class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-500"
+              @click="currentPage--"
+            >
+              <ChevronLeft class="h-4 w-4" />
+            </button>
+            <button
+              v-for="page in totalPages"
+              :key="page"
+              type="button"
+              :class="[
+                'h-8 min-w-8 rounded-lg text-sm font-bold transition px-2',
+                currentPage === page
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+              ]"
+              @click="currentPage = page"
+            >
+              {{ page }}
+            </button>
+            <button
+              type="button"
+              :disabled="currentPage === totalPages"
+              class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-500"
+              @click="currentPage++"
+            >
+              <ChevronRight class="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
       <div v-else class="p-10 text-center">
         <SearchX class="mx-auto h-10 w-10 text-slate-400" />
         <h2 class="mt-4 text-lg font-bold text-slate-950">Chưa có dữ liệu</h2>
         <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-          Database chưa có dữ liệu phù hợp với tài khoản bệnh nhân này. Khi bạn đặt lịch, khám bệnh hoặc phát sinh hóa đơn, dữ liệu sẽ hiển thị tại đây.
+          Database chưa có dữ liệu phù hợp với tài khoản bệnh nhân này.
         </p>
       </div>
     </div>
+
+    <div v-if="detailOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+      <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[1.5rem] bg-white p-6 shadow-2xl">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">{{ detailTitle }}</p>
+            <h2 class="mt-1 text-2xl font-bold text-slate-950">{{ detailRow?.id }}</h2>
+          </div>
+          <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" @click="detailOpen = false">
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+        <dl class="mt-5 grid gap-3 sm:grid-cols-2">
+          <div v-for="[label, textValue] in detailItems" :key="label" class="rounded-xl border border-slate-100 bg-slate-50 p-4">
+            <dt class="text-xs font-bold uppercase tracking-wide text-slate-400">{{ label }}</dt>
+            <dd class="mt-2 whitespace-pre-line break-words text-sm font-semibold text-slate-900">{{ textValue }}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+
+    <Toast
+      :show="toast.show"
+      :title="toast.title"
+      :message="toast.message"
+      :type="toast.type"
+      @close="toast.show = false"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, ref, watch, type Component } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import {
-  CalendarClock,
-  CreditCard,
-  FileHeart,
-  Pill,
-  RefreshCw,
-  Search,
-  SearchX,
-  ShieldCheck,
-  UserRound,
-} from 'lucide-vue-next'
+import { CalendarClock, ChevronLeft, ChevronRight, CreditCard, FileHeart, Pill, RefreshCw, Search, SearchX, ShieldCheck, UserRound, X } from 'lucide-vue-next'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
+import Toast from '@/components/ui/Toast.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { appointmentApi } from '@/services/appointmentApi'
 import { billingApi } from '@/services/billingApi'
-import { medicalRecordApi } from '@/services/medicalRecordApi'
+import { medicalRecordApi, type PatientMedicalHistory } from '@/services/medicalRecordApi'
 import { getApiErrorMessage } from '@/services/apiClient'
-import { localClinicalStore } from '@/services/localClinicalStore'
 import type { Appointment } from '@/types/appointment'
 import type { Invoice, Prescription } from '@/types/billing'
 import type { MedicalRecord, Patient } from '@/types/medicalRecord'
 
 type Resource = 'appointments' | 'records' | 'prescriptions' | 'bills' | 'profile'
 type Row = Record<string, any>
-interface Column { key: string; label: string; right?: boolean; badge?: boolean; strong?: boolean }
-interface Config {
-  title: string
-  service: string
-  description: string
-  placeholder: string
-  icon: Component
-  iconClass: string
-  search: string[]
-  columns: Column[]
-}
+interface Column { key: string; label: string; badge?: boolean; strong?: boolean }
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -149,15 +216,44 @@ const note = ref('')
 const query = ref('')
 const rows = ref<Row[]>([])
 const actingId = ref<string | number | null>(null)
+const toast = reactive({ show: false, title: '', message: '', type: 'success' as 'success' | 'error' })
+const currentPatient = ref<Patient | null>(null)
+const history = ref<PatientMedicalHistory | null>(null)
+const detailOpen = ref(false)
+const detailRow = ref<Row | null>(null)
 
 const resource = computed<Resource>(() => isResource(route.meta.patientResource) ? route.meta.patientResource : 'appointments')
 const config = computed(() => configs[resource.value])
-const patientId = computed(() => String(authStore.user?.patientId || authStore.user?.id || ''))
+const patientId = computed(() => String(currentPatient.value?.patientId || authStore.user?.patientId || authStore.user?.id || ''))
+
+const configs: Record<Resource, { title: string; service: string; description: string; placeholder: string; icon: any; iconClass: string; search: string[]; columns: Column[] }> = {
+  appointments: cfg('Lịch hẹn của tôi', 'N1 Appointment', 'Theo dõi lịch đã đặt, bác sĩ, giờ khám, số thứ tự và trạng thái xác nhận.', 'Tìm bác sĩ, lý do, trạng thái...', CalendarClock, 'bg-blue-50 text-[#0F52BA]', ['doctorName', 'status', 'reason', 'dateTime'], cols(['id', 'Mã'], ['doctorName', 'Bác sĩ', false, true], ['dateTime', 'Ngày giờ'], ['queueNumber', 'STT'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
+  records: cfg('Hồ sơ bệnh án', 'N2 Medical Record', 'Xem chẩn đoán, triệu chứng và ghi chú bác sĩ sau mỗi lần khám.', 'Tìm chẩn đoán, triệu chứng, ghi chú...', FileHeart, 'bg-indigo-50 text-indigo-700', ['id', 'diagnosis', 'symptoms', 'doctorNotes'], cols(['id', 'Mã BA'], ['diagnosis', 'Chẩn đoán', false, true], ['symptoms', 'Triệu chứng'], ['doctorNotes', 'Ghi chú'], ['createdAt', 'Ngày tạo'])),
+  prescriptions: cfg('Đơn thuốc', 'N2 Prescription', 'Xem đơn thuốc cũ đã được bác sĩ chốt và gửi sang nhà thuốc.', 'Tìm mã đơn, thuốc, trạng thái...', Pill, 'bg-cyan-50 text-cyan-700', ['id', 'medicine', 'status', 'note'], cols(['id', 'Mã đơn'], ['medicine', 'Thuốc', false, true], ['quantity', 'Số lượng'], ['note', 'Ghi chú'], ['status', 'Trạng thái', true])),
+  bills: cfg('Viện phí của tôi', 'N3 Billing', 'Xem hóa đơn, số tiền và thực hiện thanh toán viện phí khi cần.', 'Tìm mã hóa đơn, trạng thái...', CreditCard, 'bg-emerald-50 text-emerald-700', ['id', 'amount', 'status'], cols(['id', 'Mã HĐ'], ['appointmentId', 'Lịch hẹn'], ['amount', 'Số tiền', false, true], ['status', 'Trạng thái', true])),
+  profile: cfg('Hồ sơ cá nhân', 'Auth/N2 Profile', 'Thông tin tài khoản bệnh nhân và hồ sơ N2 liên kết.', '', UserRound, 'bg-slate-100 text-slate-700', [], []),
+}
 
 const filteredRows = computed(() => {
   const keyword = query.value.trim().toLowerCase()
   if (!keyword) return rows.value
   return rows.value.filter((row) => config.value.search.some((key) => String(row[key] || '').toLowerCase().includes(keyword)))
+})
+
+// Pagination
+const currentPage = ref(1)
+const itemsPerPage = ref(10)
+
+watch([resource, query], () => {
+  currentPage.value = 1
+})
+
+const totalPages = computed(() => Math.ceil(filteredRows.value.length / itemsPerPage.value))
+
+const paginatedRows = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  const end = start + itemsPerPage.value
+  return filteredRows.value.slice(start, end)
 })
 
 const metrics = computed(() => {
@@ -171,55 +267,35 @@ const metrics = computed(() => {
   ]
 })
 
-const configs: Record<Resource, Config> = {
-  appointments: cfg('Lịch hẹn của tôi', 'N1 Appointment', 'Theo dõi lịch đã đặt, bác sĩ, giờ khám, số thứ tự và trạng thái xác nhận.', 'Tìm bác sĩ, lý do, trạng thái...', CalendarClock, 'bg-blue-50 text-[#0F52BA]', ['doctorName', 'status', 'reason', 'dateTime'], cols(['id', 'Mã'], ['doctorName', 'Bác sĩ', false, false, true], ['dateTime', 'Ngày giờ'], ['queueNumber', 'STT', true], ['reason', 'Lý do'], ['status', 'Trạng thái', false, true])),
-  records: cfg('Hồ sơ bệnh án', 'N2 Medical Record', 'Xem chẩn đoán, triệu chứng và ghi chú bác sĩ sau mỗi lần khám.', 'Tìm chẩn đoán, triệu chứng, ghi chú...', FileHeart, 'bg-indigo-50 text-indigo-700', ['id', 'diagnosis', 'symptoms', 'doctorNotes'], cols(['id', 'Mã BA'], ['diagnosis', 'Chẩn đoán', false, false, true], ['symptoms', 'Triệu chứng'], ['doctorNotes', 'Ghi chú'], ['createdAt', 'Ngày tạo'])),
-  prescriptions: cfg('Đơn thuốc', 'N3 Pharmacy', 'Theo dõi đơn thuốc đã gửi nhà thuốc, thuốc được kê và trạng thái phát thuốc.', 'Tìm mã đơn, thuốc, trạng thái...', Pill, 'bg-cyan-50 text-cyan-700', ['id', 'medicine', 'status', 'note'], cols(['id', 'Mã đơn'], ['medicine', 'Thuốc', false, false, true], ['quantity', 'Số lượng', true], ['note', 'Ghi chú'], ['status', 'Trạng thái', false, true])),
-  bills: cfg('Viện phí của tôi', 'N3 Billing', 'Xem hóa đơn, số tiền và thực hiện thanh toán viện phí khi cần.', 'Tìm mã hóa đơn, trạng thái...', CreditCard, 'bg-emerald-50 text-emerald-700', ['id', 'amount', 'status'], cols(['id', 'Mã HĐ'], ['appointmentId', 'Lịch hẹn'], ['amount', 'Số tiền', true, false, true], ['status', 'Trạng thái', false, true])),
-  profile: cfg('Hồ sơ cá nhân', 'Auth/N2 Profile', 'Thông tin tài khoản bệnh nhân và khóa liên kết dữ liệu giữa các service.', '', UserRound, 'bg-slate-100 text-slate-700', [], []),
-}
+const profileItems = computed(() => [
+  ['Họ và tên', currentPatient.value?.fullName || authStore.user?.fullName || 'Chưa cập nhật'],
+  ['Tên đăng nhập', authStore.user?.username || 'Chưa cập nhật'],
+  ['Email', authStore.user?.email || (currentPatient.value as any)?.email || 'Chưa cập nhật'],
+  ['Số điện thoại', currentPatient.value?.phoneNumber || currentPatient.value?.phone || authStore.user?.phoneNumber || 'Chưa cập nhật'],
+  ['Patient ID', patientId.value || 'Chưa liên kết'],
+  ['Tiền sử bệnh', currentPatient.value?.medicalHistory || 'Chưa ghi nhận'],
+])
 
-const ProfilePanel = defineComponent({
-  props: { patientId: { type: String, required: true } },
-  setup(props) {
-    const user = authStore.user
-    const items = [
-      ['Họ và tên', user?.fullName || 'Chưa cập nhật'],
-      ['Tên đăng nhập', user?.username || 'Chưa cập nhật'],
-      ['Email', user?.email || 'Chưa cập nhật'],
-      ['Số điện thoại', user?.phoneNumber || 'Chưa cập nhật'],
-      ['Patient ID', props.patientId || 'Chưa liên kết'],
-      ['Vai trò', 'Bệnh nhân'],
+const detailTitle = computed(() => resource.value === 'records' ? 'Chi tiết bệnh án' : 'Chi tiết đơn thuốc')
+const detailItems = computed(() => {
+  const row = detailRow.value || {}
+  if (resource.value === 'records') {
+    return [
+      ['Mã bệnh án', row.id || ''],
+      ['Chẩn đoán', row.diagnosis || 'Chưa có chẩn đoán'],
+      ['Triệu chứng', row.symptoms || 'Chưa ghi nhận'],
+      ['Ghi chú bác sĩ', row.doctorNotes || 'Chưa ghi chú'],
+      ['Hướng điều trị', row.treatmentPlan || 'Chưa ghi nhận'],
+      ['Ngày tái khám', row.followUpDate || 'Chưa hẹn'],
     ]
-    return () => h('div', { class: 'grid gap-6 lg:grid-cols-[1fr_0.85fr]' }, [
-      h('section', { class: 'rounded-2xl border border-slate-200 bg-white p-6 shadow-sm' }, [
-        h('div', { class: 'flex items-center gap-4' }, [
-          h('div', { class: 'flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-[#0F52BA]' }, [h(UserRound, { class: 'h-7 w-7' })]),
-          h('div', null, [
-            h('p', { class: 'text-sm font-bold uppercase tracking-wide text-[#0F52BA]' }, 'Thông tin tài khoản'),
-            h('h2', { class: 'mt-1 text-2xl font-bold text-slate-950' }, user?.fullName || user?.username || 'Bệnh nhân'),
-          ]),
-        ]),
-        h('dl', { class: 'mt-6 grid gap-4 sm:grid-cols-2' }, items.map(([label, valueText]) => (
-          h('div', { class: 'rounded-xl border border-slate-100 bg-slate-50 p-4' }, [
-            h('dt', { class: 'text-xs font-bold uppercase tracking-wide text-slate-400' }, label),
-            h('dd', { class: 'mt-2 break-words font-semibold text-slate-900' }, valueText),
-          ])
-        ))),
-      ]),
-      h('section', { class: 'rounded-2xl border border-blue-100 bg-blue-50 p-6 text-[#003c90]' }, [
-        h('div', { class: 'flex items-center gap-3' }, [
-          h('span', { class: 'flex h-10 w-10 items-center justify-center rounded-xl bg-white' }, [h(ShieldCheck, { class: 'h-5 w-5' })]),
-          h('h3', { class: 'font-bold' }, 'Liên kết dữ liệu'),
-        ]),
-        h('div', { class: 'mt-5 space-y-3 text-sm leading-6' }, [
-          h('p', null, 'N1 dùng Patient ID để đọc lịch hẹn và hàng đợi khám.'),
-          h('p', null, 'N2 dùng Patient ID để đọc lịch sử khám và hồ sơ bệnh án.'),
-          h('p', null, 'N3 dùng User/Patient ID để đọc đơn thuốc, hóa đơn và thanh toán.'),
-        ]),
-      ]),
-    ])
-  },
+  }
+  return [
+    ['Mã đơn', row.id || ''],
+    ['Thuốc', row.medicine || 'Chưa có thuốc'],
+    ['Số lượng', row.quantity || '-'],
+    ['Ghi chú', row.note || 'Không có ghi chú'],
+    ['Trạng thái', row.status || 'Chưa cập nhật'],
+  ]
 })
 
 watch(resource, () => {
@@ -228,110 +304,105 @@ watch(resource, () => {
 }, { immediate: true })
 
 async function loadData() {
-  if (resource.value === 'profile') return
-  loading.value = true
+  loading.value = resource.value !== 'profile'
   error.value = ''
   note.value = ''
-
   try {
-    const keys = await resolvePatientKeys()
-    const appointmentKeys = keys.filter((key) => /^\d+$/.test(key))
-
+    await resolvePatient()
+    if (resource.value === 'profile') return
     if (resource.value === 'appointments') {
-      rows.value = uniqueRows((await Promise.all(appointmentKeys.map((key) => loadRows(() => appointmentApi.getAppointmentsByPatient(key), mapAppointment, '')))).flat())
-      note.value = rows.value.length ? 'Đã tải lịch hẹn từ N1.' : 'Database chưa có dữ liệu cho bệnh nhân này.'
+      const keys = numericKeys()
+      rows.value = uniqueRows((await Promise.all(keys.map((key) => appointmentApi.getAppointmentsByPatient(key).catch(() => [] as Appointment[])))).flat().map(mapAppointment))
+      note.value = rows.value.length ? 'Đã tải lịch hẹn từ N1.' : 'Database chưa có lịch hẹn cho bệnh nhân này.'
+      showLoadToast('Lịch hẹn', rows.value.length, 'Nếu chưa có lịch, sang Đặt lịch khám để tạo lịch mới.')
     }
-    
     if (resource.value === 'records') {
-      const remoteRows = (await Promise.all(keys.map((key) => loadRows(() => medicalRecordApi.getMedicalRecords(key), mapRecord, '')))).flat()
-      rows.value = uniqueRows([...remoteRows, ...localClinicalStore.getMedicalRecords(keys).map(mapRecord)])
-      note.value = rows.value.length ? 'Đã tải hồ sơ bệnh án từ N2.' : 'Database chưa có dữ liệu cho bệnh nhân này.'
+      const records = await getHistory().then((data) => data.medicalRecords)
+      rows.value = records.map(mapRecord)
+      note.value = rows.value.length ? 'Đã tải hồ sơ bệnh án từ N2.' : 'Database chưa có bệnh án cho bệnh nhân này.'
+      showLoadToast('Hồ sơ bệnh án', rows.value.length, 'Bệnh án sẽ xuất hiện sau khi bác sĩ hoàn tất lượt khám.')
     }
-
     if (resource.value === 'prescriptions') {
-      const remoteRows = (await Promise.all(keys.map((key) => loadRows(() => billingApi.getPrescriptions(key), mapPrescription, '')))).flat()
-      rows.value = uniqueRows([...remoteRows, ...localClinicalStore.getPrescriptions(keys).map(mapPrescription)])
-      note.value = rows.value.length ? 'Đã tải đơn thuốc từ N3.' : 'Database chưa có dữ liệu cho bệnh nhân này.'
+      const keys = patientKeys()
+      const [n2Prescriptions, n3PrescriptionsResults] = await Promise.all([
+        getHistory().then((data) => data.prescriptions || []),
+        Promise.all(keys.map(key => billingApi.getPrescriptions(key).catch(() => [] as Prescription[])))
+      ])
+      const n3Prescriptions = n3PrescriptionsResults.flat()
+      const combined = [...n2Prescriptions, ...n3Prescriptions]
+      const seen = new Set<string>()
+      const uniquePrescriptions = combined.filter((p) => {
+        const id = p.prescriptionId || p.id || p.prescriptionCode
+        if (!id || seen.has(String(id))) return false
+        seen.add(String(id))
+        return true
+      })
+      rows.value = uniquePrescriptions.map(mapPrescription)
+      note.value = rows.value.length ? 'Đã đồng bộ đơn thuốc từ N2 và N3.' : 'Database chưa có đơn thuốc cho bệnh nhân này.'
+      showLoadToast('Đơn thuốc', rows.value.length, 'Đơn thuốc sẽ xuất hiện sau khi bác sĩ chốt đơn qua N2.')
     }
-
     if (resource.value === 'bills') {
-      const remoteRows = (await Promise.all(keys.map((key) => loadRows(() => billingApi.getInvoices(key), mapInvoice, '')))).flat()
-      rows.value = uniqueRows([...remoteRows, ...localClinicalStore.getInvoices(keys).map(mapInvoice)])
-      note.value = rows.value.length ? 'Đã tải viện phí từ N3.' : 'Database chưa có dữ liệu cho bệnh nhân này.'
+      const keys = patientKeys()
+      rows.value = uniqueRows((await Promise.all(keys.map((key) => billingApi.getInvoices(key).catch(() => [] as Invoice[])))).flat().map(mapInvoice))
+      note.value = rows.value.length ? 'Đã tải viện phí từ N3.' : 'Database chưa có viện phí cho bệnh nhân này.'
+      showLoadToast('Viện phí', rows.value.length, 'Nếu đã khám xong, liên hệ quầy thu ngân hoặc kiểm tra lại sau.')
     }
-
+  } catch (apiError) {
+    error.value = getApiErrorMessage(apiError)
+    showToast('Không tải được dữ liệu', `${error.value} Kiểm tra lại liên kết Patient ID hoặc thử sang Hồ sơ cá nhân.`, 'error')
+    rows.value = []
   } finally {
     loading.value = false
   }
 }
 
-async function resolvePatientKeys() {
+async function resolvePatient() {
+  if (currentPatient.value) return currentPatient.value
   const user = authStore.user
-  const keys = new Set<string>()
-  addKey(keys, user?.patientId)
-  addKey(keys, user?.id)
-
-  const numericUserId = String(user?.id || '')
-  const appointments = /^\d+$/.test(numericUserId)
-    ? await appointmentApi.getAppointmentsByPatient(numericUserId).catch(() => [] as Appointment[])
-    : []
-  for (const appointment of appointments) {
-    addKey(keys, appointment.patientId)
-    addKey(keys, (appointment as any).PatientId)
+  const directId = String(user?.patientId || '')
+  if (directId) {
+    currentPatient.value = await medicalRecordApi.getPatient(directId).catch(() => null as any)
+    if (currentPatient.value) return currentPatient.value
   }
-
+  const appointments = user?.id ? await appointmentApi.getAppointmentsByPatient(user.id).catch(() => [] as Appointment[]) : []
   const phones = new Set([user?.phoneNumber, ...appointments.map((item) => item.patientPhone)].map(normalizeText).filter(Boolean))
   const names = new Set([user?.fullName, ...appointments.map((item) => item.patientName)].map(normalizeText).filter(Boolean))
-  const patients = await medicalRecordApi.getPatients().catch(() => [] as Patient[])
+  const patients = await medicalRecordApi.getPatients({ pageSize: 100 }).catch(() => [] as Patient[])
   const match = patients.find((patient) => {
     const patientPhones = [patient.phone, patient.phoneNumber].map(normalizeText).filter(Boolean)
     const patientName = normalizeText(patient.fullName)
     return patientPhones.some((phone) => phones.has(phone)) || Boolean(patientName && names.has(patientName))
-  })
+  }) || null
+  currentPatient.value = match
+  if (match && authStore.user) authStore.user.patientId = String(match.patientId || match.id || '')
+  return match
+}
 
-  if (match) {
-    addKey(keys, match.patientId)
-    addKey(keys, match.patientCode)
-    addKey(keys, match.id)
-    if (authStore.user) authStore.user.patientId = String(match.patientId || match.patientCode || match.id || '')
-  }
+async function getHistory() {
+  if (history.value) return history.value
+  const id = patientId.value
+  if (!id) return { visits: [], medicalRecords: [], prescriptions: [] } as PatientMedicalHistory
+  history.value = await medicalRecordApi.getPatientHistory(id).catch(() => ({ visits: [], medicalRecords: [], prescriptions: [] }) as PatientMedicalHistory)
+  return history.value
+}
 
-  return Array.from(keys).filter(Boolean)
+function patientKeys() {
+  const keys = new Set<string>()
+  addKey(keys, authStore.user?.id)
+  addKey(keys, authStore.user?.patientId)
+  addKey(keys, currentPatient.value?.patientId)
+  addKey(keys, currentPatient.value?.id)
+  addKey(keys, currentPatient.value?.patientCode)
+  return Array.from(keys)
+}
+
+function numericKeys() {
+  return patientKeys().filter((key) => /^\d+$/.test(key))
 }
 
 function addKey(keys: Set<string>, value: unknown) {
-  const text = String(value ?? '').trim()
-  if (text && text !== '0' && text.toLowerCase() !== 'nan') keys.add(text)
-}
-
-function normalizeText(value: unknown) {
-  return String(value ?? '').trim().toLowerCase()
-}
-
-function uniqueRows(items: Row[]) {
-  const seen = new Set<string>()
-  return items.filter((item, index) => {
-    const key = String(item.id || `${item.appointmentId || ''}-${index}`)
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-}
-
-async function loadRows<T>(loader: () => Promise<T[]>, mapper: (item: T) => Row, successNote: string) {
-  try {
-    const data = await loader()
-    note.value = data.length ? successNote : 'Database chưa có dữ liệu cho bệnh nhân này.'
-    return data.map(mapper)
-  } catch (apiError) {
-    if ((apiError as any)?.response?.status === 404 || (apiError as any)?.response?.status === 403) {
-      note.value = 'Database chưa có dữ liệu hoặc tài khoản chưa được liên kết Patient ID.'
-      return []
-    }
-    error.value = getApiErrorMessage(apiError)
-    note.value = 'Endpoint chưa phản hồi ổn định.'
-    return []
-  }
+  const textValue = String(value ?? '').trim()
+  if (textValue && textValue !== '0') keys.add(textValue)
 }
 
 function mapAppointment(item: Appointment): Row {
@@ -347,26 +418,28 @@ function mapAppointment(item: Appointment): Row {
 
 function mapRecord(item: MedicalRecord): Row {
   return {
-    id: item.recordId || item.medicalRecordId || 'MR',
-    diagnosis: item.diagnosis || 'Chưa có chẩn đoán',
+    id: item.recordId || item.medicalRecordCode || item.medicalRecordId || 'BA',
+    diagnosis: item.diagnosisText || item.diagnosis || 'Chưa có chẩn đoán',
     symptoms: item.symptoms || 'Chưa ghi nhận',
-    doctorNotes: item.doctorNotes || 'Chưa ghi chú',
+    doctorNotes: item.doctorNote || item.doctorNotes || 'Chưa ghi chú',
+    treatmentPlan: item.treatmentPlan || 'Chưa ghi nhận',
+    followUpDate: formatDate(item.followUpDate),
     createdAt: formatDate(item.examDate || item.createdAt),
+    raw: item,
   }
 }
 
-function mapPrescription(item: Prescription): Row {
-  const medicines = (item.items || [])
-    .map((line) => line.medicineNameSnapshot || line.medicineName)
-    .filter(Boolean)
-    .join(', ')
-  const quantity = (item.items || []).reduce((total, line) => total + Number(line.quantity || 0), 0)
+function mapPrescription(item: Prescription & Record<string, any>): Row {
+  const items = item.items || item.Items || []
+  const medicines = items.map((line: any) => line.medicineNameSnapshot || line.MedicineNameSnapshot || line.medicineName || line.MedicineName).filter(Boolean).join(', ')
+  const quantity = items.reduce((total: number, line: any) => total + Number(line.quantity || line.Quantity || 0), 0)
   return {
     id: item.prescriptionCode || item.prescriptionId || item.id || 'DT',
     medicine: medicines || 'Chưa có thuốc',
     quantity: quantity || '-',
-    note: item.note || 'Không có ghi chú',
-    status: item.status || 'Chưa cập nhật',
+    note: item.note || item.Note || 'Không có ghi chú',
+    status: statusLabel(item.status || item.Status),
+    raw: item,
   }
 }
 
@@ -382,6 +455,16 @@ function mapInvoice(item: Invoice & Record<string, any>): Row {
   }
 }
 
+function openDetail(row: Row) {
+  detailRow.value = row
+  detailOpen.value = true
+  showToast(
+    resource.value === 'records' ? 'Đang xem chi tiết bệnh án' : 'Đang xem chi tiết đơn thuốc',
+    resource.value === 'records' ? 'Nếu có đơn thuốc liên quan, sang mục Đơn thuốc để xem chi tiết.' : 'Nếu cần thanh toán, sang mục Viện phí để kiểm tra hóa đơn.',
+    'success'
+  )
+}
+
 async function pay(row: Row) {
   const id = Number(row.id)
   if (!id) return
@@ -390,23 +473,42 @@ async function pay(row: Row) {
   try {
     await billingApi.payInvoice(id, toNumber(row.amountValue))
     note.value = 'Đã cập nhật thanh toán hóa đơn.'
+    showToast('Thanh toán thành công', 'Tiếp theo kiểm tra lại Viện phí để xác nhận trạng thái đã thanh toán.', 'success')
     await loadData()
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError)
+    showToast('Thanh toán chưa thành công', `${error.value} Thử lại ở mục Viện phí hoặc liên hệ quầy thu ngân.`, 'error')
   } finally {
     actingId.value = null
   }
 }
 
-function cfg(title: string, service: string, description: string, placeholder: string, icon: Component, iconClass: string, search: string[], columns: Column[]): Config {
+function uniqueRows(items: Row[]) {
+  const seen = new Set<string>()
+  return items.filter((item, index) => {
+    const key = String(item.id || `${item.appointmentId || ''}-${index}`)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+function normalizeText(value: unknown) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+function cfg(title: string, service: string, description: string, placeholder: string, icon: any, iconClass: string, search: string[], columns: Column[]) {
   return { title, service, description, placeholder, icon, iconClass, search, columns }
 }
-function cols(...defs: [string, string, boolean?, boolean?, boolean?][]): Column[] {
-  return defs.map(([key, label, right, badge, strong]) => ({ key, label, right, badge, strong }))
+
+function cols(...defs: [string, string, boolean?, boolean?][]): Column[] {
+  return defs.map(([key, label, badge, strong]) => ({ key, label, badge, strong }))
 }
+
 function value(row: Row, key: string) {
   return row[key] === undefined || row[key] === '' ? 'Chưa cập nhật' : String(row[key])
 }
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0))
 }
@@ -422,11 +524,13 @@ function toNumber(...values: unknown[]) {
 function invoiceAmount(item: Invoice & Record<string, any>) {
   return toNumber(item.amount, item.Amount, item.totalAmount, item.TotalAmount, item.examinationFee, item.ExaminationFee, item.examFee, item.ExamFee)
 }
+
 function formatDate(value?: string) {
   if (!value) return 'Chưa cập nhật'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('vi-VN').format(date)
 }
+
 function statusClass(status?: string) {
   const valueText = String(status || '').toLowerCase()
   if (valueText.includes('paid') || valueText.includes('confirmed') || valueText.includes('completed') || valueText.includes('đã') || valueText.includes('hoàn')) return 'bg-teal-100 text-teal-700'
@@ -434,6 +538,7 @@ function statusClass(status?: string) {
   if (valueText.includes('cancel') || valueText.includes('hủy')) return 'bg-rose-100 text-rose-700'
   return 'bg-slate-100 text-slate-700'
 }
+
 function statusLabel(status?: string) {
   const valueText = String(status || '').toLowerCase()
   if (valueText.includes('confirmed')) return 'Đã xác nhận'
@@ -444,7 +549,23 @@ function statusLabel(status?: string) {
   if (valueText.includes('cancel')) return 'Đã hủy'
   return status || 'Chưa cập nhật'
 }
+
 function isResource(valueToCheck: unknown): valueToCheck is Resource {
   return typeof valueToCheck === 'string' && valueToCheck in configs
+}
+
+function showLoadToast(section: string, count: number, emptyGuide: string) {
+  if (count > 0) {
+    showToast(`Đã tải ${section}`, `Có ${count} dòng dữ liệu. Bấm Chi tiết nếu muốn xem thêm thông tin.`, 'success')
+  } else {
+    showToast(`Chưa có ${section}`, emptyGuide, 'error')
+  }
+}
+
+function showToast(title: string, message: string, type: 'success' | 'error' = 'success') {
+  toast.title = title
+  toast.message = message
+  toast.type = type
+  toast.show = true
 }
 </script>

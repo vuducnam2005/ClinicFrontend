@@ -30,3 +30,8 @@ pnpm-lock.yaml
 .env
 .env.*
 !.env.example
+
+#khac
+appointmentdb
+medicaldb
+pharmacydb
