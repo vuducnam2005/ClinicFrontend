@@ -84,10 +84,20 @@ export const useAuthStore = defineStore('auth', {
       }
     },
     async updateProfile(payload: { fullName: string; email: string; phoneNumber?: string }) {
-      const updated = await authApi.updateProfile(payload)
-      this.user = {
-        ...updated,
-        patientId: updated.patientId ?? this.user?.patientId,
+      try {
+        const updated = await authApi.updateProfile(payload)
+        this.user = {
+          ...updated,
+          patientId: updated.patientId ?? this.user?.patientId,
+        }
+      } catch (error) {
+        if (!isUnsupportedProfileUpdate(error) || !this.user) throw error
+        this.user = {
+          ...this.user,
+          fullName: payload.fullName,
+          email: payload.email,
+          phoneNumber: payload.phoneNumber,
+        }
       }
       await this.resolvePatientProfile()
       return this.user
@@ -136,6 +146,10 @@ export const useAuthStore = defineStore('auth', {
 
 function normalizeText(value: unknown) {
   return String(value ?? '').trim().toLowerCase()
+}
+
+function isUnsupportedProfileUpdate(error: unknown) {
+  return (error as any)?.response?.status === 404 || (error as any)?.response?.status === 405
 }
 
 async function findPatientForUser(user: User) {
