@@ -37,7 +37,7 @@ withDefaults(
 
 defineEmits<{
   'update:modelValue': [value: string]
-  'blur': [event: FocusEvent]
+  'blur': [event: any]
 }>()
 </script>
 

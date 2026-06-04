@@ -85,13 +85,15 @@ watch(
 
 // Show phone suggestion chip when the user clears or changes away from their registered phone
 const showPhoneSuggestion = computed(() => {
-  if (!props.initialPatientPhone) return false
-  return form.patientPhoneSnapshot.trim() !== props.initialPatientPhone.trim()
+  const initialPhone = props.initialPatientPhone
+  if (!initialPhone) return false
+  return form.patientPhoneSnapshot.trim() !== initialPhone.trim()
 })
 
 function useRegisteredPhone() {
-  if (props.initialPatientPhone) {
-    form.patientPhoneSnapshot = props.initialPatientPhone
+  const initialPhone = props.initialPatientPhone
+  if (initialPhone) {
+    form.patientPhoneSnapshot = initialPhone
     phoneError.value = ''
   }
 }
@@ -101,12 +103,13 @@ watch(() => form.patientPhoneSnapshot, () => {
   if (phoneError.value) phoneError.value = ''
 })
 
-async function validatePhone() {
+async function validatePhone(e?: any) {
   const phone = form.patientPhoneSnapshot.trim()
   if (!phone || !form.patientId) return
 
+  const initialPhone = props.initialPatientPhone
   // If it matches the registered phone, no need to validate
-  if (props.initialPatientPhone && phone === props.initialPatientPhone.trim()) {
+  if (initialPhone && phone === initialPhone.trim()) {
     phoneError.value = ''
     return
   }
@@ -122,7 +125,7 @@ async function validatePhone() {
     } else {
       phoneError.value = ''
     }
-  } catch {
+  } catch (error) {
     // If check fails, allow submission (don't block on network errors)
     phoneError.value = ''
   } finally {
