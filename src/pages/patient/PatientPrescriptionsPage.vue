@@ -1228,7 +1228,9 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
 }
 
 /* Hide print area by default on screen */
-.print-area {
-  display: none !important;
+@media screen {
+  .print-area {
+    display: none !important;
+  }
 }
 </style>
