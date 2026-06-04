@@ -1385,9 +1385,7 @@ function invoiceStatusClass(status?: string) {
 }
 
 /* Hide print area by default on screen */
-@media screen {
-  .print-area {
-    display: none !important;
-  }
+.print-area {
+  display: none !important;
 }
 </style>

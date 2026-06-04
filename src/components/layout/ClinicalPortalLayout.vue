@@ -139,7 +139,14 @@
 
       <main ref="mainRef" class="flex-1 overflow-y-auto">
         <div class="mx-auto min-h-screen max-w-[1600px] px-4 py-5 sm:px-5 lg:px-6">
-          <RouterView />
+          <div v-if="layoutError" class="rounded-2xl border border-rose-200 bg-white p-6 text-sm text-rose-700 shadow-sm">
+            <p class="text-lg font-bold text-rose-800">Không hiển thị được trang</p>
+            <p class="mt-2">{{ layoutError }}</p>
+            <button type="button" class="mt-4 rounded-lg bg-rose-600 px-4 py-2 font-bold text-white" @click="reloadRoute">
+              Tải lại trang
+            </button>
+          </div>
+          <RouterView v-else />
         </div>
       </main>
     </div>
@@ -147,7 +154,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onErrorCaptured, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Bell,
@@ -180,6 +187,7 @@ const authStore = useAuthStore()
 const mobileMenuOpen = ref(false)
 const sidebarCollapsed = ref(false)
 const mainRef = ref<HTMLElement | null>(null)
+const layoutError = ref('')
 
 const displayName = computed(() => authStore.user?.fullName || authStore.user?.username || 'Người dùng')
 const initials = computed(() => displayName.value.trim().charAt(0).toUpperCase() || 'U')
@@ -194,9 +202,22 @@ const roleName = computed(() => {
 watch(
   () => route.fullPath,
   () => {
-    requestAnimationFrame(() => mainRef.value?.scrollTo({ top: 0, behavior: 'auto' }))
+    layoutError.value = ''
+    scrollToTop()
   },
+  { immediate: true },
 )
+
+onErrorCaptured((error) => {
+  layoutError.value = error instanceof Error ? error.message : String(error)
+  scrollToTop()
+  return false
+})
+
+onMounted(() => {
+  if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual'
+  scrollToTop()
+})
 
 function isActive(to: string) {
   return route.path === to || route.path.startsWith(`${to}/`)
@@ -205,5 +226,17 @@ function isActive(to: string) {
 function handleLogout() {
   authStore.logout()
   router.push('/login')
+}
+
+function scrollToTop() {
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' })
+    mainRef.value?.scrollTo({ top: 0, behavior: 'auto' })
+  })
+}
+
+function reloadRoute() {
+  layoutError.value = ''
+  router.replace({ path: route.fullPath, query: { ...route.query, _reload: Date.now().toString() } })
 }
 </script>

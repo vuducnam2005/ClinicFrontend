@@ -4,7 +4,7 @@
       <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div class="flex gap-4">
           <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
-            <component :is="config.icon" class="h-6 w-6" />
+            <component :is="config.icon || Stethoscope" class="h-6 w-6" />
           </span>
           <div>
             <p class="text-sm font-semibold uppercase tracking-wide text-teal-700">{{ config.service }}</p>
@@ -134,9 +134,10 @@ interface Column { key: string; label: string; right?: boolean; badge?: boolean;
 interface Config { title: string; service: string; description: string; endpoint: string; icon: Component; columns: Column[] }
 interface Field { key: string; label: string; type?: string; required?: boolean; placeholder?: string; options?: SelectOption[] }
 
+const adminKeys: Key[] = ['doctors', 'specialties', 'schedules', 'patients', 'appointments', 'medicines', 'prescriptions', 'bills', 'accounts', 'reports']
 const route = useRoute()
-const key = computed<Key>(() => typeof route.meta.adminResource === 'string' && route.meta.adminResource in configs ? route.meta.adminResource as Key : 'doctors')
-const config = computed(() => configs[key.value])
+const key = computed<Key>(() => adminKeys.includes(route.meta.adminResource as Key) ? route.meta.adminResource as Key : 'doctors')
+const config = computed(() => configs[key.value] || configs.doctors)
 const rows = ref<Row[]>([])
 const loading = ref(false)
 const saving = ref(false)
