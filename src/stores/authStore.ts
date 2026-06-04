@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { authApi, type LoginRequest } from '@/services/authApi'
 import { appointmentApi } from '@/services/appointmentApi'
+import { medicalRecordApi } from '@/services/medicalRecordApi'
 import { RoleId } from '@/types/user'
 import type { User } from '@/types/user'
 
@@ -27,6 +28,7 @@ export const useAuthStore = defineStore('auth', {
         this.user = result.user
         localStorage.setItem('cliniccare_token', result.token)
         await this.resolveDoctorProfile()
+        await this.resolvePatientProfile()
       } finally {
         this.loading = false
       }
@@ -38,6 +40,7 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('cliniccare_token', token)
         this.user = await authApi.getMe()
         await this.resolveDoctorProfile()
+        await this.resolvePatientProfile()
       } catch (error) {
         this.logout()
         throw error
@@ -51,6 +54,7 @@ export const useAuthStore = defineStore('auth', {
         const user = await authApi.getMe()
         this.user = user
         await this.resolveDoctorProfile()
+        await this.resolvePatientProfile()
       } catch (error) {
         console.error('Failed to fetch user', error)
         this.logout()
@@ -79,5 +83,80 @@ export const useAuthStore = defineStore('auth', {
         console.warn('Failed to resolve doctor profile', error)
       }
     },
+    async updateProfile(payload: { fullName: string; email: string; phoneNumber?: string }) {
+      const updated = await authApi.updateProfile(payload)
+      this.user = {
+        ...updated,
+        patientId: updated.patientId ?? this.user?.patientId,
+      }
+      await this.resolvePatientProfile()
+      return this.user
+    },
+    async resolvePatientProfile() {
+      if (!this.user || this.user.roleId !== RoleId.Patient) return
+      try {
+        const patient = await findPatientForUser(this.user)
+        if (!patient) return
+
+        const patientId = Number(patient.id || patient.patientId)
+        this.user = {
+          ...this.user,
+          patientId: Number.isFinite(patientId) && patientId > 0 ? patientId : this.user.patientId,
+        }
+
+        const fullName = this.user.fullName?.trim()
+        const email = this.user.email?.trim()
+        const phoneNumber = this.user.phoneNumber?.trim()
+        const shouldSync =
+          Boolean(fullName && fullName !== patient.fullName) ||
+          Boolean(email && email !== patient.email) ||
+          Boolean(phoneNumber && phoneNumber !== patient.phoneNumber)
+
+        if (shouldSync && Number.isFinite(patientId) && patientId > 0) {
+          await medicalRecordApi.updatePatient(patientId, {
+            fullName: fullName || patient.fullName,
+            email: email || patient.email,
+            phoneNumber: phoneNumber || patient.phoneNumber,
+            dateOfBirth: patient.dateOfBirth,
+            gender: patient.gender,
+            address: patient.address,
+            citizenId: patient.citizenId,
+            bloodType: patient.bloodType,
+            allergyNote: patient.allergyNote,
+            medicalHistory: patient.medicalHistory,
+            status: patient.status,
+          })
+        }
+      } catch (error) {
+        console.warn('Failed to resolve patient profile', error)
+      }
+    },
   },
 })
+
+function normalizeText(value: unknown) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+async function findPatientForUser(user: User) {
+  const directId = String(user.patientId || '').trim()
+  if (directId) {
+    const patient = await medicalRecordApi.getPatient(directId).catch(() => null)
+    if (patient) return patient
+  }
+
+  const keyword = user.phoneNumber || user.email || user.fullName
+  const patients = await medicalRecordApi.getPatients({ keyword, pageSize: 100 }).catch(() => [])
+  const phone = normalizeText(user.phoneNumber)
+  const email = normalizeText(user.email)
+  const name = normalizeText(user.fullName)
+
+  const match = patients.find((patient) => {
+    return Boolean(phone && normalizeText(patient.phoneNumber || patient.phone) === phone) ||
+      Boolean(email && normalizeText(patient.email) === email) ||
+      Boolean(name && normalizeText(patient.fullName) === name)
+  }) || null
+
+  if (!match) return null
+  return medicalRecordApi.getPatient(match.id || match.patientId).catch(() => match)
+}

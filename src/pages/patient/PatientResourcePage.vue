@@ -27,21 +27,41 @@
 
     <div v-if="resource === 'profile'" class="grid gap-6 lg:grid-cols-[1fr_0.85fr]">
       <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="flex items-center gap-4">
-          <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-[#0F52BA]">
-            <UserRound class="h-7 w-7" />
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-[#0F52BA]">
+              <UserRound class="h-7 w-7" />
+            </div>
+            <div>
+              <p class="text-sm font-bold uppercase tracking-wide text-[#0F52BA]">Thông tin tài khoản</p>
+              <h2 class="mt-1 text-2xl font-bold text-slate-950">{{ profileForm.fullName || authStore.user?.username || 'Bệnh nhân' }}</h2>
+            </div>
           </div>
-          <div>
-            <p class="text-sm font-bold uppercase tracking-wide text-[#0F52BA]">Thông tin tài khoản</p>
-            <h2 class="mt-1 text-2xl font-bold text-slate-950">{{ authStore.user?.fullName || authStore.user?.username || 'Bệnh nhân' }}</h2>
-          </div>
+          <span class="inline-flex h-9 items-center rounded-lg bg-blue-50 px-3 text-sm font-bold text-[#003c90]">
+            {{ displayPatientCode }}
+          </span>
         </div>
-        <dl class="mt-6 grid gap-4 sm:grid-cols-2">
-          <div v-for="[label, textValue] in profileItems" :key="label" class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-            <dt class="text-xs font-bold uppercase tracking-wide text-slate-400">{{ label }}</dt>
-            <dd class="mt-2 break-words font-semibold text-slate-900">{{ textValue }}</dd>
+
+        <form class="mt-6 grid gap-4 sm:grid-cols-2" @submit.prevent="saveProfile">
+          <BaseInput v-model="profileForm.fullName" label="Họ và tên" required />
+          <BaseInput :model-value="authStore.user?.username || ''" label="Tên đăng nhập" disabled />
+          <BaseInput v-model="profileForm.email" label="Email" type="email" required />
+          <BaseInput v-model="profileForm.phoneNumber" label="Số điện thoại" />
+          <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Patient ID</p>
+            <p class="mt-2 break-words font-semibold text-slate-900">{{ displayPatientCode }}</p>
           </div>
-        </dl>
+          <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Tiền sử bệnh</p>
+            <p class="mt-2 break-words font-semibold text-slate-900">{{ currentPatient?.medicalHistory || 'Chưa ghi nhận' }}</p>
+          </div>
+          <div class="sm:col-span-2">
+            <BaseButton type="submit" :loading="profileSaving">
+              <template #icon><Save class="h-4 w-4" /></template>
+              Lưu hồ sơ
+            </BaseButton>
+          </div>
+        </form>
       </section>
       <section class="rounded-2xl border border-blue-100 bg-blue-50 p-6 text-[#003c90]">
         <div class="flex items-center gap-3">
@@ -192,7 +212,9 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { CalendarClock, ChevronLeft, ChevronRight, CreditCard, FileHeart, Pill, RefreshCw, Search, SearchX, ShieldCheck, UserRound, X } from 'lucide-vue-next'
+import { CalendarClock, ChevronLeft, ChevronRight, CreditCard, FileHeart, Pill, RefreshCw, Save, Search, SearchX, ShieldCheck, UserRound, X } from 'lucide-vue-next'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseInput from '@/components/ui/BaseInput.vue'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
 import Toast from '@/components/ui/Toast.vue'
 import { useAuthStore } from '@/stores/authStore'
@@ -221,10 +243,17 @@ const currentPatient = ref<Patient | null>(null)
 const history = ref<PatientMedicalHistory | null>(null)
 const detailOpen = ref(false)
 const detailRow = ref<Row | null>(null)
+const profileSaving = ref(false)
+const profileForm = reactive({
+  fullName: '',
+  email: '',
+  phoneNumber: '',
+})
 
 const resource = computed<Resource>(() => isResource(route.meta.patientResource) ? route.meta.patientResource : 'appointments')
 const config = computed(() => configs[resource.value])
-const patientId = computed(() => String(currentPatient.value?.patientId || authStore.user?.patientId || ''))
+const patientId = computed(() => String(currentPatient.value?.id || currentPatient.value?.patientId || authStore.user?.patientId || ''))
+const displayPatientCode = computed(() => currentPatient.value?.patientCode || formatPatientCode(patientId.value) || 'Chưa liên kết')
 
 const configs: Record<Resource, { title: string; service: string; description: string; placeholder: string; icon: any; iconClass: string; search: string[]; columns: Column[] }> = {
   appointments: cfg('Lịch hẹn của tôi', 'N1 Appointment', 'Theo dõi lịch đã đặt, bác sĩ, giờ khám, số thứ tự và trạng thái xác nhận.', 'Tìm bác sĩ, lý do, trạng thái...', CalendarClock, 'bg-blue-50 text-[#0F52BA]', ['doctorName', 'status', 'reason', 'dateTime'], cols(['id', 'Mã'], ['doctorName', 'Bác sĩ', false, true], ['dateTime', 'Ngày giờ'], ['queueNumber', 'STT'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
@@ -267,15 +296,6 @@ const metrics = computed(() => {
   ]
 })
 
-const profileItems = computed(() => [
-  ['Họ và tên', currentPatient.value?.fullName || authStore.user?.fullName || 'Chưa cập nhật'],
-  ['Tên đăng nhập', authStore.user?.username || 'Chưa cập nhật'],
-  ['Email', authStore.user?.email || (currentPatient.value as any)?.email || 'Chưa cập nhật'],
-  ['Số điện thoại', currentPatient.value?.phoneNumber || currentPatient.value?.phone || authStore.user?.phoneNumber || 'Chưa cập nhật'],
-  ['Patient ID', patientId.value || 'Chưa liên kết'],
-  ['Tiền sử bệnh', currentPatient.value?.medicalHistory || 'Chưa ghi nhận'],
-])
-
 const detailTitle = computed(() => resource.value === 'records' ? 'Chi tiết bệnh án' : 'Chi tiết đơn thuốc')
 const detailItems = computed(() => {
   const row = detailRow.value || {}
@@ -309,6 +329,7 @@ async function loadData() {
   note.value = ''
   try {
     await resolvePatient()
+    syncProfileForm()
     if (resource.value === 'profile') return
     if (resource.value === 'appointments') {
       const keys = numericKeys()
@@ -362,7 +383,10 @@ async function resolvePatient() {
   const directId = String(user?.patientId || '')
   if (directId) {
     currentPatient.value = await medicalRecordApi.getPatient(directId).catch(() => null as any)
-    if (currentPatient.value) return currentPatient.value
+    if (currentPatient.value) {
+      await syncPatientFromUser()
+      return currentPatient.value
+    }
   }
   const appointments = user?.id ? await appointmentApi.getAppointmentsByPatient(user.id).catch(() => [] as Appointment[]) : []
   const phones = new Set([user?.phoneNumber, ...appointments.map((item) => item.patientPhone)].map(normalizeText).filter(Boolean))
@@ -374,8 +398,89 @@ async function resolvePatient() {
     return patientPhones.some((phone) => phones.has(phone)) || Boolean(patientName && names.has(patientName))
   }) || null
   currentPatient.value = match
-  if (match && authStore.user) authStore.user.patientId = String(match.patientId || match.id || '')
-  return match
+    ? await medicalRecordApi.getPatient(match.id || match.patientId).catch(() => match)
+    : null
+  if (currentPatient.value && authStore.user) authStore.user.patientId = String(currentPatient.value.id || currentPatient.value.patientId || '')
+  await syncPatientFromUser()
+  return currentPatient.value
+}
+
+function syncProfileForm() {
+  profileForm.fullName = currentPatient.value?.fullName || authStore.user?.fullName || ''
+  profileForm.email = authStore.user?.email || currentPatient.value?.email || ''
+  profileForm.phoneNumber = currentPatient.value?.phoneNumber || currentPatient.value?.phone || authStore.user?.phoneNumber || ''
+}
+
+async function syncPatientFromUser() {
+  const patient = currentPatient.value
+  const user = authStore.user
+  const id = toNumber(patient?.id, patient?.patientId, user?.patientId)
+  if (!patient || !user || !id) return
+
+  const fullName = user.fullName?.trim()
+  const email = user.email?.trim()
+  const phoneNumber = user.phoneNumber?.trim()
+  const shouldSync =
+    Boolean(fullName && fullName !== patient.fullName) ||
+    Boolean(email && email !== patient.email) ||
+    Boolean(phoneNumber && phoneNumber !== patient.phoneNumber)
+
+  if (!shouldSync) return
+
+  currentPatient.value = await medicalRecordApi.updatePatient(id, patientPayload({
+    fullName: fullName || patient.fullName,
+    email: email || patient.email,
+    phoneNumber: phoneNumber || patient.phoneNumber,
+  }))
+}
+
+async function saveProfile() {
+  const fullName = profileForm.fullName.trim()
+  const email = profileForm.email.trim()
+  const phoneNumber = profileForm.phoneNumber.trim()
+  if (!fullName) {
+    showToast('Thiếu họ và tên', 'Vui lòng nhập họ và tên trước khi lưu hồ sơ.', 'error')
+    return
+  }
+  if (!email) {
+    showToast('Thiếu email', 'Vui lòng nhập email trước khi lưu hồ sơ.', 'error')
+    return
+  }
+
+  profileSaving.value = true
+  error.value = ''
+  try {
+    await authStore.updateProfile({ fullName, email, phoneNumber: phoneNumber || undefined })
+    const id = toNumber(currentPatient.value?.id, currentPatient.value?.patientId, authStore.user?.patientId)
+    if (id) {
+      currentPatient.value = await medicalRecordApi.updatePatient(id, patientPayload({ fullName, email, phoneNumber }))
+    }
+    history.value = null
+    syncProfileForm()
+    showToast('Đã lưu hồ sơ', 'Họ tên, email và số điện thoại đã được cập nhật vào cơ sở dữ liệu.', 'success')
+  } catch (apiError) {
+    error.value = getApiErrorMessage(apiError)
+    showToast('Chưa lưu được hồ sơ', error.value, 'error')
+  } finally {
+    profileSaving.value = false
+  }
+}
+
+function patientPayload(overrides: Partial<Patient>): Partial<Patient> {
+  const patient = currentPatient.value
+  return {
+    fullName: overrides.fullName || patient?.fullName || authStore.user?.fullName || 'Bệnh nhân',
+    email: overrides.email ?? patient?.email ?? authStore.user?.email,
+    phoneNumber: overrides.phoneNumber ?? patient?.phoneNumber ?? patient?.phone ?? authStore.user?.phoneNumber,
+    dateOfBirth: patient?.dateOfBirth,
+    gender: patient?.gender,
+    address: patient?.address,
+    citizenId: patient?.citizenId,
+    bloodType: patient?.bloodType,
+    allergyNote: patient?.allergyNote,
+    medicalHistory: patient?.medicalHistory,
+    status: patient?.status,
+  }
 }
 
 async function getHistory() {
@@ -402,6 +507,11 @@ function numericKeys() {
 function addKey(keys: Set<string>, value: unknown) {
   const textValue = String(value ?? '').trim()
   if (textValue && textValue !== '0') keys.add(textValue)
+}
+
+function formatPatientCode(value: unknown) {
+  const id = Number(value)
+  return Number.isFinite(id) && id > 0 ? `BN${String(id).padStart(3, '0')}` : ''
 }
 
 function mapAppointment(item: Appointment): Row {

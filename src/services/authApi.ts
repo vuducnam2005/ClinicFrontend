@@ -62,6 +62,12 @@ export interface RegisterRequest {
   roleId: RoleId
 }
 
+export interface UpdateProfileRequest {
+  fullName: string
+  email: string
+  phoneNumber?: string
+}
+
 export const authApi = {
   async login(payload: LoginRequest) {
     const identifier = payload.identifier.trim()
@@ -96,6 +102,11 @@ export const authApi = {
 
   async getMe() {
     const response = await client.get('/api/auth/profile')
+    return normalizeUser(readApiResponse<any>(response.data))
+  },
+
+  async updateProfile(payload: UpdateProfileRequest) {
+    const response = await client.put('/api/auth/profile', payload)
     return normalizeUser(readApiResponse<any>(response.data))
   },
 

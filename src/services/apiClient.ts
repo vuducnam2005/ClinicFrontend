@@ -86,7 +86,8 @@ export function readApiResponse<T>(payload: ApiResponse<T> | T): T {
 export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<ApiResponse<unknown>>
-    return axiosError.response?.data?.message || axiosError.message || 'Không thể kết nối API'
+    const data = axiosError.response?.data as any
+    return data?.message || data?.Message || axiosError.message || 'Không thể kết nối API'
   }
 
   if (error instanceof Error) {
