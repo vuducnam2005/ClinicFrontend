@@ -12,6 +12,7 @@
         error ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-100' : '',
       ]"
       @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+      @blur="$emit('blur', $event)"
     />
     <span v-if="error" class="mt-1 block text-xs text-rose-600">{{ error }}</span>
   </label>
@@ -36,5 +37,7 @@ withDefaults(
 
 defineEmits<{
   'update:modelValue': [value: string]
+  'blur': [event: FocusEvent]
 }>()
 </script>
+
