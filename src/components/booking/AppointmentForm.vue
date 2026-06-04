@@ -75,7 +75,10 @@ const phoneValidating = ref(false)
 
 watch(
   () => [props.initialPatientId, props.initialPatientName, props.initialPatientPhone],
-  ([patientId, patientName, patientPhone]) => {
+  (values: any[]) => {
+    const patientId = values[0]
+    const patientName = values[1]
+    const patientPhone = values[2]
     form.patientId = patientId ? String(patientId) : ''
     if (patientName && !form.patientNameSnapshot) form.patientNameSnapshot = String(patientName)
     if (patientPhone && !form.patientPhoneSnapshot) form.patientPhoneSnapshot = String(patientPhone)
