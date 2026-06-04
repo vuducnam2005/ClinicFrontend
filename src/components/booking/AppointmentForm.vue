@@ -47,6 +47,7 @@ import { CalendarCheck } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import { appointmentApi } from '@/services/appointmentApi'
+import { authApi } from '@/services/authApi'
 import type { CreateAppointmentRequest } from '@/types/appointment'
 
 const props = defineProps<{
@@ -119,11 +120,8 @@ async function validatePhone(e?: any) {
 
   phoneValidating.value = true
   try {
-    const appointments = await appointmentApi.getAppointments()
-    const conflict = appointments.find(
-      (a) => a.patientPhone === phone && String(a.patientId) !== String(form.patientId),
-    )
-    if (conflict) {
+    const result = await authApi.checkDuplicate({ phoneNumber: phone })
+    if (result.phoneNumberExists) {
       phoneError.value = 'Số điện thoại này đã được đăng ký với bệnh nhân khác.'
     } else {
       phoneError.value = ''
@@ -148,7 +146,8 @@ const canSubmit = computed(
     !phoneValidating.value,
 )
 
-function submit() {
+async function submit() {
+  await validatePhone()
   if (!canSubmit.value) return
   emit('submit', {
     patientId: Number(form.patientId),
