@@ -50,10 +50,15 @@
             </label>
 
             <div class="grid gap-4 sm:grid-cols-2">
-              <label class="block">
+              <div class="block">
                 <span class="mb-2 block text-sm font-medium text-slate-800">Tên đăng nhập <span class="text-red-500">*</span></span>
-                <span class="flex h-12 items-center rounded-lg border border-slate-300 bg-slate-50 px-4 transition focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100">
-                  <UserRound class="h-5 w-5 shrink-0 text-slate-500" />
+                <span
+                  class="flex h-12 items-center rounded-lg border px-4 transition"
+                  :class="fieldErrors.username
+                    ? 'border-red-400 bg-red-50 ring-4 ring-red-100'
+                    : 'border-slate-300 bg-slate-50 focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100'"
+                >
+                  <UserRound class="h-5 w-5 shrink-0" :class="fieldErrors.username ? 'text-red-400' : 'text-slate-500'" />
                   <input
                     v-model="registerData.username"
                     class="h-full min-w-0 flex-1 bg-transparent pl-4 text-base text-slate-950 outline-none placeholder:text-slate-500"
@@ -62,29 +67,51 @@
                     placeholder="Tên đăng nhập"
                     maxlength="50"
                     required
+                    @blur="checkFieldDuplicate('username')"
+                    @input="clearFieldError('username')"
                   />
                 </span>
-              </label>
+                <p v-if="fieldErrors.username" class="mt-1.5 flex items-center gap-1 text-sm text-red-500">
+                  <AlertCircle class="h-3.5 w-3.5 shrink-0" />
+                  {{ fieldErrors.username }}
+                </p>
+              </div>
 
-              <label class="block">
+              <div class="block">
                 <span class="mb-2 block text-sm font-medium text-slate-800">Số điện thoại</span>
-                <span class="flex h-12 items-center rounded-lg border border-slate-300 bg-slate-50 px-4 transition focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100">
-                  <Phone class="h-5 w-5 shrink-0 text-slate-500" />
+                <span
+                  class="flex h-12 items-center rounded-lg border px-4 transition"
+                  :class="fieldErrors.phoneNumber
+                    ? 'border-red-400 bg-red-50 ring-4 ring-red-100'
+                    : 'border-slate-300 bg-slate-50 focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100'"
+                >
+                  <Phone class="h-5 w-5 shrink-0" :class="fieldErrors.phoneNumber ? 'text-red-400' : 'text-slate-500'" />
                   <input
                     v-model="registerData.phoneNumber"
                     class="h-full min-w-0 flex-1 bg-transparent pl-4 text-base text-slate-950 outline-none placeholder:text-slate-500"
                     type="tel"
                     autocomplete="tel"
                     placeholder="Số điện thoại"
+                    @blur="checkFieldDuplicate('phoneNumber')"
+                    @input="clearFieldError('phoneNumber')"
                   />
                 </span>
-              </label>
+                <p v-if="fieldErrors.phoneNumber" class="mt-1.5 flex items-center gap-1 text-sm text-red-500">
+                  <AlertCircle class="h-3.5 w-3.5 shrink-0" />
+                  {{ fieldErrors.phoneNumber }}
+                </p>
+              </div>
             </div>
 
-            <label class="block">
+            <div class="block">
               <span class="mb-2 block text-sm font-medium text-slate-800">Email <span class="text-red-500">*</span></span>
-              <span class="flex h-12 items-center rounded-lg border border-slate-300 bg-slate-50 px-4 transition focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100">
-                <Mail class="h-5 w-5 shrink-0 text-slate-500" />
+              <span
+                class="flex h-12 items-center rounded-lg border px-4 transition"
+                :class="fieldErrors.email
+                  ? 'border-red-400 bg-red-50 ring-4 ring-red-100'
+                  : 'border-slate-300 bg-slate-50 focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100'"
+              >
+                <Mail class="h-5 w-5 shrink-0" :class="fieldErrors.email ? 'text-red-400' : 'text-slate-500'" />
                 <input
                   v-model="registerData.email"
                   class="h-full min-w-0 flex-1 bg-transparent pl-4 text-base text-slate-950 outline-none placeholder:text-slate-500"
@@ -93,9 +120,15 @@
                   placeholder="name@example.com"
                   maxlength="100"
                   required
+                  @blur="checkFieldDuplicate('email')"
+                  @input="clearFieldError('email')"
                 />
               </span>
-            </label>
+              <p v-if="fieldErrors.email" class="mt-1.5 flex items-center gap-1 text-sm text-red-500">
+                <AlertCircle class="h-3.5 w-3.5 shrink-0" />
+                {{ fieldErrors.email }}
+              </p>
+            </div>
 
             <div class="grid gap-4 sm:grid-cols-2">
               <label class="block">
@@ -166,7 +199,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Loader2, LockKeyhole, Mail, Phone, ShieldCheck, UserPlus, UserRound } from 'lucide-vue-next'
+import { AlertCircle, Loader2, LockKeyhole, Mail, Phone, ShieldCheck, UserPlus, UserRound } from 'lucide-vue-next'
 import Toast from '@/components/ui/Toast.vue'
 import { authApi } from '@/services/authApi'
 import { useAuthStore } from '@/stores/authStore'
@@ -187,6 +220,12 @@ const registerData = reactive({
   phoneNumber: '',
 })
 
+const fieldErrors = reactive({
+  username: '',
+  email: '',
+  phoneNumber: '',
+})
+
 const toast = reactive({
   show: false,
   title: '',
@@ -201,6 +240,45 @@ function showValidationError(message: string) {
   toast.message = message
   toast.type = 'error'
   toast.show = true
+}
+
+function clearFieldError(field: 'username' | 'email' | 'phoneNumber') {
+  fieldErrors[field] = ''
+}
+
+async function checkFieldDuplicate(field: 'username' | 'email' | 'phoneNumber') {
+  const value = registerData[field].trim()
+  if (!value) {
+    fieldErrors[field] = ''
+    return
+  }
+
+  // Validate format before checking duplicate
+  if (field === 'email' && !emailPattern.test(value)) return
+  if (field === 'phoneNumber' && !phonePattern.test(value)) return
+  if (field === 'username' && value.length < 3) return
+
+  try {
+    const payload: { username?: string; email?: string; phoneNumber?: string } = {}
+    payload[field] = value
+    const result = await authApi.checkDuplicate(payload)
+
+    if (field === 'username' && result.usernameExists) {
+      fieldErrors.username = 'Tên đăng nhập đã được sử dụng, vui lòng chọn tên khác'
+    }
+    if (field === 'email' && result.emailExists) {
+      fieldErrors.email = 'Email đã được đăng ký, vui lòng sử dụng email khác'
+    }
+    if (field === 'phoneNumber' && result.phoneNumberExists) {
+      fieldErrors.phoneNumber = 'Số điện thoại đã được đăng ký, vui lòng sử dụng số khác'
+    }
+  } catch {
+    // Silently ignore check-duplicate API errors - backend will still validate on submit
+  }
+}
+
+function hasFieldErrors(): boolean {
+  return !!(fieldErrors.username || fieldErrors.email || fieldErrors.phoneNumber)
 }
 
 async function submitRegister() {
@@ -267,14 +345,48 @@ async function submitRegister() {
     return
   }
 
+  // Kiểm tra trùng lặp trước khi submit
+  if (hasFieldErrors()) {
+    showValidationError('Vui lòng kiểm tra lại các trường bị trùng lặp')
+    return
+  }
+
   loading.value = true
   try {
+    // Kiểm tra trùng lặp lần cuối qua API
+    const phoneNumber = registerData.phoneNumber.trim()
+    const duplicateCheck = await authApi.checkDuplicate({
+      username,
+      email,
+      phoneNumber: phoneNumber || undefined,
+    })
+
+    let hasDuplicate = false
+    if (duplicateCheck.usernameExists) {
+      fieldErrors.username = 'Tên đăng nhập đã được sử dụng, vui lòng chọn tên khác'
+      hasDuplicate = true
+    }
+    if (duplicateCheck.emailExists) {
+      fieldErrors.email = 'Email đã được đăng ký, vui lòng sử dụng email khác'
+      hasDuplicate = true
+    }
+    if (duplicateCheck.phoneNumberExists) {
+      fieldErrors.phoneNumber = 'Số điện thoại đã được đăng ký, vui lòng sử dụng số khác'
+      hasDuplicate = true
+    }
+
+    if (hasDuplicate) {
+      showValidationError('Thông tin đăng ký bị trùng, vui lòng kiểm tra và nhập lại các trường được đánh dấu')
+      loading.value = false
+      return
+    }
+
     await authApi.register({
       username,
       password,
       fullName,
       email,
-      phoneNumber: registerData.phoneNumber.trim(),
+      phoneNumber,
       roleId: RoleId.Patient,
     })
     await authStore.login({ identifier: email, password })
@@ -288,8 +400,21 @@ async function submitRegister() {
       router.push('/patient/dashboard')
     }, 500)
   } catch (error) {
-    toast.title = 'Lỗi đăng ký'
     const message = getApiErrorMessage(error)
+
+    // Parse field-specific errors from backend (format: [field]message)
+    const fieldMatch = message.match(/^\[(\w+)\](.+)$/)
+    if (fieldMatch) {
+      const field = fieldMatch[1] as keyof typeof fieldErrors
+      const errorMsg = fieldMatch[2]
+      if (field in fieldErrors) {
+        fieldErrors[field] = errorMsg
+        showValidationError('Thông tin đăng ký bị trùng, vui lòng kiểm tra và nhập lại các trường được đánh dấu')
+        return
+      }
+    }
+
+    toast.title = 'Lỗi đăng ký'
     toast.message = message.includes('Missing or invalid JWT token')
       ? 'API đăng ký đang yêu cầu JWT. Cần mở public POST /api/auth/register trên N3 để người dùng tự đăng ký.'
       : message

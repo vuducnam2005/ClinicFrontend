@@ -79,9 +79,19 @@ export const authApi = {
       email: payload.email,
       username: payload.username,
       password: payload.password,
+      phoneNumber: payload.phoneNumber,
       role: RoleId[payload.roleId] || 'Patient',
     })
     return normalizeUser(readApiResponse<any>(response.data))
+  },
+
+  async checkDuplicate(payload: { username?: string; email?: string; phoneNumber?: string }) {
+    const response = await client.post('/api/auth/check-duplicate', payload)
+    return response.data as {
+      usernameExists: boolean
+      emailExists: boolean
+      phoneNumberExists: boolean
+    }
   },
 
   async getMe() {
