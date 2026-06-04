@@ -224,7 +224,7 @@ const detailRow = ref<Row | null>(null)
 
 const resource = computed<Resource>(() => isResource(route.meta.patientResource) ? route.meta.patientResource : 'appointments')
 const config = computed(() => configs[resource.value])
-const patientId = computed(() => String(currentPatient.value?.patientId || authStore.user?.patientId || authStore.user?.id || ''))
+const patientId = computed(() => String(currentPatient.value?.patientId || authStore.user?.patientId || ''))
 
 const configs: Record<Resource, { title: string; service: string; description: string; placeholder: string; icon: any; iconClass: string; search: string[]; columns: Column[] }> = {
   appointments: cfg('Lịch hẹn của tôi', 'N1 Appointment', 'Theo dõi lịch đã đặt, bác sĩ, giờ khám, số thứ tự và trạng thái xác nhận.', 'Tìm bác sĩ, lý do, trạng thái...', CalendarClock, 'bg-blue-50 text-[#0F52BA]', ['doctorName', 'status', 'reason', 'dateTime'], cols(['id', 'Mã'], ['doctorName', 'Bác sĩ', false, true], ['dateTime', 'Ngày giờ'], ['queueNumber', 'STT'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
@@ -388,7 +388,6 @@ async function getHistory() {
 
 function patientKeys() {
   const keys = new Set<string>()
-  addKey(keys, authStore.user?.id)
   addKey(keys, authStore.user?.patientId)
   addKey(keys, currentPatient.value?.patientId)
   addKey(keys, currentPatient.value?.id)

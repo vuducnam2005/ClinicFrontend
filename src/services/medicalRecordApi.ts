@@ -155,6 +155,10 @@ function normalizeHistory(payload: unknown): PatientMedicalHistory {
   }
 }
 
+function emptyHistory(): PatientMedicalHistory {
+  return { visits: [], medicalRecords: [], prescriptions: [] }
+}
+
 function normalizePatients(payload: unknown): Patient[] {
   const data = readApiResponse<any>(payload as any)
   const patients = Array.isArray(data) ? data : data?.items || data?.Items || data?.data || data?.Data || data?.patients || data?.Patients || []
@@ -174,15 +178,23 @@ function normalizePatients(payload: unknown): Patient[] {
 }
 
 function patientKeys(patient: Partial<Patient> & Record<string, any>) {
+  const numericKeys = [
+    patient.patientId,
+    patient.id,
+    patient.PatientId,
+    patient.Id,
+  ]
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .map((value) => String(value))
+
+  if (numericKeys.length) return Array.from(new Set(numericKeys))
+
   return Array.from(new Set([
     patient.patientId,
-    patient.patientCode,
-    patient.id,
-    patient.userId,
     patient.PatientId,
-    patient.PatientCode,
+    patient.id,
     patient.Id,
-    patient.UserId,
   ].map((value) => String(value ?? '').trim()).filter(Boolean)))
 }
 
@@ -252,7 +264,9 @@ export const medicalRecordApi = {
     return readApiResponse<Patient>(response.data)
   },
   async getPatientHistory(patientId: string | number): Promise<PatientMedicalHistory> {
-    const response = await client.get(`/api/v1/medical/patients/${patientId}/history`)
+    const id = Number(patientId)
+    if (!Number.isFinite(id) || id <= 0) return emptyHistory()
+    const response = await client.get(`/api/v1/medical/patients/${id}/history`)
     return normalizeHistory(response.data)
   },
   async getMedicalRecords(patientId?: string | number): Promise<MedicalRecord[]> {

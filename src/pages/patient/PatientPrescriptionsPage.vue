@@ -563,7 +563,7 @@
       <div class="print-container p-6 bg-white max-w-2xl mx-auto text-slate-800">
         <!-- Logo and System Name -->
         <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4 mb-6">
-          <span class="text-xl font-bold tracking-wider text-blue-700">MedicareDNU</span>
+          <img :src="logoUrl" alt="Logo MedicareDNU" class="h-8 w-auto object-contain" />
           <div class="text-right text-xs text-slate-500">
             <p>Hệ thống quản lý phòng khám MedicareDNU</p>
             <p>Thời gian in: {{ currentPrintDateTime() }}</p>
@@ -688,6 +688,7 @@ import type { Prescription } from '@/types/billing'
 import type { Appointment } from '@/types/appointment'
 import type { Patient } from '@/types/medicalRecord'
 import type { Doctor } from '@/types/doctor'
+import logoUrl from '@/assets/logo.png'
 
 const authStore = useAuthStore()
 const loading = ref(true)
@@ -841,11 +842,13 @@ async function loadData() {
   prescriptions.value = []
   
   const userId = Number(authStore.user?.id || 0)
-  let patientIdVal = userId
+  let patientIdVal = Number(authStore.user?.patientId || 0)
 
-  const keys = new Set<string>()
-  addKey(keys, authStore.user?.id)
-  addKey(keys, authStore.user?.patientId)
+  const n2Keys = new Set<string>()
+  const billingKeys = new Set<string>()
+  addKey(n2Keys, authStore.user?.patientId)
+  addKey(billingKeys, authStore.user?.id)
+  addKey(billingKeys, authStore.user?.patientId)
 
   try {
     // 1. Load doctors list
@@ -860,8 +863,10 @@ async function loadData() {
       const appts = await appointmentApi.getAppointmentsByPatient(userId).catch(() => [])
       appointments.value = appts
       for (const appt of appts) {
-        addKey(keys, appt.patientId)
-        addKey(keys, (appt as any).PatientId)
+        addKey(n2Keys, appt.patientId)
+        addKey(n2Keys, (appt as any).PatientId)
+        addKey(billingKeys, appt.patientId)
+        addKey(billingKeys, (appt as any).PatientId)
       }
 
       const phone = appts.find(a => a.patientPhone)?.patientPhone
@@ -869,9 +874,11 @@ async function loadData() {
       const match = patientsResponse.find(p => (phone && (p.phoneNumber === phone || p.phone === phone)) || p.fullName === authStore.user?.fullName)
       if (match) {
         patientIdVal = Number(match.id || match.patientId)
-        addKey(keys, match.id)
-        addKey(keys, match.patientId)
-        addKey(keys, match.patientCode)
+        addKey(n2Keys, match.id)
+        addKey(n2Keys, match.patientId)
+        addKey(billingKeys, match.id)
+        addKey(billingKeys, match.patientId)
+        addKey(billingKeys, match.patientCode)
         if (authStore.user) {
           authStore.user.patientId = patientIdVal
         }
@@ -890,12 +897,12 @@ async function loadData() {
     }
 
     // 3. Fetch patient history and prescriptions from both N2 and N3 Billing/Pharmacy
-    const resolvedKeys = Array.from(keys).filter(Boolean)
-    const numericKeys = resolvedKeys.filter(k => /^\d+$/.test(k))
+    const n2NumericKeys = Array.from(n2Keys).filter(k => /^\d+$/.test(k))
+    const billingNumericKeys = Array.from(billingKeys).filter(k => /^\d+$/.test(k))
 
     const [historyResults, billingResults] = await Promise.all([
-      Promise.all(numericKeys.map(k => medicalRecordApi.getPatientHistory(k).catch(() => null))),
-      Promise.all(numericKeys.map(k => billingApi.getPrescriptions(k).catch(() => [] as Prescription[])))
+      Promise.all(n2NumericKeys.map(k => medicalRecordApi.getPatientHistory(k).catch(() => null))),
+      Promise.all(billingNumericKeys.map(k => billingApi.getPrescriptions(k).catch(() => [] as Prescription[])))
     ])
 
     const n2Prescriptions = historyResults.flatMap(h => h?.prescriptions || [])
@@ -1203,6 +1210,7 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
     visibility: visible !important;
   }
   .print-area {
+    display: block !important;
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
@@ -1217,5 +1225,10 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
     size: A4;
     margin: 15mm;
   }
+}
+
+/* Hide print area by default on screen */
+.print-area {
+  display: none !important;
 }
 </style>

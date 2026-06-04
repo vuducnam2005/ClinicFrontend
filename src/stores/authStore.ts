@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import { authApi, type LoginRequest } from '@/services/authApi'
+import { appointmentApi } from '@/services/appointmentApi'
+import { RoleId } from '@/types/user'
 import type { User } from '@/types/user'
 
 export const useAuthStore = defineStore('auth', {
@@ -24,6 +26,7 @@ export const useAuthStore = defineStore('auth', {
         this.token = result.token
         this.user = result.user
         localStorage.setItem('cliniccare_token', result.token)
+        await this.resolveDoctorProfile()
       } finally {
         this.loading = false
       }
@@ -34,6 +37,7 @@ export const useAuthStore = defineStore('auth', {
         this.token = token
         localStorage.setItem('cliniccare_token', token)
         this.user = await authApi.getMe()
+        await this.resolveDoctorProfile()
       } catch (error) {
         this.logout()
         throw error
@@ -46,6 +50,7 @@ export const useAuthStore = defineStore('auth', {
       try {
         const user = await authApi.getMe()
         this.user = user
+        await this.resolveDoctorProfile()
       } catch (error) {
         console.error('Failed to fetch user', error)
         this.logout()
@@ -55,6 +60,24 @@ export const useAuthStore = defineStore('auth', {
       authApi.logout()
       this.token = ''
       this.user = null
+    },
+    async resolveDoctorProfile() {
+      const userId = Number(this.user?.id)
+      if (!this.user || this.user.roleId !== RoleId.Doctor || this.user.doctorId || !Number.isFinite(userId) || userId <= 0) return
+      try {
+        const doctor = await appointmentApi.getDoctorByUser(userId)
+        this.user = {
+          ...this.user,
+          doctorId: Number(doctor.doctorId || 0) || undefined,
+          specialtyId: doctor.specialtyId ?? this.user.specialtyId,
+          specialtyName: doctor.specialtyName ?? this.user.specialtyName,
+          degree: doctor.degree ?? this.user.degree,
+          examFee: doctor.examFee ?? this.user.examFee,
+          fullName: doctor.fullName || doctor.doctorName || this.user.fullName,
+        }
+      } catch (error) {
+        console.warn('Failed to resolve doctor profile', error)
+      }
     },
   },
 })

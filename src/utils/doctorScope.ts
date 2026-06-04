@@ -12,7 +12,8 @@ function hasDoctorIdentity(user?: User | null) {
 }
 
 export function currentDoctorId(user?: User | null) {
-  return Number(user?.doctorId || 0)
+  const raw = user as (User & Record<string, any>) | null | undefined
+  return Number(raw?.doctorId ?? raw?.DoctorId ?? raw?.doctorID ?? raw?.doctor?.doctorId ?? raw?.Doctor?.DoctorId ?? 0)
 }
 
 export function isCurrentDoctorName(user: User | null | undefined, value?: string) {

@@ -71,6 +71,10 @@ export const appointmentApi = {
     const response = await client.get(`/api/doctors/${id}`)
     return readApiResponse<Doctor>(response.data)
   },
+  async getDoctorByUser(userId: number | string) {
+    const response = await client.get(`/api/doctors/by-user/${userId}`)
+    return readApiResponse<Doctor>(response.data)
+  },
   async getDoctorsBySpecialty(specialtyId: number) {
     const response = await client.get(`/api/doctors/by-specialty/${specialtyId}`)
     return readApiResponse<Doctor[]>(response.data)

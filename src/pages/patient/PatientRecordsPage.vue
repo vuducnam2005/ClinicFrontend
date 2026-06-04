@@ -688,7 +688,7 @@
       <div class="print-container p-6 bg-white max-w-2xl mx-auto text-slate-800">
         <!-- Logo and System Name -->
         <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4 mb-6">
-          <span class="text-xl font-bold tracking-wider text-blue-700">MedicareDNU</span>
+          <img :src="logoUrl" alt="Logo MedicareDNU" class="h-8 w-auto object-contain" />
           <div class="text-right text-xs text-slate-500">
             <p>Hệ thống quản lý phòng khám MedicareDNU</p>
             <p>Thời gian in: {{ currentPrintDateTime() }}</p>
@@ -768,7 +768,7 @@
       <div class="print-container p-6 bg-white max-w-2xl mx-auto text-slate-800">
         <!-- Logo and System Name -->
         <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4 mb-6">
-          <span class="text-xl font-bold tracking-wider text-blue-700">MedicareDNU</span>
+          <img :src="logoUrl" alt="Logo MedicareDNU" class="h-8 w-auto object-contain" />
           <div class="text-right text-xs text-slate-500">
             <p>Hệ thống quản lý phòng khám MedicareDNU</p>
             <p>Thời gian in: {{ currentPrintDateTime() }}</p>
@@ -896,6 +896,7 @@ import type { MedicalRecord, Patient } from '@/types/medicalRecord'
 import type { Appointment } from '@/types/appointment'
 import type { Invoice, Prescription } from '@/types/billing'
 import type { Doctor } from '@/types/doctor'
+import logoUrl from '@/assets/logo.png'
 
 const authStore = useAuthStore()
 const loading = ref(true)
@@ -1070,10 +1071,9 @@ async function loadData() {
   error.value = ''
   
   const userId = Number(authStore.user?.id || 0)
-  resolvedN2Id.value = userId
+  resolvedN2Id.value = Number(authStore.user?.patientId || 0)
 
   const keys = new Set<string>()
-  addKey(keys, authStore.user?.id)
   addKey(keys, authStore.user?.patientId)
 
   try {
@@ -1122,7 +1122,7 @@ async function loadData() {
     }
 
     // 3. Fetch all medical records for all resolved patient keys
-    const resolvedKeysList = resolvedPatientKeys.value.length ? resolvedPatientKeys.value : [userId]
+    const resolvedKeysList = resolvedPatientKeys.value
     const recordsPromises = resolvedKeysList.map(key => medicalRecordApi.getMedicalRecords(String(key)).catch(() => [] as MedicalRecord[]))
     const results = await Promise.allSettled(recordsPromises)
     
@@ -1169,7 +1169,7 @@ async function loadPrescriptionData(record: MedicalRecord) {
   prescriptionLoading.value = true
   activePrescription.value = null
   try {
-    const keys = resolvedPatientKeys.value.length ? resolvedPatientKeys.value : [resolvedN2Id.value || Number(authStore.user?.id || 0)]
+    const keys = resolvedPatientKeys.value.length ? resolvedPatientKeys.value : (resolvedN2Id.value ? [resolvedN2Id.value] : [])
     // Fetch prescriptions list from both N3 Pharmacy and N2 Patient History (source of truth) for all keys
     const [n3ListResults, historyResults] = await Promise.all([
       Promise.all(keys.map(k => billingApi.getPrescriptions(k).catch(() => [] as Prescription[]))),
@@ -1203,7 +1203,7 @@ async function loadBillingData(record: MedicalRecord) {
   billingLoading.value = true
   activeInvoice.value = null
   try {
-    const keys = resolvedPatientKeys.value.length ? resolvedPatientKeys.value : [resolvedN2Id.value || Number(authStore.user?.id || 0)]
+    const keys = resolvedPatientKeys.value.length ? resolvedPatientKeys.value : (resolvedN2Id.value ? [resolvedN2Id.value] : [])
     // Fetch invoices list in N3 Billing for all resolved keys
     const results = await Promise.all(keys.map(k => billingApi.getInvoices(k).catch(() => [] as Invoice[])))
     const list = results.flat()
@@ -1367,6 +1367,7 @@ function invoiceStatusClass(status?: string) {
     visibility: visible !important;
   }
   .print-area {
+    display: block !important;
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
@@ -1381,5 +1382,10 @@ function invoiceStatusClass(status?: string) {
     size: A4;
     margin: 15mm;
   }
+}
+
+/* Hide print area by default on screen */
+.print-area {
+  display: none !important;
 }
 </style>

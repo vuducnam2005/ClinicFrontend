@@ -110,6 +110,43 @@ export const billingApi = {
       '/api/billing/invoices/from-appointment',
     ], payload)
   },
+  async createInvoiceFromPrescription(billingInfo: {
+    prescriptionId: number
+    medicalRecordId?: number
+    appointmentId?: number
+    patientId?: number | string
+    doctorId?: number
+    medicineTotal?: number
+    examFee?: number
+    items?: Array<Record<string, any>>
+    note?: string
+    [key: string]: any
+  }) {
+    const medicineTotal = Number(billingInfo.medicineTotal ?? 0)
+    const examFee = Number(billingInfo.examFee ?? billingInfo.examinationFee ?? 0)
+    const totalAmount = Number.isFinite(medicineTotal + examFee) ? medicineTotal + examFee : 0
+    const payload = {
+      prescriptionId: billingInfo.prescriptionId,
+      medicalRecordId: billingInfo.medicalRecordId,
+      appointmentId: billingInfo.appointmentId,
+      patientId: billingInfo.patientId,
+      doctorId: billingInfo.doctorId,
+      medicineTotal,
+      examinationFee: examFee,
+      examFee,
+      amount: totalAmount,
+      totalAmount,
+      items: billingInfo.items || [],
+      status: billingInfo.status || 'Unpaid',
+      note: billingInfo.note || 'Hóa đơn thuốc tạo từ đơn thuốc đã chốt qua N2',
+    }
+    return tryPost<Invoice>([
+      '/api/invoices/from-prescription',
+      '/api/billing/invoices/from-prescription',
+      '/api/invoices',
+      '/api/billing/invoices',
+    ], payload)
+  },
   async payInvoice(invoiceId: number, amount?: number) {
     const payload = { paymentMethod: 'Cash', method: 'Cash', amount }
     return tryPost<Invoice>([

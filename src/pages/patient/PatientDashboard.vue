@@ -357,7 +357,6 @@ async function resolvePatientKeys() {
   const user = authStore.user
   const keys = new Set<string>()
   addKey(keys, user?.patientId)
-  addKey(keys, user?.id)
 
   const userId = String(user?.id || '')
   const initialAppts = /^\d+$/.test(userId) ? await appointmentApi.getAppointmentsByPatient(userId).catch(() => [] as Appointment[]) : []

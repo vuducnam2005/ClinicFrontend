@@ -306,6 +306,7 @@ import Toast from '@/components/ui/Toast.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { getApiErrorMessage } from '@/services/apiClient'
 import { appointmentApi } from '@/services/appointmentApi'
+import { billingApi } from '@/services/billingApi'
 import { medicalRecordApi, type MedicalVisit, type PrescriptionItemPayload } from '@/services/medicalRecordApi'
 import { currentDoctorId, filterAppointmentsForDoctor, filterQueueForDoctor, filterRecordsForDoctor, filterSchedulesForDoctor } from '@/utils/doctorScope'
 import type { Appointment, WaitingQueueItem } from '@/types/appointment'
@@ -430,31 +431,39 @@ async function loadData() {
 }
 
 async function loadDoctorVisits(doctorId: number) {
-  try {
-    const visits = await medicalRecordApi.getVisitsToday(doctorId || undefined)
-    note.value = visits.length ? 'Đã tải lượt khám từ N2.' : ''
-    return visits.map(mapVisit)
-  } catch (apiError) {
-    const n1Queue = await appointmentApi.getWaitingQueue(today).catch(() => [] as WaitingQueueItem[])
-    const rowsWithVisits = await Promise.all(n1Queue.map(async (item) => {
-      const row = mapQueue(item)
-      const appointmentId = Number(row.appointmentId || row.id)
-      if (!appointmentId) return row
-      const visit = await medicalRecordApi.getVisitByAppointment(appointmentId).catch(() => null)
-      if (!visit) return row
-      const visitRow = mapVisit(visit)
-      return {
-        ...row,
-        ...visitRow,
-        reason: meaningfulText(visitRow.reason) || meaningfulText(row.reason) || 'Chưa ghi nhận',
-        source: 'N2',
-        n1Status: row.status,
-      }
-    }))
-    const scopedRows = rowsWithVisits.filter(isCurrentDoctorRow)
-    note.value = `N2 /visits/today đang lỗi (${getApiErrorMessage(apiError)}). Đang hiển thị hàng chờ N1 của bác sĩ; chỉ dòng có Visit N2 mới khám được.`
-    return scopedRows
+  if (doctorId) {
+    try {
+      const visits = await medicalRecordApi.getVisitsToday(doctorId)
+      note.value = visits.length ? 'Đã tải lượt khám từ N2 theo DoctorId.' : 'N2 chưa có lượt khám hôm nay cho bác sĩ này.'
+      return visits.map(mapVisit)
+    } catch (apiError) {
+      note.value = `N2 /visits/today?doctorId=${doctorId} đang lỗi (${getApiErrorMessage(apiError)}). Đang đối chiếu hàng chờ N1 với Visit N2.`
+    }
   }
+
+  const n1Queue = await appointmentApi.getWaitingQueue(today).catch(() => [] as WaitingQueueItem[])
+  const rowsWithVisits = await Promise.all(n1Queue.map(async (item) => {
+    const row = mapQueue(item)
+    const appointmentId = Number(row.appointmentId || row.id)
+    if (!appointmentId) return row
+    const visit = await medicalRecordApi.getVisitByAppointment(appointmentId).catch(() => null)
+    if (!visit) return row
+    const visitRow = mapVisit(visit)
+    return {
+      ...row,
+      ...visitRow,
+      reason: meaningfulText(visitRow.reason) || meaningfulText(row.reason) || 'Chưa ghi nhận',
+      source: 'N2',
+      n1Status: row.status,
+    }
+  }))
+  const scopedRows = rowsWithVisits.filter(isCurrentDoctorRow)
+  if (!note.value) {
+    note.value = doctorId
+      ? 'Đang hiển thị hàng chờ N1 đã đối chiếu Visit N2; chỉ dòng có Visit N2 mới khám được.'
+      : 'Tài khoản chưa có DoctorId, đang lọc hàng chờ theo tên bác sĩ và đối chiếu Visit N2.'
+  }
+  return scopedRows
 }
 
 function rowActions(row: Row) {
@@ -610,6 +619,7 @@ async function submitExamination() {
     await saveMedicalRecord()
     const recordId = Number(activeRecord.value?.medicalRecordId)
     if (!recordId) throw new Error('Cần lưu bệnh án trước khi kê đơn hoặc hoàn tất khám.')
+    let invoiceCreated = false
     if (prescriptionItems.value.length) {
       validatePrescriptionItems()
       const draft = await medicalRecordApi.createPrescription({ medicalRecordId: recordId, note: prescriptionNote() })
@@ -617,19 +627,24 @@ async function submitExamination() {
       for (const item of prescriptionItems.value) {
         await medicalRecordApi.addPrescriptionItem(prescriptionId, item)
       }
-      await medicalRecordApi.submitPrescription(prescriptionId, { medicalRecordId: recordId, note: prescriptionNote(), items: prescriptionItems.value })
+      const submittedPrescription = await medicalRecordApi.submitPrescription(prescriptionId, { medicalRecordId: recordId, note: prescriptionNote(), items: prescriptionItems.value })
+      invoiceCreated = await createPrescriptionInvoice(Number(submittedPrescription.prescriptionId || submittedPrescription.id || prescriptionId), recordId)
     }
     await medicalRecordApi.completeMedicalRecord(recordId)
     await medicalRecordApi.completeVisit(Number(activeVisit.value?.visitId))
     const appointmentId = Number(activeVisit.value?.appointmentId || selectedRow.value?.appointmentId)
     if (appointmentId) await appointmentApi.completeAppointmentSafely(appointmentId, String(selectedRow.value?.appointmentDate || '')).catch(() => undefined)
     note.value = prescriptionItems.value.length
-      ? 'Đã hoàn tất bệnh án, chốt đơn thuốc qua N2 và hoàn tất lượt khám.'
+      ? invoiceCreated
+        ? 'Đã hoàn tất bệnh án, chốt đơn thuốc qua N2, tạo viện phí N3 và hoàn tất lượt khám.'
+        : 'Đã hoàn tất bệnh án và chốt đơn thuốc qua N2. N3 chưa tạo được viện phí tự động.'
       : 'Đã hoàn tất bệnh án và lượt khám.'
     showToast(
       'Hoàn tất khám',
       prescriptionItems.value.length
-        ? 'Đơn thuốc đã được chốt qua N2. Tiếp theo bệnh nhân có thể xem Đơn thuốc, y tá/thu ngân có thể xử lý viện phí.'
+        ? invoiceCreated
+          ? 'Đơn thuốc đã được chốt qua N2 và đã gửi tạo viện phí N3. Tiếp theo sang Thu viện phí để kiểm tra hóa đơn.'
+          : 'Đơn thuốc đã được chốt qua N2 nhưng N3 chưa nhận tạo viện phí tự động. Tiếp theo sang Thu viện phí để tạo/kiểm tra hóa đơn.'
         : 'Bệnh án đã hoàn tất. Tiếp theo bệnh nhân có thể xem Hồ sơ bệnh án.',
       'success'
     )
@@ -650,6 +665,47 @@ function validatePrescriptionItems() {
     if (!item.frequency.trim()) throw new Error('Vui lòng nhập tần suất dùng thuốc.')
     if (!Number.isFinite(Number(item.durationDays)) || Number(item.durationDays) <= 0) throw new Error('Số ngày dùng thuốc phải lớn hơn 0.')
     if (!Number.isFinite(Number(item.quantity)) || Number(item.quantity) <= 0) throw new Error('Số lượng thuốc phải lớn hơn 0.')
+  }
+}
+
+async function createPrescriptionInvoice(prescriptionId: number, medicalRecordId: number) {
+  if (!prescriptionId) return false
+  const appointmentId = positiveNumber(activeVisit.value?.appointmentId || selectedRow.value?.appointmentId)
+  const patientId = activeVisit.value?.patientId || selectedRow.value?.patientId
+  const doctorId = positiveNumber(activeVisit.value?.doctorId || selectedRow.value?.doctorId || currentDoctorId(authStore.user))
+  const items = prescriptionItems.value.map((item) => {
+    const unitPrice = medicinePrice(item.medicineId)
+    const quantity = Number(item.quantity) || 0
+    return {
+      medicineId: item.medicineId,
+      medicineName: item.medicineNameSnapshot,
+      medicineNameSnapshot: item.medicineNameSnapshot,
+      unitSnapshot: item.unitSnapshot,
+      quantity,
+      unitPrice,
+      amount: unitPrice * quantity,
+      dosage: item.dosage,
+      frequency: item.frequency,
+      durationDays: item.durationDays,
+      usageInstruction: item.usageInstruction,
+    }
+  })
+  const medicineTotal = items.reduce((total, item) => total + Number(item.amount || 0), 0)
+
+  try {
+    await billingApi.createInvoiceFromPrescription({
+      prescriptionId,
+      medicalRecordId,
+      appointmentId,
+      patientId,
+      doctorId,
+      medicineTotal,
+      items,
+      note: `Viện phí thuốc từ đơn #${prescriptionId}`,
+    })
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -779,6 +835,26 @@ function medicineUnit(medicine: Medicine & Record<string, any>) {
 function medicineStock(medicine: Medicine & Record<string, any>) {
   const value = Number(medicine.stockQuantity ?? medicine.StockQuantity ?? medicine.stock ?? 0)
   return Number.isFinite(value) ? value : 0
+}
+
+function medicinePrice(medicineIdValue: number) {
+  const medicine = medicines.value.find((item) => medicineId(item) === Number(medicineIdValue))
+  if (!medicine) return 0
+  return positiveNumber(
+    medicine.unitPrice ??
+    medicine.UnitPrice ??
+    medicine.price ??
+    medicine.Price ??
+    medicine.sellingPrice ??
+    medicine.SellingPrice ??
+    medicine.retailPrice ??
+    medicine.RetailPrice
+  )
+}
+
+function positiveNumber(value: unknown) {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : 0
 }
 
 function value(row: Row, key: string) {
