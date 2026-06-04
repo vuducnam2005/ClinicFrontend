@@ -105,28 +105,35 @@ export const useAuthStore = defineStore('auth', {
     async resolvePatientProfile() {
       if (!this.user || this.user.roleId !== RoleId.Patient) return
       try {
-        const patient = await findPatientForUser(this.user)
+        const user = this.user
+        const patient = await findPatientForUser(user)
         if (!patient) return
 
         const patientId = Number(patient.id || patient.patientId)
         this.user = {
-          ...this.user,
-          patientId: Number.isFinite(patientId) && patientId > 0 ? patientId : this.user.patientId,
+          ...user,
+          patientId: Number.isFinite(patientId) && patientId > 0 ? patientId : user.patientId,
+          fullName: patient.fullName || user.fullName,
+          email: patient.email || user.email,
+          phoneNumber: patient.phoneNumber || patient.phone || user.phoneNumber,
         }
 
-        const fullName = this.user.fullName?.trim()
-        const email = this.user.email?.trim()
-        const phoneNumber = this.user.phoneNumber?.trim()
+        const authFullName = user.fullName?.trim()
+        const authEmail = user.email?.trim()
+        const authPhoneNumber = user.phoneNumber?.trim()
+        const nextFullName = patient.fullName || authFullName
+        const nextEmail = patient.email || authEmail
+        const nextPhoneNumber = patient.phoneNumber || patient.phone || authPhoneNumber
         const shouldSync =
-          Boolean(fullName && fullName !== patient.fullName) ||
-          Boolean(email && email !== patient.email) ||
-          Boolean(phoneNumber && phoneNumber !== patient.phoneNumber)
+          Boolean(!patient.fullName && authFullName) ||
+          Boolean(!patient.email && authEmail) ||
+          Boolean(!patient.phoneNumber && !patient.phone && authPhoneNumber)
 
         if (shouldSync && Number.isFinite(patientId) && patientId > 0) {
           await medicalRecordApi.updatePatient(patientId, {
-            fullName: fullName || patient.fullName,
-            email: email || patient.email,
-            phoneNumber: phoneNumber || patient.phoneNumber,
+            fullName: nextFullName || patient.fullName,
+            email: nextEmail || patient.email,
+            phoneNumber: nextPhoneNumber || patient.phoneNumber,
             dateOfBirth: patient.dateOfBirth,
             gender: patient.gender,
             address: patient.address,

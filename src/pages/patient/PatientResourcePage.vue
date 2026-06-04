@@ -407,7 +407,7 @@ async function resolvePatient() {
 
 function syncProfileForm() {
   profileForm.fullName = currentPatient.value?.fullName || authStore.user?.fullName || ''
-  profileForm.email = authStore.user?.email || currentPatient.value?.email || ''
+  profileForm.email = currentPatient.value?.email || authStore.user?.email || ''
   profileForm.phoneNumber = currentPatient.value?.phoneNumber || currentPatient.value?.phone || authStore.user?.phoneNumber || ''
 }
 
@@ -417,20 +417,23 @@ async function syncPatientFromUser() {
   const id = toNumber(patient?.id, patient?.patientId, user?.patientId)
   if (!patient || !user || !id) return
 
-  const fullName = user.fullName?.trim()
-  const email = user.email?.trim()
-  const phoneNumber = user.phoneNumber?.trim()
+  const authFullName = user.fullName?.trim()
+  const authEmail = user.email?.trim()
+  const authPhoneNumber = user.phoneNumber?.trim()
+  const nextFullName = patient.fullName || authFullName
+  const nextEmail = patient.email || authEmail
+  const nextPhoneNumber = patient.phoneNumber || patient.phone || authPhoneNumber
   const shouldSync =
-    Boolean(fullName && fullName !== patient.fullName) ||
-    Boolean(email && email !== patient.email) ||
-    Boolean(phoneNumber && phoneNumber !== patient.phoneNumber)
+    Boolean(!patient.fullName && authFullName) ||
+    Boolean(!patient.email && authEmail) ||
+    Boolean(!patient.phoneNumber && !patient.phone && authPhoneNumber)
 
   if (!shouldSync) return
 
   currentPatient.value = await medicalRecordApi.updatePatient(id, patientPayload({
-    fullName: fullName || patient.fullName,
-    email: email || patient.email,
-    phoneNumber: phoneNumber || patient.phoneNumber,
+    fullName: nextFullName || patient.fullName,
+    email: nextEmail || patient.email,
+    phoneNumber: nextPhoneNumber || patient.phoneNumber,
   }))
 }
 
