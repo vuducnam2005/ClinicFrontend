@@ -212,7 +212,6 @@ import Toast from '@/components/ui/Toast.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { getApiErrorMessage } from '@/services/apiClient'
 import { appointmentApi } from '@/services/appointmentApi'
-import { billingApi } from '@/services/billingApi'
 import { medicalRecordApi, type MedicalVisit, type PrescriptionItemPayload } from '@/services/medicalRecordApi'
 import { currentDoctorId, filterAppointmentsForDoctor, filterQueueForDoctor, filterRecordsForDoctor, filterSchedulesForDoctor } from '@/utils/doctorScope'
 import type { Appointment, WaitingQueueItem } from '@/types/appointment'
@@ -508,7 +507,6 @@ function resetFilters(reload = true) {
 function rowActions(row: Row) {
   if (resource.value === 'appointments') {
     const actions = [{ key: 'view' as ActionKey, label: 'Chi tiết', className: 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50' }]
-    if (canStart(row.status)) actions.push({ key: 'start', label: 'Bắt đầu khám', className: 'bg-blue-600 text-white hover:bg-blue-700' })
     if (statusBucket(row.status) === 'progress') actions.push({ key: 'complete', label: 'Hoàn tất', className: 'bg-emerald-600 text-white hover:bg-emerald-700' })
     if (!['completed', 'cancelled'].includes(statusBucket(row.status))) actions.push({ key: 'cancel', label: 'Hủy', className: 'bg-rose-50 text-rose-700 hover:bg-rose-100' })
     return actions
@@ -552,7 +550,8 @@ async function openExamFromRow(row: Row) {
   if (resource.value !== 'examine') {
     selectedRow.value = row
   }
-  await selectVisit(row)
+  const opened = await selectVisit(row)
+  if (!opened) return
   if (resource.value !== 'examine') showToast('Đã mở lượt khám', 'Chuyển sang trang Khám & kê đơn nếu cần thao tác đầy đủ.', 'success')
 }
 
@@ -570,8 +569,10 @@ async function selectVisit(row: Row) {
     activeVisit.value = visit
     examForm.chiefComplaint = meaningful(visit.chiefComplaint || row.reason)
     await Promise.all([loadExistingRecord(), loadMedicines()])
+    return true
   } catch (apiError) {
     showToast('Không mở được lượt khám', businessError(apiError), 'error')
+    return false
   }
 }
 
@@ -654,14 +655,12 @@ async function submitExamination() {
     const recordId = Number(activeRecord.value?.medicalRecordId)
     if (!recordId) throw new Error('Cần lưu bệnh án trước khi hoàn tất lượt khám.')
 
-    let invoiceCreated = false
     if (prescriptionItems.value.length) {
       validatePrescriptionItems()
       const draft = await medicalRecordApi.createPrescription({ medicalRecordId: recordId, note: prescriptionNote() })
       const prescriptionId = Number((draft as any).prescriptionId || (draft as any).id)
       for (const item of prescriptionItems.value) await medicalRecordApi.addPrescriptionItem(prescriptionId, item)
-      const submitted = await medicalRecordApi.submitPrescription(prescriptionId, { medicalRecordId: recordId, note: prescriptionNote(), items: prescriptionItems.value })
-      invoiceCreated = await createPrescriptionInvoice(Number((submitted as any).prescriptionId || (submitted as any).id || prescriptionId), recordId)
+      await medicalRecordApi.submitPrescription(prescriptionId, { medicalRecordId: recordId, note: prescriptionNote(), items: prescriptionItems.value })
     }
 
     await medicalRecordApi.completeMedicalRecord(recordId)
@@ -670,9 +669,7 @@ async function submitExamination() {
     showToast(
       'Hoàn tất khám',
       prescriptionItems.value.length
-        ? invoiceCreated
-          ? 'Đơn thuốc đã chốt qua N2 và đã gửi tạo viện phí N3.'
-          : 'Đơn thuốc đã chốt qua N2. Vui lòng kiểm tra viện phí ở N3 nếu hóa đơn chưa tự sinh.'
+        ? 'Đơn thuốc đã chốt qua N2. N3 sẽ tự tạo viện phí qua event prescription.created.'
         : 'Bệnh án và lượt khám đã hoàn tất.',
       'success',
     )
@@ -709,6 +706,11 @@ async function cancelAppointment(row: Row) {
 
 async function loadExistingRecord() {
   if (!activeVisit.value?.visitId) return
+  if (!activeVisit.value.medicalRecordId) {
+    activeRecord.value = null
+    clinicalOrders.value = []
+    return
+  }
   try {
     activeRecord.value = await medicalRecordApi.getMedicalRecordByVisit(activeVisit.value.visitId)
     examForm.diagnosis = activeRecord.value.diagnosisText || activeRecord.value.diagnosis || ''
@@ -762,30 +764,6 @@ function toggleMedicine(medicine: Medicine & Record<string, any>) {
 
 function removeMedicine(medicineIdValue: number) {
   prescriptionItems.value = prescriptionItems.value.filter((item) => item.medicineId !== medicineIdValue)
-}
-
-async function createPrescriptionInvoice(prescriptionId: number, medicalRecordId: number) {
-  if (!prescriptionId) return false
-  const items = prescriptionItems.value.map((item) => {
-    const unitPrice = medicinePrice(item.medicineId)
-    const quantity = Number(item.quantity) || 0
-    return { ...item, medicineName: item.medicineNameSnapshot, unitPrice, amount: unitPrice * quantity }
-  })
-  try {
-    await billingApi.createInvoiceFromPrescription({
-      prescriptionId,
-      medicalRecordId,
-      appointmentId: activeVisit.value?.appointmentId,
-      patientId: activeVisit.value?.patientId,
-      doctorId: doctorId.value,
-      medicineTotal: items.reduce((total, item) => total + Number(item.amount || 0), 0),
-      items,
-      note: `Viện phí thuốc từ đơn #${prescriptionId}`,
-    })
-    return true
-  } catch {
-    return false
-  }
 }
 
 function validatePrescriptionItems() {
@@ -857,6 +835,7 @@ function mapVisit(item: MedicalVisit): Row {
     key: `V${item.visitId || item.id}`,
     id: item.visitId || item.id,
     visitId: item.visitId || item.id,
+    medicalRecordId: item.medicalRecordId,
     appointmentId: item.appointmentId,
     patientId: item.patientId,
     doctorId: item.doctorId,
@@ -911,11 +890,6 @@ function sortRows(a: Row, b: Row) {
   const dateCompare = String(a.date || '').localeCompare(String(b.date || ''))
   if (dateCompare) return dateCompare
   return String(a.time || '').localeCompare(String(b.time || ''))
-}
-
-function canStart(status?: string) {
-  const bucket = statusBucket(status)
-  return ['waiting', 'confirmed'].includes(bucket)
 }
 
 function statusBucket(status?: string) {

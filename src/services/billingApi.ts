@@ -1,5 +1,5 @@
 import { createServiceClient, readApiResponse } from '@/services/apiClient'
-import type { Invoice, Prescription } from '@/types/billing'
+import type { Invoice, Prescription, PrescriptionStockCheck } from '@/types/billing'
 
 const client = createServiceClient('billing')
 
@@ -100,6 +100,24 @@ export const billingApi = {
   async createPrescription(payload: Partial<Prescription> & Record<string, any>) {
     return tryPost<Prescription>(['/api/prescriptions', '/api/billing/prescriptions'], payload)
   },
+  async getPrescriptionStockCheck(prescriptionId: number | string) {
+    return tryGet<PrescriptionStockCheck>([
+      `/api/prescriptions/${prescriptionId}/stock-check`,
+      `/api/billing/prescriptions/${prescriptionId}/stock-check`,
+    ])
+  },
+  async approvePrescription(prescriptionId: number | string) {
+    return tryPost<PrescriptionStockCheck>([
+      `/api/prescriptions/${prescriptionId}/approve`,
+      `/api/billing/prescriptions/${prescriptionId}/approve`,
+    ], {})
+  },
+  async dispensePrescription(prescriptionId: number | string) {
+    return tryPost<PrescriptionStockCheck>([
+      `/api/prescriptions/${prescriptionId}/dispense`,
+      `/api/billing/prescriptions/${prescriptionId}/dispense`,
+    ], {})
+  },
   async getAppointmentBillingInfo(appointmentId: number) {
     return tryGet<Invoice>([
       `/api/integration/appointments/${appointmentId}/billing-info`,
@@ -173,12 +191,6 @@ export const billingApi = {
   },
   async payInvoice(invoiceId: number, amount?: number, method = 'Cash', extra: Record<string, any> = {}) {
     const payload = { paymentMethod: method, method, amount, ...extra }
-    return tryPost<Invoice>([
-      `/api/invoices/${invoiceId}/pay`,
-      `/api/billing/invoices/${invoiceId}/pay`,
-      `/api/payments/invoices/${invoiceId}`,
-      '/api/payments',
-      '/api/billing/payments',
-    ], { invoiceId, ...payload })
+    return tryPost<Invoice>([`/api/invoices/${invoiceId}/pay`], { invoiceId, ...payload })
   }
 }

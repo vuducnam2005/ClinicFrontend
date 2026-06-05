@@ -214,6 +214,84 @@
       </div>
     </div>
 
+    <div v-if="stockModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+      <div class="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-[1.5rem] bg-white p-6 shadow-2xl">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">N3 Pharmacy</p>
+            <h2 class="mt-1 text-2xl font-bold text-slate-950">Xử lý đơn thuốc</h2>
+            <p class="mt-2 text-sm text-slate-500">{{ activePrescriptionRow?.id }} - {{ activePrescriptionRow?.patientName }} ({{ activePrescriptionRow?.patientCode }})</p>
+          </div>
+          <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" @click="closeStockModal">
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+
+        <div class="mt-5 grid gap-3 sm:grid-cols-3">
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Trạng thái đơn</p>
+            <p class="mt-2 text-sm font-bold text-slate-900">{{ statusText(stockCheckStatus) }}</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Viện phí</p>
+            <p class="mt-2 text-sm font-bold text-slate-900">{{ statusText(stockInvoiceStatus) }}</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Kết quả kho</p>
+            <p :class="['mt-2 text-sm font-bold', stockAllAvailable ? 'text-emerald-700' : 'text-amber-700']">{{ stockAllAvailable ? 'Đủ thuốc' : 'Cần kiểm tra thiếu thuốc' }}</p>
+          </div>
+        </div>
+
+        <div v-if="stockInvoiceStatus && !String(stockInvoiceStatus).toLowerCase().includes('paid')" class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          Cần thu viện phí trước khi phát thuốc. Backend chỉ cho phát thuốc khi hóa đơn đã Paid.
+        </div>
+        <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-900">
+          {{ stockNextMessage }}
+        </div>
+
+        <div class="mt-5 overflow-hidden rounded-2xl border border-slate-200">
+          <table class="min-w-full divide-y divide-slate-100 text-sm">
+            <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr>
+                <th class="px-4 py-3">Thuốc</th>
+                <th class="px-4 py-3">Cần</th>
+                <th class="px-4 py-3">Tồn kho</th>
+                <th class="px-4 py-3">Thiếu</th>
+                <th class="px-4 py-3">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr v-if="stockLoading">
+                <td colspan="5" class="px-4 py-6 text-center font-semibold text-slate-500">Đang kiểm kho...</td>
+              </tr>
+              <tr v-else-if="!stockItems.length">
+                <td colspan="5" class="px-4 py-6 text-center font-semibold text-slate-500">Chưa có chi tiết thuốc từ N3.</td>
+              </tr>
+              <template v-else>
+                <tr v-for="item in stockItems" :key="stockItemKey(item)" :class="stockItemAvailable(item) ? 'bg-white' : 'bg-rose-50/70'">
+                  <td class="px-4 py-3 font-semibold text-slate-950">{{ stockMedicineName(item) }}</td>
+                  <td class="px-4 py-3 text-slate-700">{{ stockRequiredQuantity(item) }}</td>
+                  <td class="px-4 py-3 text-slate-700">{{ stockCurrentQuantity(item) }}</td>
+                  <td class="px-4 py-3 text-slate-700">{{ stockShortageQuantity(item) }}</td>
+                  <td class="px-4 py-3">
+                    <span :class="['rounded-full px-2.5 py-1 text-xs font-bold', stockItemAvailable(item) ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700']">
+                      {{ stockItemAvailable(item) ? 'Đủ' : 'Thiếu' }}
+                    </span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-6 flex flex-wrap justify-end gap-3">
+          <BaseButton type="button" variant="outline" :loading="stockLoading" @click="loadPrescriptionStock()">Kiểm kho lại</BaseButton>
+          <BaseButton type="button" variant="outline" @click="closeStockModal">Đóng</BaseButton>
+          <BaseButton type="button" :loading="saving" :disabled="stockLoading" @click="handleStockPrimaryAction">{{ stockPrimaryLabel }}</BaseButton>
+        </div>
+      </div>
+    </div>
+
     <Toast
       :show="toast.show"
       :title="toast.title"
@@ -238,12 +316,12 @@ import { appointmentApi } from '@/services/appointmentApi'
 import { billingApi } from '@/services/billingApi'
 import { medicalRecordApi, type MedicalVisit } from '@/services/medicalRecordApi'
 import type { Appointment, WaitingQueueItem } from '@/types/appointment'
-import type { Invoice, Prescription } from '@/types/billing'
+import type { Invoice, Prescription, PrescriptionStockCheck, PrescriptionStockItem } from '@/types/billing'
 import type { Patient } from '@/types/medicalRecord'
 import { displayText } from '@/utils/displayText'
 
 type Resource = 'appointments' | 'patients' | 'queue' | 'bills' | 'prescriptions'
-type ActionKey = 'confirm' | 'checkin' | 'cancelAppointment' | 'pay' | 'vitals' | 'editPatient'
+type ActionKey = 'confirm' | 'checkin' | 'cancelAppointment' | 'pay' | 'vitals' | 'editPatient' | 'stockCheck'
 type Row = Record<string, any>
 interface Column { key: string; label: string; badge?: boolean; strong?: boolean }
 
@@ -260,10 +338,14 @@ const toast = reactive({ show: false, title: '', message: '', type: 'success' as
 const resource = computed<Resource>(() => isResource(route.meta.nurseResource) ? route.meta.nurseResource : 'appointments')
 const config = computed(() => configs[resource.value])
 const today = new Date().toISOString().slice(0, 10)
-const hasActions = computed(() => ['appointments', 'queue', 'patients', 'bills'].includes(resource.value))
+const hasActions = computed(() => ['appointments', 'queue', 'patients', 'bills', 'prescriptions'].includes(resource.value))
 const vitalsOpen = ref(false)
 const patientModalOpen = ref(false)
+const stockModalOpen = ref(false)
+const stockLoading = ref(false)
 const activeRow = ref<Row | null>(null)
+const activePrescriptionRow = ref<Row | null>(null)
+const stockCheck = ref<PrescriptionStockCheck | null>(null)
 const editingPatientId = ref<string | number | null>(null)
 const vitalsForm = reactive({ temperature: undefined as number | undefined, bloodPressure: '', heartRate: undefined as number | undefined, height: undefined as number | undefined, weight: undefined as number | undefined, note: '' })
 const patientForm = reactive({ fullName: '', phoneNumber: '', email: '', dateOfBirth: '', gender: '', address: '', bloodType: '', allergyNote: '', medicalHistory: '' })
@@ -274,7 +356,7 @@ const configs: Record<Resource, { title: string; service: string; description: s
   patients: cfg('Hồ sơ bệnh nhân', 'N2 Patients', 'Tạo và cập nhật thông tin hồ sơ bệnh nhân khi tiếp nhận.', 'GET/POST/PUT /medical/api/v1/medical/patients', ['id', 'name', 'phone', 'gender', 'history'], 'Tìm mã bệnh nhân, họ tên, số điện thoại...', 'N2 chưa có hồ sơ bệnh nhân.', cols(['id', 'Mã BN'], ['name', 'Bệnh nhân', false, true], ['phone', 'Số điện thoại'], ['gender', 'Giới tính'], ['history', 'Tiền sử bệnh'])),
   queue: cfg('Hàng chờ khám', 'N2 Visits', 'Theo dõi lượt khám đã check-in và cập nhật chỉ số sức khỏe trước khám.', 'GET /medical/api/v1/medical/visits/today', ['patientName', 'doctorName', 'status', 'reason'], 'Tìm bệnh nhân, bác sĩ, trạng thái...', 'N2 chưa có lượt khám hôm nay.', cols(['id', 'Visit'], ['patientName', 'Bệnh nhân', false, true], ['doctorName', 'Bác sĩ'], ['dateTime', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
   bills: cfg('Thu viện phí', 'N3 Billing', 'Theo dõi hóa đơn và thu tiền. Không thuộc nghiệp vụ N2 bệnh án.', 'GET /pharmacy/api/invoices', ['id', 'patientId', 'amount', 'status'], 'Tìm hóa đơn, bệnh nhân, trạng thái...', 'N3 chưa có hóa đơn.', cols(['id', 'Mã HĐ'], ['patientId', 'Bệnh nhân'], ['appointmentId', 'Lịch hẹn'], ['amount', 'Số tiền'], ['status', 'Trạng thái', true])),
-  prescriptions: cfg('Đơn thuốc', 'N2/N3 Readonly', 'Y tá chỉ xem trạng thái đơn thuốc, không kê hoặc chốt đơn.', 'N2 prescription.created -> N3', ['id', 'patientId', 'medicine', 'status'], 'Tìm đơn thuốc, bệnh nhân, thuốc...', 'Chưa có đơn thuốc.', cols(['id', 'Mã đơn'], ['patientId', 'Bệnh nhân', false, true], ['medicalRecordId', 'Bệnh án'], ['medicine', 'Thuốc'], ['status', 'Trạng thái', true])),
+  prescriptions: cfg('Xử lý đơn thuốc', 'N3 Pharmacy', 'Kiểm tồn kho, duyệt đơn và phát thuốc sau khi hóa đơn đã thanh toán.', 'GET /pharmacy/api/prescriptions/{id}/stock-check', ['id', 'patientName', 'patientCode', 'medicalRecordId', 'medicine', 'status'], 'Tìm đơn thuốc, bệnh nhân, mã BN, thuốc...', 'Chưa có đơn thuốc.', cols(['id', 'Mã đơn'], ['patientName', 'Bệnh nhân', false, true], ['patientCode', 'Mã BN'], ['medicalRecordId', 'Bệnh án'], ['medicine', 'Thuốc'], ['status', 'Trạng thái', true])),
 }
 
 const filteredRows = computed(() => {
@@ -304,6 +386,28 @@ const metrics = computed(() => [
   { label: 'Đang xử lý', value: rows.value.filter((row) => isActiveStatus(row.status)).length, note: 'Chờ, xác nhận hoặc chưa thu' },
   { label: 'Hoàn tất', value: rows.value.filter((row) => isDoneStatus(row.status)).length, note: 'Đã xử lý xong' },
 ])
+const stockItems = computed(() => extractStockItems(stockCheck.value))
+const stockCheckStatus = computed(() => stockCheck.value?.status || activePrescriptionRow.value?.status || '')
+const stockInvoiceStatus = computed(() => stockCheck.value?.invoiceStatus || getAny(stockCheck.value, 'InvoiceStatus') || '')
+const stockAllAvailable = computed(() => stockItems.value.length > 0 && stockItems.value.every(stockItemAvailable))
+const stockCanApprove = computed(() => booleanValue(stockCheck.value?.canApprove ?? getAny(stockCheck.value, 'CanApprove'), stockAllAvailable.value))
+const stockCanDispense = computed(() => booleanValue(stockCheck.value?.canDispense ?? getAny(stockCheck.value, 'CanDispense'), false))
+const stockInvoicePaid = computed(() => {
+  const status = String(stockInvoiceStatus.value || '').toLowerCase()
+  return status.includes('paid') || status.includes('đã thanh toán') || status.includes('da thanh toan')
+})
+const stockPrimaryAction = computed<'approve' | 'dispense' | 'blocked'>(() => {
+  if (!stockCheck.value || !stockAllAvailable.value) return 'blocked'
+  if (stockCanDispense.value && stockInvoicePaid.value) return 'dispense'
+  if (stockCanApprove.value) return 'approve'
+  return 'blocked'
+})
+const stockPrimaryLabel = computed(() => {
+  if (stockPrimaryAction.value === 'approve') return 'Duyệt đơn'
+  if (stockPrimaryAction.value === 'dispense') return 'Phát thuốc'
+  return 'Chưa đủ điều kiện'
+})
+const stockNextMessage = computed(() => stockBlockMessage(stockPrimaryAction.value))
 
 watch(resource, () => { query.value = ''; void loadData() }, { immediate: true })
 
@@ -316,7 +420,7 @@ async function loadData() {
     if (!patientsList.value.length) {
       patientsList.value = await medicalRecordApi.getPatients({ pageSize: 100 }).catch(() => [])
     }
-    
+
     if (resource.value === 'appointments') rows.value = (await appointmentApi.getAppointments()).map(mapAppointment)
     if (resource.value === 'patients') rows.value = (await medicalRecordApi.getPatients({ pageSize: 100 })).map(mapPatient)
     if (resource.value === 'queue') rows.value = await loadNurseQueue()
@@ -337,17 +441,30 @@ async function loadReadonlyPrescriptions() {
     medicalRecordApi.getPatients({ pageSize: 100 }).catch(() => [] as Patient[]),
     billingApi.getPrescriptions().catch(() => [] as Prescription[])
   ])
-  
-  const histories = await Promise.allSettled(patients.map((patient) => medicalRecordApi.getPatientHistory(patient.patientId)))
-  const n2Prescriptions = histories.flatMap((result) => result.status === 'fulfilled' ? result.value.prescriptions : [])
-  
+
+  const histories = await Promise.allSettled(patients.map(async (patient) => ({
+    patient,
+    history: await medicalRecordApi.getPatientHistory(patient.patientId),
+  })))
+  const n2Prescriptions = histories.flatMap((result) => {
+    if (result.status !== 'fulfilled') return []
+    const patient = result.value.patient
+    return result.value.history.prescriptions.map((prescription) => ({
+      ...prescription,
+      patientId: prescription.patientId ?? patient.patientId,
+      patientCode: prescription.patientCode ?? patient.patientCode ?? patient.patientIdCode,
+      patientIdCode: prescription.patientIdCode ?? patient.patientIdCode ?? patient.patientCode,
+      patientName: (prescription as any).patientName ?? patient.fullName,
+    }))
+  })
+
   // Merge and deduplicate
   const combined = [...n2Prescriptions, ...n3Prescriptions]
   const seen = new Set<string>()
   const uniquePrescriptions: Prescription[] = []
-  
+
   for (const p of combined) {
-    const id = p.prescriptionId || p.id || p.prescriptionCode
+    const id = prescriptionMergeKey(p)
     if (!id) continue
     const idStr = String(id)
     if (!seen.has(idStr)) {
@@ -359,10 +476,13 @@ async function loadReadonlyPrescriptions() {
         items: p.items || p.prescriptionItems || []
       })
     } else {
-      const existing = uniquePrescriptions.find(x => String(x.prescriptionId || x.id || x.prescriptionCode) === idStr)
+      const existing = uniquePrescriptions.find(x => String(prescriptionMergeKey(x)) === idStr)
       if (existing) {
-        existing.status = existing.status || p.status || (p as any).Status
-        existing.note = existing.note || p.note || (p as any).Note
+        existing.status = p.status || (p as any).Status || existing.status
+        existing.note = p.note || (p as any).Note || existing.note
+        existing.patientCode = existing.patientCode || p.patientCode || (p as any).PatientCode
+        existing.patientIdCode = existing.patientIdCode || p.patientIdCode || (p as any).PatientIdCode
+        ;(existing as any).patientName = (existing as any).patientName || (p as any).patientName || (p as any).PatientName
         const pItems = p.items || p.prescriptionItems || []
         if ((!existing.items || !existing.items.length) && pItems.length) {
           existing.items = pItems
@@ -370,8 +490,12 @@ async function loadReadonlyPrescriptions() {
       }
     }
   }
-  
+
   return uniquePrescriptions.map(mapPrescription)
+}
+
+function prescriptionMergeKey(p: Prescription & Record<string, any>) {
+  return p.prescriptionCode || p.prescriptionIdCode || p.PrescriptionCode || p.PrescriptionIdCode || p.prescriptionId || p.id
 }
 
 async function loadNurseQueue() {
@@ -413,6 +537,7 @@ function rowActions(row: Row) {
   }
   if (resource.value === 'patients') actions.push({ key: 'editPatient', label: 'Cập nhật', className: 'bg-blue-50 text-blue-700 hover:bg-blue-100' })
   if (resource.value === 'bills' && !status.includes('paid')) actions.push({ key: 'pay', label: 'Thu tiền', className: 'bg-emerald-600 text-white hover:bg-emerald-700' })
+  if (resource.value === 'prescriptions') actions.push({ key: 'stockCheck', label: 'Xử lý', className: 'bg-blue-700 text-white hover:bg-blue-800' })
   return actions
 }
 
@@ -425,8 +550,9 @@ async function runAction(action: ActionKey, row: Row) {
     if (action === 'cancelAppointment') await appointmentApi.cancelAppointment(Number(row.appointmentId || row.id))
     if (action === 'vitals') openVitals(row)
     if (action === 'editPatient') openPatientModal(row)
+    if (action === 'stockCheck') await openPrescriptionStock(row)
     if (action === 'pay') await billingApi.payInvoice(Number(row.id), toNumber(row.amountValue))
-    if (!['vitals', 'editPatient'].includes(action)) {
+    if (!['vitals', 'editPatient', 'stockCheck'].includes(action)) {
       note.value = 'Đã cập nhật trạng thái thành công.'
       showToast('Cập nhật thành công', nextGuideForAction(action), 'success')
       await loadData()
@@ -436,6 +562,93 @@ async function runAction(action: ActionKey, row: Row) {
     showToast('Thao tác chưa thành công', `${error.value} Kiểm tra lại trạng thái lịch hẹn hoặc thử sang Hàng chờ khám.`, 'error')
   } finally {
     actingId.value = null
+  }
+}
+
+async function openPrescriptionStock(row: Row) {
+  activePrescriptionRow.value = row
+  stockModalOpen.value = true
+  stockCheck.value = null
+  await loadPrescriptionStock(row)
+}
+
+function closeStockModal() {
+  stockModalOpen.value = false
+  activePrescriptionRow.value = null
+  stockCheck.value = null
+}
+
+async function loadPrescriptionStock(row = activePrescriptionRow.value) {
+  const prescriptionId = getPrescriptionNumericId(row)
+  if (!prescriptionId) {
+    showToast('Không mở được đơn thuốc', 'Dữ liệu đơn thuốc chưa có prescriptionId số để gọi N3.', 'error')
+    return
+  }
+  stockLoading.value = true
+  error.value = ''
+  try {
+    stockCheck.value = await billingApi.getPrescriptionStockCheck(prescriptionId)
+  } catch (apiError) {
+    error.value = getApiErrorMessage(apiError)
+    showToast('Không kiểm được tồn kho', `${error.value} Kiểm tra lại endpoint N3 stock-check.`, 'error')
+  } finally {
+    stockLoading.value = false
+  }
+}
+
+async function approveActivePrescription() {
+  const prescriptionId = getPrescriptionNumericId(activePrescriptionRow.value)
+  if (!prescriptionId) return
+  if (!stockCanApprove.value) {
+    showToast('Chưa thể duyệt đơn thuốc', stockBlockMessage('approve'), 'error')
+    return
+  }
+  saving.value = true
+  error.value = ''
+  try {
+    stockCheck.value = await billingApi.approvePrescription(prescriptionId)
+    closeStockModal()
+    showToast('Đã duyệt đơn thuốc', 'Danh sách đã được tải lại. Sau khi viện phí Paid, mở đơn để phát thuốc.', 'success')
+    await loadData()
+  } catch (apiError) {
+    error.value = getApiErrorMessage(apiError)
+    showToast('Không duyệt được đơn thuốc', `${error.value} Nếu thiếu thuốc, backend sẽ không cho duyệt.`, 'error')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function handleStockPrimaryAction() {
+  if (stockPrimaryAction.value === 'approve') {
+    await approveActivePrescription()
+    return
+  }
+  if (stockPrimaryAction.value === 'dispense') {
+    await dispenseActivePrescription()
+    return
+  }
+  showToast('Chưa thể xử lý đơn thuốc', stockNextMessage.value, 'error')
+}
+
+async function dispenseActivePrescription() {
+  const prescriptionId = getPrescriptionNumericId(activePrescriptionRow.value)
+  if (!prescriptionId) return
+  if (!stockCanDispense.value) {
+    showToast('Chưa thể phát thuốc', stockBlockMessage('dispense'), 'error')
+    return
+  }
+  saving.value = true
+  error.value = ''
+  try {
+    stockCheck.value = await billingApi.dispensePrescription(prescriptionId)
+    closeStockModal()
+    showToast('Đã phát thuốc', 'N3 đã trừ kho và cập nhật trạng thái đơn thuốc.', 'success')
+    await loadData()
+  } catch (apiError) {
+    error.value = getApiErrorMessage(apiError)
+    showToast('Không phát được thuốc', `${error.value} Cần hóa đơn Paid và tồn kho đủ.`, 'error')
+  } finally {
+    saving.value = false
   }
 }
 
@@ -606,6 +819,20 @@ function getPatientDisplayFallback(patientId?: number | string) {
   return patient ? `${patient.fullName} (${patient.patientCode || patient.patientIdCode || patient.id})` : `Bệnh nhân #${patientId}`
 }
 
+function patientNameFallback(patientId?: number | string) {
+  if (!patientId) return 'Chưa cập nhật'
+  const patId = Number(patientId)
+  const patient = patientsList.value.find(p => Number(p.patientId || p.id) === patId)
+  return patient?.fullName || `Bệnh nhân #${patientId}`
+}
+
+function patientCodeFallback(patientId?: number | string) {
+  if (!patientId) return 'Chưa cập nhật'
+  const patId = Number(patientId)
+  const patient = patientsList.value.find(p => Number(p.patientId || p.id) === patId)
+  return patient?.patientCode || patient?.patientIdCode || `#${patientId}`
+}
+
 function mapVisit(item: MedicalVisit): Row {
   return {
     id: item.visitId || item.id,
@@ -662,12 +889,18 @@ function mapInvoice(item: Invoice & Record<string, any>): Row {
 }
 
 function mapPrescription(item: any): Row {
+  const prescriptionId = toNumber(item.prescriptionId, item.PrescriptionId, item.id, item.Id)
+  const patientCode = item.patientCode || item.patientIdCode || item.PatientCode || item.PatientIdCode || patientCodeFallback(item.patientId || item.PatientId)
   return {
     id: item.prescriptionCode || item.prescriptionIdCode || item.PrescriptionCode || item.PrescriptionIdCode || item.prescriptionId || item.id || 'DT',
-    patientId: item.patientCode || item.patientIdCode || item.PatientCode || item.PatientIdCode || getPatientDisplayFallback(item.patientId || item.PatientId),
+    prescriptionId,
+    patientId: item.patientId || item.PatientId,
+    patientCode,
+    patientName: displayText(item.patientName || item.PatientName || patientNameFallback(item.patientId || item.PatientId)),
     medicalRecordId: item.medicalRecordCode || item.medicalRecordIdCode || item.MedicalRecordCode || item.MedicalRecordIdCode || item.medicalRecordId || item.MedicalRecordId || 'Chưa cập nhật',
     medicine: summarizeMedicine(item),
     status: item.status || item.Status || 'Chưa cập nhật',
+    raw: item,
   }
 }
 
@@ -677,6 +910,60 @@ function summarizeMedicine(item: any) {
   const first = items[0]
   const name = first.medicineNameSnapshot || first.MedicineNameSnapshot || first.medicineName || first.MedicineName
   return items.length > 1 ? `${name} +${items.length - 1}` : name
+}
+
+function getPrescriptionNumericId(row: Row | null) {
+  const raw = row?.raw || {}
+  return toNumber(row?.prescriptionId, raw.prescriptionId, raw.PrescriptionId, raw.id, raw.Id)
+}
+
+function extractStockItems(data: PrescriptionStockCheck | null): PrescriptionStockItem[] {
+  const raw = data as Record<string, any> | null
+  if (!raw) return []
+  return (raw.items || raw.Items || raw.stockItems || raw.StockItems || raw.prescriptionItems || raw.PrescriptionItems || []) as PrescriptionStockItem[]
+}
+
+function stockItemKey(item: PrescriptionStockItem) {
+  return String(getAny(item, 'prescriptionItemCode', 'PrescriptionItemCode', 'medicineId', 'MedicineId', 'medicineName', 'MedicineName') || stockMedicineName(item))
+}
+
+function stockMedicineName(item: PrescriptionStockItem) {
+  return String(getAny(item, 'medicineNameSnapshot', 'MedicineNameSnapshot', 'medicineName', 'MedicineName', 'name', 'Name') || 'Chưa cập nhật')
+}
+
+function stockRequiredQuantity(item: PrescriptionStockItem) {
+  return toNumber(getAny(item, 'requiredQuantity', 'RequiredQuantity', 'quantity', 'Quantity'))
+}
+
+function stockCurrentQuantity(item: PrescriptionStockItem) {
+  return toNumber(getAny(item, 'currentStock', 'CurrentStock', 'stockQuantity', 'StockQuantity', 'quantityInStock', 'QuantityInStock'))
+}
+
+function stockShortageQuantity(item: PrescriptionStockItem) {
+  const shortage = getAny(item, 'shortageQuantity', 'ShortageQuantity')
+  if (shortage !== undefined && shortage !== null) return Math.max(Number(shortage) || 0, 0)
+  return Math.max(stockRequiredQuantity(item) - stockCurrentQuantity(item), 0)
+}
+
+function stockItemAvailable(item: PrescriptionStockItem) {
+  const explicit = getAny(item, 'isAvailable', 'IsAvailable')
+  if (typeof explicit === 'boolean') return explicit
+  return stockShortageQuantity(item) <= 0
+}
+
+function stockBlockMessage(action: 'approve' | 'dispense' | 'blocked') {
+  if (!stockCheck.value) return 'Cần bấm Kiểm kho lại để lấy trạng thái mới nhất từ N3.'
+  const missingItems = stockItems.value.filter((item) => !stockItemAvailable(item))
+  if (missingItems.length) {
+    const names = missingItems.slice(0, 3).map(stockMedicineName).join(', ')
+    return `Đơn đang thiếu thuốc: ${names}. N3 chưa cho ${action === 'approve' ? 'duyệt' : 'phát thuốc'}.`
+  }
+  if (action === 'approve') return 'Đơn đủ thuốc. Bước tiếp theo là duyệt đơn.'
+  if (action === 'dispense') return 'Đơn đã duyệt, đủ thuốc và đã thanh toán. Bước tiếp theo là phát thuốc.'
+  if (!stockInvoicePaid.value) {
+    return 'Đơn đủ thuốc. Nếu đã duyệt đơn rồi thì bước tiếp theo là thu viện phí trước khi phát thuốc.'
+  }
+  return 'Đơn đủ thuốc và đã thanh toán, nhưng N3 chưa trả bước xử lý tiếp theo. Bấm Kiểm kho lại hoặc kiểm tra trạng thái đơn.'
 }
 
 function value(row: Row, key: string) {
@@ -689,6 +976,21 @@ function cfg(title: string, service: string, description: string, endpoint: stri
 
 function cols(...defs: [string, string, boolean?, boolean?][]): Column[] {
   return defs.map(([key, label, badge, strong]) => ({ key, label, badge, strong }))
+}
+
+function getAny(source: unknown, ...keys: string[]) {
+  const data = source as Record<string, any> | null | undefined
+  if (!data) return undefined
+  for (const key of keys) {
+    if (data[key] !== undefined && data[key] !== null) return data[key]
+  }
+  return undefined
+}
+
+function booleanValue(value: unknown, fallback: boolean) {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') return ['true', '1', 'yes'].includes(value.toLowerCase())
+  return fallback
 }
 
 function toNumber(...values: unknown[]) {

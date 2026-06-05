@@ -32,13 +32,13 @@
                 :to="item.to"
                 class="group flex min-h-11 items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 transition duration-200 hover:bg-blue-50 hover:text-[#003c90]"
                 :class="sidebarCollapsed ? 'justify-center px-3' : ''"
-                active-class="bg-[#0F52BA] text-white shadow-[0_14px_34px_rgba(15,82,186,0.28)] hover:bg-[#0F52BA] hover:text-white"
+                active-class="!bg-[#0F52BA] !text-white shadow-[0_14px_34px_rgba(15,82,186,0.28)] hover:!bg-[#0F52BA] hover:!text-white"
                 :title="sidebarCollapsed ? item.label : undefined"
               >
                 <component
                   :is="item.icon"
                   class="h-5 w-5 shrink-0 transition"
-                  :class="isActive(item.to) ? 'text-white' : 'text-slate-700 group-hover:text-[#003c90]'"
+                  :class="isActive(item.to) ? '!text-white' : 'text-slate-700 group-hover:text-[#003c90]'"
                 />
                 <span v-if="!sidebarCollapsed">{{ item.label }}</span>
               </RouterLink>
@@ -125,7 +125,7 @@
                   :key="item.to"
                   :to="item.to"
                   class="mb-2 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-700"
-                  active-class="bg-[#0F52BA] text-white"
+                  active-class="!bg-[#0F52BA] !text-white"
                   @click="mobileMenuOpen = false"
                 >
                   <component :is="item.icon" class="h-5 w-5" />

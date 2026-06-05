@@ -15,6 +15,7 @@ export interface PatientMedicalHistory {
 export interface MedicalVisit extends Record<string, any> {
   visitId?: number
   id?: number
+  medicalRecordId?: number
   appointmentId?: number
   patientId?: number
   patientName?: string
@@ -131,6 +132,7 @@ function normalizeVisit(item: Record<string, any>): MedicalVisit {
     ...item,
     visitId: item.visitId ?? item.VisitId ?? item.id ?? item.Id,
     id: item.id ?? item.Id ?? item.visitId ?? item.VisitId,
+    medicalRecordId: item.medicalRecordId ?? item.MedicalRecordId ?? item.recordId ?? item.RecordId,
     appointmentId: item.appointmentId ?? item.AppointmentId,
     patientId: item.patientId ?? item.PatientId ?? patient?.patientId ?? patient?.PatientId ?? patientCode,
     patientCode,

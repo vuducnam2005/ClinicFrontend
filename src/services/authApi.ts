@@ -71,11 +71,12 @@ export interface UpdateProfileRequest {
 export const authApi = {
   async login(payload: LoginRequest) {
     const identifier = payload.identifier.trim()
-    const response = await client.post('/api/auth/login', {
+    const body = {
       email: identifier,
       username: identifier,
       password: payload.password,
-    })
+    }
+    const response = await postLoginWithTransientRetry(body)
     return normalizeLoginResponse(response.data)
   },
 
@@ -122,4 +123,28 @@ export const authApi = {
   logout() {
     localStorage.removeItem('cliniccare_token')
   },
+}
+
+async function postLoginWithTransientRetry(body: Record<string, unknown>) {
+  let lastError: unknown
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await client.post('/api/auth/login', body)
+    } catch (error) {
+      lastError = error
+      if (!isTransientAuthError(error) || attempt === 2) throw error
+      await delay(350 * (attempt + 1))
+    }
+  }
+  throw lastError
+}
+
+function isTransientAuthError(error: unknown) {
+  const data = (error as any)?.response?.data
+  const message = String(data?.message || data?.Message || (error as any)?.message || '').toLowerCase()
+  return message.includes('transient') || message.includes('timeout') || message.includes('temporar')
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
 }

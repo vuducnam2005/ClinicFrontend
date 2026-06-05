@@ -46,6 +46,28 @@ export interface PrescriptionItem {
   usageInstruction?: string
 }
 
+export interface PrescriptionStockItem extends PrescriptionItem {
+  requiredQuantity?: number
+  currentStock?: number
+  shortageQuantity?: number
+  isAvailable?: boolean
+  isExpired?: boolean
+  expiryDate?: string
+}
+
+export interface PrescriptionStockCheck {
+  prescriptionId?: number
+  prescriptionCode?: string
+  invoiceId?: number
+  invoiceStatus?: string
+  status?: string
+  canApprove?: boolean
+  canDispense?: boolean
+  items?: PrescriptionStockItem[]
+  stockItems?: PrescriptionStockItem[]
+  prescriptionItems?: PrescriptionStockItem[]
+}
+
 export interface Prescription {
   id?: number
   prescriptionId?: number
