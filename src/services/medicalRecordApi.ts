@@ -72,13 +72,19 @@ function text(value: unknown) {
 }
 
 function normalizeRecord(item: Record<string, any>, fallbackPatientId?: string): MedicalRecord {
+  const medicalRecordCode = item.medicalRecordCode ?? item.MedicalRecordCode ?? item.medicalRecordIdCode ?? item.MedicalRecordIdCode ?? item.recordCode ?? item.RecordCode ?? item.recordIdCode ?? item.RecordIdCode
+  const patientCode = item.patientCode ?? item.PatientCode ?? item.patientIdCode ?? item.PatientIdCode
   return {
     ...item,
     medicalRecordId: item.medicalRecordId ?? item.MedicalRecordId ?? item.id ?? item.Id,
-    recordId: item.recordId ?? item.RecordId ?? item.medicalRecordCode ?? item.MedicalRecordCode ?? item.recordCode ?? item.RecordCode,
-    medicalRecordCode: item.medicalRecordCode ?? item.MedicalRecordCode,
+    recordId: item.recordId ?? item.RecordId ?? medicalRecordCode,
+    medicalRecordCode,
+    medicalRecordIdCode: item.medicalRecordIdCode ?? item.MedicalRecordIdCode ?? medicalRecordCode,
+    recordIdCode: item.recordIdCode ?? item.RecordIdCode ?? medicalRecordCode,
     visitId: item.visitId ?? item.VisitId,
-    patientId: String(item.patientId ?? item.PatientId ?? item.patientCode ?? item.PatientCode ?? fallbackPatientId ?? ''),
+    patientId: String(item.patientId ?? item.PatientId ?? patientCode ?? fallbackPatientId ?? ''),
+    patientCode,
+    patientIdCode: item.patientIdCode ?? item.PatientIdCode ?? patientCode,
     appointmentId: item.appointmentId ?? item.AppointmentId ? String(item.appointmentId ?? item.AppointmentId) : undefined,
     doctorId: item.doctorId ?? item.DoctorId,
     doctorName: item.doctorName ?? item.DoctorName,
@@ -120,12 +126,15 @@ function normalizeRecords(payload: unknown, fallbackPatientId?: string): Medical
 function normalizeVisit(item: Record<string, any>): MedicalVisit {
   const patient = item.patient ?? item.Patient
   const doctor = item.doctor ?? item.Doctor
+  const patientCode = item.patientCode ?? item.PatientCode ?? item.patientIdCode ?? item.PatientIdCode ?? patient?.patientCode ?? patient?.PatientCode ?? patient?.patientIdCode ?? patient?.PatientIdCode
   return {
     ...item,
     visitId: item.visitId ?? item.VisitId ?? item.id ?? item.Id,
     id: item.id ?? item.Id ?? item.visitId ?? item.VisitId,
     appointmentId: item.appointmentId ?? item.AppointmentId,
-    patientId: item.patientId ?? item.PatientId ?? patient?.patientId ?? patient?.PatientId,
+    patientId: item.patientId ?? item.PatientId ?? patient?.patientId ?? patient?.PatientId ?? patientCode,
+    patientCode,
+    patientIdCode: item.patientIdCode ?? item.PatientIdCode ?? patientCode,
     patientName: item.patientName ?? item.PatientName ?? patient?.fullName ?? patient?.FullName,
     doctorId: item.doctorId ?? item.DoctorId ?? doctor?.doctorId ?? doctor?.DoctorId,
     doctorName: item.doctorName ?? item.DoctorName ?? doctor?.fullName ?? doctor?.FullName,
@@ -146,7 +155,7 @@ function normalizeVisits(payload: unknown): MedicalVisit[] {
 function normalizeHistory(payload: unknown): PatientMedicalHistory {
   const data = readApiResponse<any>(payload as any)
   const patient = data?.patient ?? data?.Patient
-  const fallbackPatientId = String(patient?.patientId ?? patient?.PatientId ?? patient?.id ?? patient?.Id ?? patient?.patientCode ?? patient?.PatientCode ?? '')
+  const fallbackPatientId = String(patient?.patientId ?? patient?.PatientId ?? patient?.id ?? patient?.Id ?? patient?.patientCode ?? patient?.PatientCode ?? patient?.patientIdCode ?? patient?.PatientIdCode ?? '')
   return {
     patient: patient ? normalizePatient(patient) : undefined,
     visits: arrayValue(data?.visits, data?.Visits).map(normalizeVisit),
@@ -161,12 +170,13 @@ function emptyHistory(): PatientMedicalHistory {
 
 function normalizePatient(patient: any): Patient {
   const id = patient?.id ?? patient?.Id ?? patient?.patientId ?? patient?.PatientId
-  const patientCode = patient?.patientCode ?? patient?.PatientCode
+  const patientCode = patient?.patientCode ?? patient?.PatientCode ?? patient?.patientIdCode ?? patient?.PatientIdCode
   return {
     ...patient,
     patientId: String(patient?.patientId ?? patient?.PatientId ?? id ?? ''),
     id,
     patientCode,
+    patientIdCode: patient?.patientIdCode ?? patient?.PatientIdCode ?? patientCode,
     fullName: patient?.fullName ?? patient?.FullName ?? patient?.name ?? patient?.Name ?? '',
     email: patient?.email ?? patient?.Email,
     phone: patient?.phone ?? patient?.Phone ?? patient?.phoneNumber ?? patient?.PhoneNumber,

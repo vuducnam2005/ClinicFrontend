@@ -404,7 +404,7 @@
                 </div>
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
                   <span class="text-xs font-semibold text-slate-400">Mã bệnh nhân</span>
-                  <p class="mt-0.5 font-mono font-bold text-slate-800 text-sm">{{ selectedRecord?.patientId || selectedRecord?.patientCode || 'Chưa cập nhật' }}</p>
+                  <p class="mt-0.5 font-mono font-bold text-slate-800 text-sm">{{ selectedRecord?.patientCode || selectedRecord?.patientIdCode || selectedRecord?.patientId || 'Chưa cập nhật' }}</p>
                 </div>
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
                   <span class="text-xs font-semibold text-slate-400">Bác sĩ điều trị</span>
@@ -705,7 +705,7 @@
         <div class="mb-5">
           <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Thông tin bệnh nhân</h2>
           <div class="grid grid-cols-2 gap-y-2 text-xs">
-            <div><span class="font-bold text-slate-500">Mã bệnh nhân:</span> <span class="font-semibold text-slate-800">{{ patientDetail?.patientCode || patientDetail?.id || recordToPrint.patientId || 'Chưa có thông tin' }}</span></div>
+            <div><span class="font-bold text-slate-500">Mã bệnh nhân:</span> <span class="font-semibold text-slate-800">{{ patientDetail?.patientCode || patientDetail?.patientIdCode || recordToPrint.patientCode || recordToPrint.patientIdCode || patientDetail?.id || recordToPrint.patientId || 'Chưa có thông tin' }}</span></div>
             <div><span class="font-bold text-slate-500">Họ và tên:</span> <span class="font-semibold text-slate-800">{{ patientDetail?.fullName || authStore.user?.fullName || 'Chưa có thông tin' }}</span></div>
             <div><span class="font-bold text-slate-500">Ngày sinh:</span> <span class="font-semibold text-slate-800">{{ formatDate(patientDetail?.dateOfBirth) }}</span></div>
             <div><span class="font-bold text-slate-500">Giới tính:</span> <span class="font-semibold text-slate-800">{{ genderLabel(patientDetail?.gender) }}</span></div>
@@ -785,7 +785,7 @@
         <div class="mb-5">
           <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Thông tin bệnh nhân</h2>
           <div class="grid grid-cols-2 gap-y-2 text-xs">
-            <div><span class="font-bold text-slate-500">Mã bệnh nhân:</span> <span class="font-semibold text-slate-800">{{ patientDetail?.patientCode || patientDetail?.id || prescriptionToPrint.patientId || 'Chưa có thông tin' }}</span></div>
+            <div><span class="font-bold text-slate-500">Mã bệnh nhân:</span> <span class="font-semibold text-slate-800">{{ patientDetail?.patientCode || patientDetail?.patientIdCode || prescriptionToPrint.patientCode || prescriptionToPrint.patientIdCode || patientDetail?.id || prescriptionToPrint.patientId || 'Chưa có thông tin' }}</span></div>
             <div><span class="font-bold text-slate-500">Họ và tên:</span> <span class="font-semibold text-slate-800">{{ patientDetail?.fullName || authStore.user?.fullName || 'Chưa có thông tin' }}</span></div>
             <div><span class="font-bold text-slate-500">Ngày sinh:</span> <span class="font-semibold text-slate-800">{{ formatDate(patientDetail?.dateOfBirth) }}</span></div>
             <div><span class="font-bold text-slate-500">Giới tính:</span> <span class="font-semibold text-slate-800">{{ genderLabel(patientDetail?.gender) }}</span></div>
@@ -1070,7 +1070,6 @@ async function loadData() {
   loading.value = true
   error.value = ''
   
-  const userId = Number(authStore.user?.id || 0)
   resolvedN2Id.value = Number(authStore.user?.patientId || 0)
 
   const keys = new Set<string>()
@@ -1084,16 +1083,9 @@ async function loadData() {
       console.error('Failed to load doctors list', docErr)
     }
 
-    // 1. Resolve Patient ID by calling appointments and finding the patient in N2
+    // 1. Resolve Patient ID from JWT/profile, then match N2 patient by profile data.
     try {
-      const appts = await appointmentApi.getAppointmentsByPatient(userId).catch(() => [])
-      appointments.value = appts
-      for (const appt of appts) {
-        addKey(keys, appt.patientId)
-        addKey(keys, (appt as any).PatientId)
-      }
-
-      const phone = appts.find(a => a.patientPhone)?.patientPhone
+      const phone = authStore.user?.phoneNumber
       const patientsResponse = await medicalRecordApi.getPatients()
       const match = patientsResponse.find(p => (phone && (p.phoneNumber === phone || p.phone === phone)) || p.fullName === authStore.user?.fullName)
       if (match) {

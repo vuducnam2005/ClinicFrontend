@@ -174,7 +174,7 @@
                   </td>
                   <td class="px-5 py-4 text-slate-600">{{ record.doctorName || 'Chưa cập nhật' }}</td>
                   <td class="px-5 py-4 text-slate-600">{{ formatDate(record.examDate || record.createdAt) }}</td>
-                  <td class="px-5 py-4 text-right font-mono text-xs text-slate-500">#{{ record.medicalRecordId || record.recordId || '-' }}</td>
+                  <td class="px-5 py-4 text-right font-mono text-xs text-slate-500">#{{ medicalRecordDisplayCode(record) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -198,7 +198,7 @@
             <div v-for="item in invoices.slice(0, 4)" :key="item.invoiceId" class="rounded-xl border border-slate-100 bg-slate-50 p-4">
               <div class="flex items-start justify-between gap-3">
                 <div>
-                  <p class="font-bold text-slate-950">Hóa đơn #{{ item.invoiceId }}</p>
+                  <p class="font-bold text-slate-950">Hóa đơn #{{ invoiceDisplayCode(item) }}</p>
                   <p class="mt-1 text-sm text-slate-500">Lịch #{{ item.appointmentId || '-' }}</p>
                 </div>
                 <span :class="['rounded-full px-2.5 py-1 text-xs font-bold', statusClass(item.status)]">{{ statusLabel(item.status) }}</span>
@@ -267,8 +267,6 @@ const error = ref('')
 const appointments = ref<Appointment[]>([])
 const invoices = ref<Invoice[]>([])
 const records = ref<MedicalRecord[]>([])
-const clinicalPatientId = computed(() => String(authStore.user?.patientId || authStore.user?.id || ''))
-const billingPatientId = computed(() => String(authStore.user?.patientId || authStore.user?.id || clinicalPatientId.value))
 
 const displayName = computed(() => authStore.user?.fullName || authStore.user?.username || 'bệnh nhân')
 const nextAppointment = computed(() => appointments.value[0])
@@ -323,7 +321,7 @@ async function loadData() {
     const recs1 = readList(results[1])
     const seenRecs = new Set()
     records.value = recs1.filter(r => {
-      const rid = r.recordId || r.medicalRecordId
+      const rid = medicalRecordDisplayCode(r)
       if (seenRecs.has(rid)) return false
       seenRecs.add(rid)
       return true
@@ -333,8 +331,9 @@ async function loadData() {
     const invs1 = readList(results[2])
     const seenInvs = new Set()
     invoices.value = invs1.filter(i => {
-      if (seenInvs.has(i.invoiceId)) return false
-      seenInvs.add(i.invoiceId)
+      const iid = invoiceDisplayCode(i)
+      if (seenInvs.has(iid)) return false
+      seenInvs.add(iid)
       return true
     })
 
@@ -358,15 +357,8 @@ async function resolvePatientKeys() {
   const keys = new Set<string>()
   addKey(keys, user?.patientId)
 
-  const userId = String(user?.id || '')
-  const initialAppts = /^\d+$/.test(userId) ? await appointmentApi.getAppointmentsByPatient(userId).catch(() => [] as Appointment[]) : []
-  for (const appointment of initialAppts) {
-    addKey(keys, appointment.patientId)
-    addKey(keys, (appointment as any).PatientId)
-  }
-
-  const phones = new Set([user?.phoneNumber, ...initialAppts.map((item) => item.patientPhone)].map(normalizeText).filter(Boolean))
-  const names = new Set([user?.fullName, ...initialAppts.map((item) => item.patientName)].map(normalizeText).filter(Boolean))
+  const phones = new Set([user?.phoneNumber].map(normalizeText).filter(Boolean))
+  const names = new Set([user?.fullName].map(normalizeText).filter(Boolean))
   const patients = await medicalRecordApi.getPatients().catch(() => [] as Patient[])
   const match = patients.find((patient) => {
     const patientPhones = [patient.phone, patient.phoneNumber].map(normalizeText).filter(Boolean)
@@ -376,6 +368,7 @@ async function resolvePatientKeys() {
 
   if (match) {
     addKey(keys, match.patientId)
+    addKey(keys, match.patientIdCode)
     addKey(keys, match.patientCode)
     addKey(keys, match.id)
     if (authStore.user) authStore.user.patientId = String(match.patientId || match.patientCode || match.id || '')
@@ -391,6 +384,14 @@ function addKey(keys: Set<string>, value: unknown) {
 
 function normalizeText(value: unknown) {
   return String(value ?? '').trim().toLowerCase()
+}
+
+function medicalRecordDisplayCode(record: MedicalRecord & Record<string, any>) {
+  return record.medicalRecordCode || record.medicalRecordIdCode || record.recordIdCode || record.recordId || record.medicalRecordId || '-'
+}
+
+function invoiceDisplayCode(invoice: Invoice & Record<string, any>) {
+  return invoice.invoiceCode || invoice.invoiceIdCode || invoice.InvoiceCode || invoice.InvoiceIdCode || invoice.invoiceId || '-'
 }
 
 function formatCurrency(value: number) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0)) }

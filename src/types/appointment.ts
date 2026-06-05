@@ -18,7 +18,7 @@ export interface Appointment {
 }
 
 export interface CreateAppointmentRequest {
-  patientId: number
+  patientId?: number
   patientNameSnapshot: string
   patientPhoneSnapshot: string
   doctorId: number

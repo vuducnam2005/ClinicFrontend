@@ -12,7 +12,7 @@
  </div>
 
  <form class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-card" @submit.prevent="loadAppointments">
- <BaseInput v-model="patientId" label="PatientId" type="number" min="1" placeholder="12" required />
+ <BaseInput v-model="patientId" label="PatientId" type="number" min="1" placeholder="12" readonly required />
  <BaseButton class="mt-4 w-full" type="submit" size="lg" :loading="loading">
  <template #icon><Search class="h-4 w-4" /></template>
  Tra cứu lịch hẹn
@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { CalendarX2, Search } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseCard from '@/components/ui/BaseCard.vue'
@@ -82,16 +82,19 @@ import BaseInput from '@/components/ui/BaseInput.vue'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
 import { appointmentApi } from '@/services/appointmentApi'
 import { getApiErrorMessage } from '@/services/apiClient'
+import { useAuthStore } from '@/stores/authStore'
 import type { Appointment } from '@/types/appointment'
 import { displayText } from '@/utils/displayText'
 
-const patientId = ref('')
+const authStore = useAuthStore()
+const patientId = ref(String(authStore.user?.patientId || ''))
 const appointments = ref<Appointment[]>([])
 const loading = ref(false)
 const cancellingId = ref<number | null>(null)
 const error = ref('')
 
 async function loadAppointments() {
+ patientId.value = String(authStore.user?.patientId || '')
  if (!patientId.value) return
  loading.value = true
  error.value = ''
@@ -104,6 +107,8 @@ async function loadAppointments() {
  loading.value = false
  }
 }
+
+onMounted(loadAppointments)
 
 async function cancelAppointment(id: number) {
  cancellingId.value = id

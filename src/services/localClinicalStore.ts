@@ -55,12 +55,17 @@ function patientKeysOf(row: AnyRow) {
   return Array.from(new Set([
     row.patientId,
     row.PatientId,
+    row.patientIdCode,
+    row.PatientIdCode,
     row.patientCode,
     row.PatientCode,
     row.patient?.patientId,
+    row.patient?.patientIdCode,
     row.patient?.patientCode,
     row.raw?.patientId,
     row.raw?.PatientId,
+    row.raw?.patientIdCode,
+    row.raw?.PatientIdCode,
     row.raw?.patientCode,
     row.raw?.PatientCode,
   ].map(text).filter(Boolean)))
@@ -85,12 +90,13 @@ export const localClinicalStore = {
     recheckDate?: string
   }) {
     const appointmentId = input.row.appointmentId || input.row.id
+    const patientCode = text(input.row.patientCode || input.row.PatientCode || input.row.patientIdCode || input.row.PatientIdCode || input.row.patientId || input.row.PatientId)
     const record: LocalRecord = {
       medicalRecordId: numberValue(appointmentId) || Date.now(),
       recordId: localId('MRL', appointmentId),
       appointmentId: text(appointmentId),
       patientId: text(input.row.patientId || input.row.PatientId || input.row.patientCode || input.row.PatientCode),
-      patientCode: text(input.row.patientId || input.row.PatientId || input.row.patientCode || input.row.PatientCode),
+      patientCode,
       patientName: input.row.patientName || input.row.PatientName,
       patientPhone: input.row.patientPhone || input.row.PatientPhone,
       doctorId: input.row.doctorId || input.row.DoctorId,
@@ -112,14 +118,15 @@ export const localClinicalStore = {
     items: PrescriptionItem[]
   }) {
     const appointmentId = input.row.appointmentId || input.row.id || input.record.appointmentId
+    const patientCode = text(input.row.patientCode || input.row.PatientCode || input.row.patientIdCode || input.row.PatientIdCode || input.row.patientId || input.row.PatientId)
     const prescription: LocalPrescription = {
       prescriptionId: numberValue(appointmentId) || Date.now(),
       prescriptionCode: localId('RXL', appointmentId),
       medicalRecordId: numberValue(input.record.medicalRecordId),
-      medicalRecordCode: input.record.recordId,
+      medicalRecordCode: input.record.medicalRecordCode || input.record.medicalRecordIdCode || input.record.recordIdCode || input.record.recordId,
       appointmentId: numberValue(appointmentId) || undefined,
       patientId: text(input.row.patientId || input.row.PatientId || input.row.patientCode || input.row.PatientCode),
-      patientCode: text(input.row.patientId || input.row.PatientId || input.row.patientCode || input.row.PatientCode),
+      patientCode,
       patientName: input.row.patientName || input.row.PatientName,
       doctorId: numberValue(input.row.doctorId || input.row.DoctorId),
       status: 'Pending',
@@ -134,12 +141,13 @@ export const localClinicalStore = {
   saveInvoiceFromAppointment(row: AnyRow) {
     const appointmentId = row.appointmentId || row.id || row.AppointmentId
     const amount = numberValue(row.examFee, row.ExamFee, row.feeValue, row.raw?.examFee, row.raw?.ExamFee, row.raw?.doctor?.examFee, row.raw?.Doctor?.ExamFee)
+    const patientCode = text(row.patientCode || row.PatientCode || row.patientIdCode || row.PatientIdCode || row.raw?.patientCode || row.raw?.PatientCode || row.raw?.patientIdCode || row.raw?.PatientIdCode || row.patientId || row.PatientId || row.raw?.patientId || row.raw?.PatientId)
     const invoice: LocalInvoice = {
       invoiceId: numberValue(appointmentId) || Date.now(),
       invoiceCode: localId('HDL', appointmentId),
       appointmentId: numberValue(appointmentId) || undefined,
       patientId: text(row.patientId || row.PatientId || row.patientCode || row.PatientCode || row.raw?.patientId || row.raw?.PatientId),
-      patientCode: text(row.patientId || row.PatientId || row.patientCode || row.PatientCode || row.raw?.patientId || row.raw?.PatientId),
+      patientCode,
       patientName: row.patientName || row.PatientName || row.raw?.patientName || row.raw?.PatientName,
       amount,
       totalAmount: amount,

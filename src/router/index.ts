@@ -87,9 +87,9 @@ export default function router() {
           { path: 'profile', name: 'patient-profile', component: () => import('@/pages/patient/PatientResourcePage.vue'), meta: { patientResource: 'profile' } },
         ],
       },
-      { path: '/my-appointments', component: () => import('@/pages/MyAppointmentsPage.vue') },
-      { path: '/medical-records', component: () => import('@/pages/MedicalRecordsPage.vue') },
-      { path: '/billing', component: () => import('@/pages/PharmacyBillingPage.vue') },
+      { path: '/my-appointments', component: () => import('@/pages/MyAppointmentsPage.vue'), meta: { requiresAuth: true, requiredRole: RoleId.Patient } },
+      { path: '/medical-records', component: () => import('@/pages/MedicalRecordsPage.vue'), meta: { requiresAuth: true } },
+      { path: '/billing', component: () => import('@/pages/PharmacyBillingPage.vue'), meta: { requiresAuth: true } },
     ],
   })
 

@@ -42,6 +42,7 @@
                   class="h-full min-w-0 flex-1 bg-transparent pl-4 text-base text-slate-950 outline-none placeholder:text-slate-500"
                   type="text"
                   autocomplete="name"
+                  autocapitalize="words"
                   placeholder="Nhập họ và tên"
                   maxlength="100"
                   required
@@ -65,7 +66,8 @@
                     type="text"
                     autocomplete="username"
                     placeholder="Tên đăng nhập"
-                    maxlength="50"
+                    :minlength="USERNAME_MIN_LENGTH"
+                    :maxlength="USERNAME_MAX_LENGTH"
                     required
                     @blur="checkFieldDuplicate('username')"
                     @input="clearFieldError('username')"
@@ -78,7 +80,7 @@
               </div>
 
               <div class="block">
-                <span class="mb-2 block text-sm font-medium text-slate-800">Số điện thoại</span>
+                <span class="mb-2 block text-sm font-medium text-slate-800">Số điện thoại <span class="text-red-500">*</span></span>
                 <span
                   class="flex h-12 items-center rounded-lg border px-4 transition"
                   :class="fieldErrors.phoneNumber
@@ -91,9 +93,13 @@
                     class="h-full min-w-0 flex-1 bg-transparent pl-4 text-base text-slate-950 outline-none placeholder:text-slate-500"
                     type="tel"
                     autocomplete="tel"
+                    inputmode="numeric"
+                    pattern="\d{10}"
+                    maxlength="10"
                     placeholder="Số điện thoại"
+                    required
                     @blur="checkFieldDuplicate('phoneNumber')"
-                    @input="clearFieldError('phoneNumber')"
+                    @input="handlePhoneInput"
                   />
                 </span>
                 <p v-if="fieldErrors.phoneNumber" class="mt-1.5 flex items-center gap-1 text-sm text-red-500">
@@ -233,7 +239,10 @@ const toast = reactive({
   type: 'success' as 'success' | 'error',
 })
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const phonePattern = /^(0|\+84)(\d[\s.-]?){8,10}$/
+const phonePattern = /^\d{10}$/
+const USERNAME_MIN_LENGTH = 5
+const USERNAME_MAX_LENGTH = 13
+const letterPattern = /^[\p{L}\s]+$/u
 
 function showValidationError(message: string) {
   toast.title = 'Thông tin chưa hợp lệ'
@@ -255,8 +264,15 @@ async function checkFieldDuplicate(field: 'username' | 'email' | 'phoneNumber') 
 
   // Validate format before checking duplicate
   if (field === 'email' && !emailPattern.test(value)) return
-  if (field === 'phoneNumber' && !phonePattern.test(value)) return
-  if (field === 'username' && value.length < 3) return
+  if (field === 'phoneNumber' && !phonePattern.test(value)) {
+    fieldErrors.phoneNumber = 'Số điện thoại phải gồm đúng 10 chữ số'
+    return
+  }
+  if (field === 'username' && value.length < USERNAME_MIN_LENGTH) return
+  if (field === 'username' && value.length > USERNAME_MAX_LENGTH) {
+    fieldErrors.username = `Tên đăng nhập không được vượt quá ${USERNAME_MAX_LENGTH} ký tự`
+    return
+  }
 
   try {
     const payload: { username?: string; email?: string; phoneNumber?: string } = {}
@@ -281,35 +297,66 @@ function hasFieldErrors(): boolean {
   return !!(fieldErrors.username || fieldErrors.email || fieldErrors.phoneNumber)
 }
 
+function handlePhoneInput() {
+  registerData.phoneNumber = registerData.phoneNumber.replace(/\D/g, '').slice(0, 10)
+  clearFieldError('phoneNumber')
+}
+
+function normalizeFullName(value: string) {
+  return value.trim().replace(/\s+/g, ' ')
+}
+
+function validateFullName(value: string) {
+  if (!value) return 'Họ và tên là bắt buộc'
+  if (value.length > 100) return 'Họ và tên không được vượt quá 100 ký tự'
+  if (!letterPattern.test(value)) return 'Họ và tên chỉ được chứa chữ cái và khoảng trắng'
+
+  const parts = value.split(' ')
+  if (parts.length < 3) return 'Họ và tên phải gồm ít nhất 3 phần: Họ + Đệm + Tên'
+
+  const invalidPart = parts.find((part) => {
+    const [firstLetter, ...restLetters] = Array.from(part)
+    return (
+      firstLetter !== firstLetter.toLocaleUpperCase('vi-VN') ||
+      restLetters.join('') !== restLetters.join('').toLocaleLowerCase('vi-VN')
+    )
+  })
+
+  return invalidPart ? 'Họ và tên phải viết hoa chữ cái đầu mỗi từ, ví dụ: Nguyễn Văn An' : ''
+}
+
 async function submitRegister() {
-  const fullName = registerData.fullName.trim()
+  const fullName = normalizeFullName(registerData.fullName)
   const username = registerData.username.trim()
+  const phoneNumber = registerData.phoneNumber.trim()
   const email = registerData.email.trim()
   const password = registerData.password
   const confirmPassword = registerData.confirmPassword
 
-  if (!fullName) {
-    showValidationError('Họ và tên là bắt buộc')
+  const fullNameError = validateFullName(fullName)
+  if (fullNameError) {
+    showValidationError(fullNameError)
     return
   }
-  if (fullName.length > 100) {
-    showValidationError('Họ và tên không được vượt quá 100 ký tự')
-    return
-  }
+  registerData.fullName = fullName
   if (!username) {
     showValidationError('Tên đăng nhập là bắt buộc')
     return
   }
-  if (username.length < 3) {
-    showValidationError('Tên đăng nhập phải có ít nhất 3 ký tự')
+  if (username.length < USERNAME_MIN_LENGTH) {
+    showValidationError(`Tên đăng nhập phải có từ ${USERNAME_MIN_LENGTH} đến ${USERNAME_MAX_LENGTH} ký tự`)
     return
   }
-  if (username.length > 50) {
-    showValidationError('Tên đăng nhập không được vượt quá 50 ký tự')
+  if (username.length > USERNAME_MAX_LENGTH) {
+    showValidationError(`Tên đăng nhập không được vượt quá ${USERNAME_MAX_LENGTH} ký tự`)
     return
   }
-  if (registerData.phoneNumber.trim() && !phonePattern.test(registerData.phoneNumber.trim())) {
-    showValidationError('Số điện thoại không đúng định dạng')
+  if (!phoneNumber) {
+    showValidationError('Số điện thoại là bắt buộc')
+    return
+  }
+  if (!phonePattern.test(phoneNumber)) {
+    showValidationError('Số điện thoại phải gồm đúng 10 chữ số')
     return
   }
   if (!email) {
@@ -354,7 +401,6 @@ async function submitRegister() {
   loading.value = true
   try {
     // Kiểm tra trùng lặp lần cuối qua API
-    const phoneNumber = registerData.phoneNumber.trim()
     const duplicateCheck = await authApi.checkDuplicate({
       username,
       email,

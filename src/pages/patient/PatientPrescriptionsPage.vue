@@ -412,7 +412,7 @@
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
                   <span class="text-xs font-semibold text-slate-400">Mã bệnh nhân</span>
                   <p class="mt-0.5 font-mono font-bold text-slate-800 text-sm">
-                    {{ selectedPrescription.patientCode || selectedPrescription.patientId || 'Chưa cập nhật' }}
+                    {{ selectedPrescription.patientCode || selectedPrescription.patientIdCode || selectedPrescription.patientId || 'Chưa cập nhật' }}
                   </p>
                 </div>
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
@@ -580,7 +580,7 @@
         <div class="mb-5">
           <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Thông tin bệnh nhân</h2>
           <div class="grid grid-cols-2 gap-y-2 text-xs">
-            <div><span class="font-bold text-slate-500">Mã bệnh nhân:</span> <span class="font-semibold text-slate-800">{{ currentPatient?.patientCode || currentPatient?.id || prescriptionToPrint.patientId || 'Chưa có thông tin' }}</span></div>
+            <div><span class="font-bold text-slate-500">Mã bệnh nhân:</span> <span class="font-semibold text-slate-800">{{ currentPatient?.patientCode || currentPatient?.patientIdCode || prescriptionToPrint.patientCode || prescriptionToPrint.patientIdCode || currentPatient?.id || prescriptionToPrint.patientId || 'Chưa có thông tin' }}</span></div>
             <div><span class="font-bold text-slate-500">Họ và tên:</span> <span class="font-semibold text-slate-800">{{ currentPatient?.fullName || authStore.user?.fullName || 'Chưa có thông tin' }}</span></div>
             <div><span class="font-bold text-slate-500">Ngày sinh:</span> <span class="font-semibold text-slate-800">{{ formatDate(currentPatient?.dateOfBirth) }}</span></div>
             <div><span class="font-bold text-slate-500">Giới tính:</span> <span class="font-semibold text-slate-800">{{ genderLabel(currentPatient?.gender) }}</span></div>
@@ -841,13 +841,11 @@ async function loadData() {
   error.value = ''
   prescriptions.value = []
   
-  const userId = Number(authStore.user?.id || 0)
   let patientIdVal = Number(authStore.user?.patientId || 0)
 
   const n2Keys = new Set<string>()
   const billingKeys = new Set<string>()
   addKey(n2Keys, authStore.user?.patientId)
-  addKey(billingKeys, authStore.user?.id)
   addKey(billingKeys, authStore.user?.patientId)
 
   try {
@@ -858,18 +856,9 @@ async function loadData() {
       console.error('Failed to load doctors list', docErr)
     }
 
-    // 2. Resolve Patient ID by calling appointments and finding the patient in N2
+    // 2. Resolve Patient ID from JWT/profile, then match N2 patient by profile data.
     try {
-      const appts = await appointmentApi.getAppointmentsByPatient(userId).catch(() => [])
-      appointments.value = appts
-      for (const appt of appts) {
-        addKey(n2Keys, appt.patientId)
-        addKey(n2Keys, (appt as any).PatientId)
-        addKey(billingKeys, appt.patientId)
-        addKey(billingKeys, (appt as any).PatientId)
-      }
-
-      const phone = appts.find(a => a.patientPhone)?.patientPhone
+      const phone = authStore.user?.phoneNumber
       const patientsResponse = await medicalRecordApi.getPatients().catch(() => [])
       const match = patientsResponse.find(p => (phone && (p.phoneNumber === phone || p.phone === phone)) || p.fullName === authStore.user?.fullName)
       if (match) {

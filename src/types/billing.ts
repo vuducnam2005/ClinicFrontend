@@ -2,8 +2,11 @@ export interface Invoice {
   id?: number
   invoiceId: number
   invoiceCode?: string
+  invoiceIdCode?: string
   appointmentId?: number
   patientId: number | string
+  patientCode?: string
+  patientIdCode?: string
   amount: number
   totalAmount?: number
   examinationFee?: number
@@ -47,10 +50,13 @@ export interface Prescription {
   id?: number
   prescriptionId?: number
   prescriptionCode?: string
+  prescriptionIdCode?: string
   medicalRecordId?: number
   medicalRecordCode?: string
+  medicalRecordIdCode?: string
   patientId?: number | string
   patientCode?: string
+  patientIdCode?: string
   doctorId?: number
   appointmentId?: number
   status?: string

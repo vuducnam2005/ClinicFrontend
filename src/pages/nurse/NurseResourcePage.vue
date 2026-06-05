@@ -140,7 +140,7 @@
         <div class="flex items-start justify-between gap-4">
           <div>
             <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">N2 Visit Vitals</p>
-            <h2 class="mt-1 text-2xl font-bold text-slate-950">Cập nhật sinh hiệu</h2>
+            <h2 class="mt-1 text-2xl font-bold text-slate-950">Cập nhật chỉ số sức khỏe</h2>
             <p class="mt-2 text-sm text-slate-500">{{ activeRow?.patientName }} - Visit #{{ activeRow?.visitId || activeRow?.id }}</p>
           </div>
           <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" @click="closeVitals">
@@ -148,7 +148,7 @@
           </button>
         </div>
         <div class="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
-          <p class="font-bold">Hướng dẫn nhập sinh hiệu</p>
+          <p class="font-bold">Hướng dẫn nhập chỉ số sức khỏe</p>
           <ul class="mt-2 grid gap-1 sm:grid-cols-2">
             <li>Nhiệt độ: 30-45°C, ví dụ 36.8.</li>
             <li>Huyết áp: dạng 120/80, tối đa 30 ký tự.</li>
@@ -172,7 +172,7 @@
           </label>
           <div class="flex justify-end gap-3">
             <BaseButton type="button" variant="outline" @click="closeVitals">Đóng</BaseButton>
-            <BaseButton type="submit" :loading="saving">Lưu sinh hiệu</BaseButton>
+            <BaseButton type="submit" :loading="saving">Lưu chỉ số sức khỏe</BaseButton>
           </div>
         </form>
       </div>
@@ -243,7 +243,7 @@ import type { Patient } from '@/types/medicalRecord'
 import { displayText } from '@/utils/displayText'
 
 type Resource = 'appointments' | 'patients' | 'queue' | 'bills' | 'prescriptions'
-type ActionKey = 'confirm' | 'checkin' | 'cancelAppointment' | 'invoice' | 'pay' | 'vitals' | 'editPatient'
+type ActionKey = 'confirm' | 'checkin' | 'cancelAppointment' | 'pay' | 'vitals' | 'editPatient'
 type Row = Record<string, any>
 interface Column { key: string; label: string; badge?: boolean; strong?: boolean }
 
@@ -272,7 +272,7 @@ const genderOptions = [{ label: 'Nam', value: 'Male' }, { label: 'Nữ', value: 
 const configs: Record<Resource, { title: string; service: string; description: string; endpoint: string; search: string[]; placeholder: string; emptyText: string; columns: Column[] }> = {
   appointments: cfg('Lịch hẹn tiếp nhận', 'N1 -> N2', 'Xác nhận lịch hẹn và gửi event check-in để N2 tạo lượt khám.', 'POST /medical/api/v1/medical/events/patient-checked-in', ['patientName', 'doctorName', 'status', 'reason'], 'Tìm bệnh nhân, bác sĩ, lý do...', 'N1 chưa có lịch hẹn để tiếp nhận.', cols(['id', 'Mã'], ['patientName', 'Bệnh nhân', false, true], ['doctorName', 'Bác sĩ'], ['dateTime', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
   patients: cfg('Hồ sơ bệnh nhân', 'N2 Patients', 'Tạo và cập nhật thông tin hồ sơ bệnh nhân khi tiếp nhận.', 'GET/POST/PUT /medical/api/v1/medical/patients', ['id', 'name', 'phone', 'gender', 'history'], 'Tìm mã bệnh nhân, họ tên, số điện thoại...', 'N2 chưa có hồ sơ bệnh nhân.', cols(['id', 'Mã BN'], ['name', 'Bệnh nhân', false, true], ['phone', 'Số điện thoại'], ['gender', 'Giới tính'], ['history', 'Tiền sử bệnh'])),
-  queue: cfg('Hàng chờ khám', 'N2 Visits', 'Theo dõi lượt khám đã check-in và cập nhật sinh hiệu trước khám.', 'GET /medical/api/v1/medical/visits/today', ['patientName', 'doctorName', 'status', 'reason'], 'Tìm bệnh nhân, bác sĩ, trạng thái...', 'N2 chưa có lượt khám hôm nay.', cols(['id', 'Visit'], ['patientName', 'Bệnh nhân', false, true], ['doctorName', 'Bác sĩ'], ['dateTime', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
+  queue: cfg('Hàng chờ khám', 'N2 Visits', 'Theo dõi lượt khám đã check-in và cập nhật chỉ số sức khỏe trước khám.', 'GET /medical/api/v1/medical/visits/today', ['patientName', 'doctorName', 'status', 'reason'], 'Tìm bệnh nhân, bác sĩ, trạng thái...', 'N2 chưa có lượt khám hôm nay.', cols(['id', 'Visit'], ['patientName', 'Bệnh nhân', false, true], ['doctorName', 'Bác sĩ'], ['dateTime', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
   bills: cfg('Thu viện phí', 'N3 Billing', 'Theo dõi hóa đơn và thu tiền. Không thuộc nghiệp vụ N2 bệnh án.', 'GET /pharmacy/api/invoices', ['id', 'patientId', 'amount', 'status'], 'Tìm hóa đơn, bệnh nhân, trạng thái...', 'N3 chưa có hóa đơn.', cols(['id', 'Mã HĐ'], ['patientId', 'Bệnh nhân'], ['appointmentId', 'Lịch hẹn'], ['amount', 'Số tiền'], ['status', 'Trạng thái', true])),
   prescriptions: cfg('Đơn thuốc', 'N2/N3 Readonly', 'Y tá chỉ xem trạng thái đơn thuốc, không kê hoặc chốt đơn.', 'N2 prescription.created -> N3', ['id', 'patientId', 'medicine', 'status'], 'Tìm đơn thuốc, bệnh nhân, thuốc...', 'Chưa có đơn thuốc.', cols(['id', 'Mã đơn'], ['patientId', 'Bệnh nhân', false, true], ['medicalRecordId', 'Bệnh án'], ['medicine', 'Thuốc'], ['status', 'Trạng thái', true])),
 }
@@ -395,7 +395,7 @@ async function loadNurseQueue() {
         n1Status: row.status,
       }
     }))
-    note.value = `N2 /visits/today đang lỗi (${getApiErrorMessage(apiError)}). Đang hiển thị hàng chờ từ N1; chỉ cập nhật sinh hiệu với dòng đã có Visit N2.`
+    note.value = `N2 /visits/today đang lỗi (${getApiErrorMessage(apiError)}). Đang hiển thị hàng chờ từ N1; chỉ cập nhật chỉ số sức khỏe với dòng đã có Visit N2.`
     return rowsWithVisits
   }
 }
@@ -406,7 +406,6 @@ function rowActions(row: Row) {
   if (resource.value === 'appointments') {
     if (status.includes('pending') || status.includes('waiting')) actions.push({ key: 'confirm', label: 'Xác nhận', className: 'bg-blue-700 text-white hover:bg-blue-800' })
     if (!status.includes('completed') && !status.includes('cancel')) actions.push({ key: 'checkin', label: 'Check-in N2', className: 'bg-emerald-600 text-white hover:bg-emerald-700' })
-    if (!isDoneStatus(row.status) && !status.includes('cancel')) actions.push({ key: 'invoice', label: 'Tạo hóa đơn', className: 'bg-cyan-700 text-white hover:bg-cyan-800' })
     if (!isDoneStatus(row.status) && !status.includes('cancel')) actions.push({ key: 'cancelAppointment', label: 'Hủy', className: 'bg-rose-50 text-rose-700 hover:bg-rose-100' })
   }
   if (resource.value === 'queue' && Number(row.visitId) > 0) {
@@ -424,7 +423,6 @@ async function runAction(action: ActionKey, row: Row) {
     if (action === 'confirm') await appointmentApi.confirmAppointment(Number(row.appointmentId || row.id))
     if (action === 'checkin') await syncMedicalVisit(row)
     if (action === 'cancelAppointment') await appointmentApi.cancelAppointment(Number(row.appointmentId || row.id))
-    if (action === 'invoice') await billingApi.createInvoiceFromAppointment(await invoicePayload(row))
     if (action === 'vitals') openVitals(row)
     if (action === 'editPatient') openPatientModal(row)
     if (action === 'pay') await billingApi.payInvoice(Number(row.id), toNumber(row.amountValue))
@@ -447,7 +445,7 @@ async function syncMedicalVisit(row: Row) {
   const appointmentId = Number(row.appointmentId || row.id)
   await medicalRecordApi.getVisitByAppointment(appointmentId)
   note.value = 'Đã check-in và xác nhận N2 đã tạo lượt khám.'
-  showToast('Check-in N2 thành công', 'Tiếp theo sang Hàng chờ khám để cập nhật sinh hiệu trước khi bác sĩ khám.', 'success')
+  showToast('Check-in N2 thành công', 'Tiếp theo sang Hàng chờ khám để cập nhật chỉ số sức khỏe trước khi bác sĩ khám.', 'success')
 }
 
 function openVitals(row: Row) {
@@ -473,7 +471,7 @@ async function submitVitals() {
   const validation = validateVitals()
   if (validation) {
     error.value = validation
-    showToast('Thông tin sinh hiệu chưa hợp lệ', `${validation} Sửa lại chỉ số rồi bấm Lưu sinh hiệu.`, 'error')
+    showToast('Thông tin chỉ số sức khỏe chưa hợp lệ', `${validation} Sửa lại chỉ số rồi bấm Lưu chỉ số sức khỏe.`, 'error')
     return
   }
   saving.value = true
@@ -487,13 +485,13 @@ async function submitVitals() {
       weight: emptyToNull(vitalsForm.weight),
       note: vitalsForm.note.trim() || null,
     })
-    note.value = 'Đã cập nhật sinh hiệu N2.'
-    showToast('Đã lưu sinh hiệu', 'Tiếp theo bác sĩ có thể sang Khám & kê đơn để bắt đầu lượt khám.', 'success')
+    note.value = 'Đã cập nhật chỉ số sức khỏe N2.'
+    showToast('Đã lưu chỉ số sức khỏe', 'Tiếp theo bác sĩ có thể sang Khám & kê đơn để bắt đầu lượt khám.', 'success')
     closeVitals()
     await loadData()
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError)
-    showToast('Chưa lưu được sinh hiệu', `${error.value} Kiểm tra visit N2 hoặc thử check-in lại từ Lịch hẹn.`, 'error')
+    showToast('Chưa lưu được chỉ số sức khỏe', `${error.value} Kiểm tra visit N2 hoặc thử check-in lại từ Lịch hẹn.`, 'error')
   } finally {
     saving.value = false
   }
@@ -546,7 +544,7 @@ async function submitPatient() {
     note.value = editingPatientId.value ? 'Đã cập nhật hồ sơ bệnh nhân.' : 'Đã tạo hồ sơ bệnh nhân.'
     showToast(
       editingPatientId.value ? 'Đã cập nhật hồ sơ' : 'Đã tạo hồ sơ',
-      'Tiếp theo quay lại Lịch hẹn để check-in hoặc Hàng chờ khám để cập nhật sinh hiệu.',
+      'Tiếp theo quay lại Lịch hẹn để check-in hoặc Hàng chờ khám để cập nhật chỉ số sức khỏe.',
       'success'
     )
     closePatientModal()
@@ -605,7 +603,7 @@ function getPatientDisplayFallback(patientId?: number | string) {
   if (!patientId) return 'Chưa cập nhật'
   const patId = Number(patientId)
   const patient = patientsList.value.find(p => Number(p.patientId || p.id) === patId)
-  return patient ? `${patient.fullName} (${patient.patientCode || patient.id})` : `Bệnh nhân #${patientId}`
+  return patient ? `${patient.fullName} (${patient.patientCode || patient.patientIdCode || patient.id})` : `Bệnh nhân #${patientId}`
 }
 
 function mapVisit(item: MedicalVisit): Row {
@@ -640,7 +638,7 @@ function mapQueue(item: WaitingQueueItem): Row {
 
 function mapPatient(item: Patient & Record<string, any>): Row {
   return {
-    id: item.patientCode || item.patientId || item.id,
+    id: item.patientCode || item.patientIdCode || item.patientId || item.id,
     patientId: item.patientId || item.id,
     name: displayText(item.fullName),
     phone: item.phoneNumber || item.phone || 'Chưa cập nhật',
@@ -665,9 +663,9 @@ function mapInvoice(item: Invoice & Record<string, any>): Row {
 
 function mapPrescription(item: any): Row {
   return {
-    id: item.prescriptionCode || item.prescriptionId || item.id || 'DT',
-    patientId: getPatientDisplayFallback(item.patientId || item.PatientId),
-    medicalRecordId: item.medicalRecordCode || item.medicalRecordId || item.MedicalRecordId || 'Chưa cập nhật',
+    id: item.prescriptionCode || item.prescriptionIdCode || item.PrescriptionCode || item.PrescriptionIdCode || item.prescriptionId || item.id || 'DT',
+    patientId: item.patientCode || item.patientIdCode || item.PatientCode || item.PatientIdCode || getPatientDisplayFallback(item.patientId || item.PatientId),
+    medicalRecordId: item.medicalRecordCode || item.medicalRecordIdCode || item.MedicalRecordCode || item.MedicalRecordIdCode || item.medicalRecordId || item.MedicalRecordId || 'Chưa cập nhật',
     medicine: summarizeMedicine(item),
     status: item.status || item.Status || 'Chưa cập nhật',
   }
@@ -679,13 +677,6 @@ function summarizeMedicine(item: any) {
   const first = items[0]
   const name = first.medicineNameSnapshot || first.MedicineNameSnapshot || first.medicineName || first.MedicineName
   return items.length > 1 ? `${name} +${items.length - 1}` : name
-}
-
-async function invoicePayload(row: Row) {
-  const doctorId = toNumber(row.doctorId, row.raw?.doctorId, row.raw?.DoctorId)
-  let examFee = toNumber(row.examFee, row.raw?.examFee, row.raw?.ExamFee, row.raw?.doctor?.examFee, row.raw?.Doctor?.ExamFee)
-  if (!examFee && doctorId) examFee = toNumber((await appointmentApi.getDoctor(doctorId).catch(() => null))?.examFee)
-  return { ...row.raw, appointmentId: Number(row.appointmentId || row.id), patientId: toNumber(row.patientId, row.raw?.patientId, row.raw?.PatientId), doctorId, examFee }
 }
 
 function value(row: Row, key: string) {
@@ -783,8 +774,7 @@ function isResource(value: unknown): value is Resource {
 
 function nextGuideForAction(action: ActionKey) {
   if (action === 'confirm') return 'Tiếp theo bấm Check-in N2 để tạo lượt khám.'
-  if (action === 'checkin') return 'Tiếp theo sang Hàng chờ khám để cập nhật sinh hiệu.'
-  if (action === 'invoice') return 'Tiếp theo sang Thu viện phí để kiểm tra hóa đơn.'
+  if (action === 'checkin') return 'Tiếp theo sang Hàng chờ khám để cập nhật chỉ số sức khỏe.'
   if (action === 'pay') return 'Tiếp theo bệnh nhân có thể kiểm tra Viện phí.'
   if (action === 'cancelAppointment') return 'Lịch hẹn đã hủy; kiểm tra lại danh sách Lịch hẹn.'
   return 'Tiếp tục theo dõi ở màn hiện tại.'

@@ -181,7 +181,7 @@ const doctorOptions = computed(() =>
 
 const doctor = computed(() => doctors.value.find((item) => item.doctorId === Number(selectedDoctor.value)))
 const displaySlots = computed(() => mergeSlots(slots.value, bookedSlots.value))
-const bookingPatientId = computed(() => authStore.isPatient ? authStore.user?.patientId || authStore.user?.id : undefined)
+const bookingPatientId = computed(() => authStore.isPatient ? authStore.user?.patientId : undefined)
 const bookingPatientName = computed(() => authStore.isPatient ? authStore.user?.fullName : '')
 const bookingPatientPhone = computed(() => authStore.isPatient ? authStore.user?.phoneNumber : '')
 

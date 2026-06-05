@@ -5,12 +5,36 @@ const client = createServiceClient('billing')
 
 function normalizeList<T>(payload: unknown): T[] {
   const data = readApiResponse<any>(payload as any)
-  if (Array.isArray(data)) return data
-  if (Array.isArray(data?.items)) return data.items
-  if (Array.isArray(data?.data)) return data.data
-  if (Array.isArray(data?.invoices)) return data.invoices
-  if (Array.isArray(data?.prescriptions)) return data.prescriptions
-  return []
+  const items = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.items)
+      ? data.items
+      : Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.invoices)
+          ? data.invoices
+          : Array.isArray(data?.prescriptions)
+            ? data.prescriptions
+            : []
+  return items.map(normalizeBillingItem) as T[]
+}
+
+function normalizeBillingItem(item: Record<string, any>) {
+  const invoiceCode = item.invoiceCode ?? item.InvoiceCode ?? item.invoiceIdCode ?? item.InvoiceIdCode
+  const prescriptionCode = item.prescriptionCode ?? item.PrescriptionCode ?? item.prescriptionIdCode ?? item.PrescriptionIdCode
+  const medicalRecordCode = item.medicalRecordCode ?? item.MedicalRecordCode ?? item.medicalRecordIdCode ?? item.MedicalRecordIdCode
+  const patientCode = item.patientCode ?? item.PatientCode ?? item.patientIdCode ?? item.PatientIdCode
+  return {
+    ...item,
+    invoiceCode,
+    invoiceIdCode: item.invoiceIdCode ?? item.InvoiceIdCode ?? invoiceCode,
+    prescriptionCode,
+    prescriptionIdCode: item.prescriptionIdCode ?? item.PrescriptionIdCode ?? prescriptionCode,
+    medicalRecordCode,
+    medicalRecordIdCode: item.medicalRecordIdCode ?? item.MedicalRecordIdCode ?? medicalRecordCode,
+    patientCode,
+    patientIdCode: item.patientIdCode ?? item.PatientIdCode ?? patientCode,
+  }
 }
 
 function amountValue(data: Record<string, any>) {
@@ -147,8 +171,8 @@ export const billingApi = {
       '/api/billing/invoices',
     ], payload)
   },
-  async payInvoice(invoiceId: number, amount?: number) {
-    const payload = { paymentMethod: 'Cash', method: 'Cash', amount }
+  async payInvoice(invoiceId: number, amount?: number, method = 'Cash', extra: Record<string, any> = {}) {
+    const payload = { paymentMethod: method, method, amount, ...extra }
     return tryPost<Invoice>([
       `/api/invoices/${invoiceId}/pay`,
       `/api/billing/invoices/${invoiceId}/pay`,

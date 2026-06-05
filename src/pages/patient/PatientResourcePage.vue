@@ -107,7 +107,7 @@
                 <button v-if="resource !== 'bills'" type="button" class="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#003c90] transition hover:bg-blue-100" @click="openDetail(row)">
                   Chi tiết
                 </button>
-                <button v-else-if="String(row.status).toLowerCase() !== 'paid' && !String(row.status).toLowerCase().includes('đã thanh toán')" type="button" class="rounded-lg bg-[#0F52BA] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#003c90]" :disabled="actingId === row.id" @click="pay(row)">
+                <button v-else-if="String(row.status).toLowerCase() !== 'paid' && !String(row.status).toLowerCase().includes('đã thanh toán')" type="button" class="rounded-lg bg-[#0F52BA] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#003c90]" :disabled="actingId === row.id" @click="openPayment(row)">
                   Thanh toán
                 </button>
               </td>
@@ -179,6 +179,56 @@
       </div>
     </div>
 
+    <div v-if="paymentOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+      <div class="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[1.5rem] bg-white p-6 shadow-2xl">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-sm font-bold uppercase tracking-[0.16em] text-emerald-700">Thanh toán viện phí</p>
+            <h2 class="mt-1 text-2xl font-bold text-slate-950">Chuyển khoản ngân hàng</h2>
+            <p class="mt-2 text-sm text-slate-500">Quét mã QR, chuyển đúng số tiền và nội dung để hệ thống đối soát hóa đơn.</p>
+          </div>
+          <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" @click="closePayment">
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+
+        <div class="mt-6 grid gap-6 lg:grid-cols-[320px_1fr]">
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div v-if="bankTransferReady" class="rounded-xl bg-white p-3">
+              <img :src="paymentQrUrl" alt="QR chuyển khoản viện phí" class="mx-auto aspect-square w-full rounded-lg object-contain" />
+            </div>
+            <div v-else class="flex aspect-square items-center justify-center rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4 text-center text-sm font-semibold text-amber-800">
+              Chưa cấu hình số tài khoản nhận tiền trong .env
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div v-for="[label, textValue] in paymentItems" :key="label" class="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                <p class="text-xs font-bold uppercase tracking-wide text-slate-400">{{ label }}</p>
+                <p class="mt-2 break-words text-sm font-semibold text-slate-900">{{ textValue }}</p>
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-[#003c90]">
+              SePay API/webhook nên xử lý ở backend N3 để tự xác nhận giao dịch. Trên frontend chỉ hiển thị QR và gửi yêu cầu ghi nhận thanh toán bằng phương thức BankTransfer.
+            </div>
+
+            <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50" @click="copyPaymentContent">
+                <Copy class="h-4 w-4" />
+                Copy nội dung
+              </button>
+              <BaseButton :loading="actingId === paymentRow?.id" :disabled="!bankTransferReady" @click="confirmBankTransfer">
+                <template #icon><CreditCard class="h-4 w-4" /></template>
+                Tôi đã chuyển khoản
+              </BaseButton>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div v-if="detailOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
       <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[1.5rem] bg-white p-6 shadow-2xl">
         <div class="flex items-start justify-between gap-4">
@@ -212,7 +262,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { CalendarClock, ChevronLeft, ChevronRight, CreditCard, FileHeart, Pill, RefreshCw, Save, Search, SearchX, ShieldCheck, UserRound, X } from 'lucide-vue-next'
+import { CalendarClock, ChevronLeft, ChevronRight, Copy, CreditCard, FileHeart, Pill, RefreshCw, Save, Search, SearchX, ShieldCheck, UserRound, X } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
@@ -243,6 +293,8 @@ const currentPatient = ref<Patient | null>(null)
 const history = ref<PatientMedicalHistory | null>(null)
 const detailOpen = ref(false)
 const detailRow = ref<Row | null>(null)
+const paymentOpen = ref(false)
+const paymentRow = ref<Row | null>(null)
 const profileSaving = ref(false)
 const profileForm = reactive({
   fullName: '',
@@ -253,7 +305,7 @@ const profileForm = reactive({
 const resource = computed<Resource>(() => isResource(route.meta.patientResource) ? route.meta.patientResource : 'appointments')
 const config = computed(() => configs[resource.value])
 const patientId = computed(() => String(currentPatient.value?.id || currentPatient.value?.patientId || authStore.user?.patientId || ''))
-const displayPatientCode = computed(() => currentPatient.value?.patientCode || formatPatientCode(patientId.value) || 'Chưa liên kết')
+const displayPatientCode = computed(() => patientDisplayCode(currentPatient.value) || formatPatientCode(patientId.value) || 'Chưa liên kết')
 
 const configs: Record<Resource, { title: string; service: string; description: string; placeholder: string; icon: any; iconClass: string; search: string[]; columns: Column[] }> = {
   appointments: cfg('Lịch hẹn của tôi', 'N1 Appointment', 'Theo dõi lịch đã đặt, bác sĩ, giờ khám, số thứ tự và trạng thái xác nhận.', 'Tìm bác sĩ, lý do, trạng thái...', CalendarClock, 'bg-blue-50 text-[#0F52BA]', ['doctorName', 'status', 'reason', 'dateTime'], cols(['id', 'Mã'], ['doctorName', 'Bác sĩ', false, true], ['dateTime', 'Ngày giờ'], ['queueNumber', 'STT'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
@@ -297,6 +349,34 @@ const metrics = computed(() => {
 })
 
 const detailTitle = computed(() => resource.value === 'records' ? 'Chi tiết bệnh án' : 'Chi tiết đơn thuốc')
+const bankTransferConfig = {
+  bank: import.meta.env.VITE_BANK_TRANSFER_BANK || 'Techcombank',
+  account: import.meta.env.VITE_BANK_TRANSFER_ACCOUNT || '',
+  accountName: import.meta.env.VITE_BANK_TRANSFER_ACCOUNT_NAME || 'MedicareDNU',
+  prefix: import.meta.env.VITE_BANK_TRANSFER_PREFIX || 'MEDDNU',
+}
+const bankTransferReady = computed(() => Boolean(bankTransferConfig.bank && bankTransferConfig.account))
+const paymentAmount = computed(() => toNumber(paymentRow.value?.amountValue, paymentRow.value?.raw?.amount, paymentRow.value?.raw?.totalAmount))
+const paymentContent = computed(() => paymentRow.value ? transferContent(paymentRow.value) : '')
+const paymentQrUrl = computed(() => {
+  if (!bankTransferReady.value || !paymentRow.value) return ''
+  const params = new URLSearchParams({
+    acc: bankTransferConfig.account,
+    bank: bankTransferConfig.bank,
+    amount: String(Math.round(paymentAmount.value)),
+    des: paymentContent.value,
+    template: 'compact',
+  })
+  return `https://qr.sepay.vn/img?${params.toString()}`
+})
+const paymentItems = computed<[string, string][]>(() => [
+  ['Ngân hàng', bankTransferConfig.bank],
+  ['Số tài khoản', bankTransferConfig.account || 'Chưa cấu hình'],
+  ['Tên tài khoản', bankTransferConfig.accountName],
+  ['Số tiền', formatCurrency(paymentAmount.value)],
+  ['Nội dung chuyển khoản', paymentContent.value || 'Chưa có hóa đơn'],
+  ['Mã hóa đơn', String(paymentRow.value?.id || '')],
+])
 const detailItems = computed(() => {
   const row = detailRow.value || {}
   if (resource.value === 'records') {
@@ -388,9 +468,8 @@ async function resolvePatient() {
       return currentPatient.value
     }
   }
-  const appointments = user?.id ? await appointmentApi.getAppointmentsByPatient(user.id).catch(() => [] as Appointment[]) : []
-  const phones = new Set([user?.phoneNumber, ...appointments.map((item) => item.patientPhone)].map(normalizeText).filter(Boolean))
-  const names = new Set([user?.fullName, ...appointments.map((item) => item.patientName)].map(normalizeText).filter(Boolean))
+  const phones = new Set([user?.phoneNumber].map(normalizeText).filter(Boolean))
+  const names = new Set([user?.fullName].map(normalizeText).filter(Boolean))
   const patients = await medicalRecordApi.getPatients({ pageSize: 100 }).catch(() => [] as Patient[])
   const match = patients.find((patient) => {
     const patientPhones = [patient.phone, patient.phoneNumber].map(normalizeText).filter(Boolean)
@@ -498,6 +577,7 @@ function patientKeys() {
   const keys = new Set<string>()
   addKey(keys, authStore.user?.patientId)
   addKey(keys, currentPatient.value?.patientId)
+  addKey(keys, currentPatient.value?.patientIdCode)
   addKey(keys, currentPatient.value?.id)
   addKey(keys, currentPatient.value?.patientCode)
   return Array.from(keys)
@@ -517,6 +597,22 @@ function formatPatientCode(value: unknown) {
   return Number.isFinite(id) && id > 0 ? `BN${String(id).padStart(3, '0')}` : ''
 }
 
+function patientDisplayCode(item?: Partial<Patient> & Record<string, any> | null) {
+  return String(item?.patientCode || item?.patientIdCode || item?.PatientCode || item?.PatientIdCode || '').trim()
+}
+
+function medicalRecordDisplayCode(item: Partial<MedicalRecord> & Record<string, any>) {
+  return item.medicalRecordCode || item.medicalRecordIdCode || item.recordIdCode || item.recordId || item.medicalRecordId || 'BA'
+}
+
+function prescriptionDisplayCode(item: Partial<Prescription> & Record<string, any>) {
+  return item.prescriptionCode || item.prescriptionIdCode || item.PrescriptionCode || item.PrescriptionIdCode || item.prescriptionId || item.id || 'DT'
+}
+
+function invoiceDisplayCode(item: Partial<Invoice> & Record<string, any>) {
+  return item.invoiceCode || item.invoiceIdCode || item.InvoiceCode || item.InvoiceIdCode || toNumber(item.invoiceId, item.InvoiceId, item.id, item.Id) || 'HĐ'
+}
+
 function mapAppointment(item: Appointment): Row {
   return {
     id: item.appointmentId,
@@ -530,7 +626,7 @@ function mapAppointment(item: Appointment): Row {
 
 function mapRecord(item: MedicalRecord): Row {
   return {
-    id: item.recordId || item.medicalRecordCode || item.medicalRecordId || 'BA',
+    id: medicalRecordDisplayCode(item),
     diagnosis: item.diagnosisText || item.diagnosis || 'Chưa có chẩn đoán',
     symptoms: item.symptoms || 'Chưa ghi nhận',
     doctorNotes: item.doctorNote || item.doctorNotes || 'Chưa ghi chú',
@@ -546,7 +642,7 @@ function mapPrescription(item: Prescription & Record<string, any>): Row {
   const medicines = items.map((line: any) => line.medicineNameSnapshot || line.MedicineNameSnapshot || line.medicineName || line.MedicineName).filter(Boolean).join(', ')
   const quantity = items.reduce((total: number, line: any) => total + Number(line.quantity || line.Quantity || 0), 0)
   return {
-    id: item.prescriptionCode || item.prescriptionId || item.id || 'DT',
+    id: prescriptionDisplayCode(item),
     medicine: medicines || 'Chưa có thuốc',
     quantity: quantity || '-',
     note: item.note || item.Note || 'Không có ghi chú',
@@ -557,8 +653,11 @@ function mapPrescription(item: Prescription & Record<string, any>): Row {
 
 function mapInvoice(item: Invoice & Record<string, any>): Row {
   const amount = invoiceAmount(item)
+  const invoiceId = toNumber(item.invoiceId, item.InvoiceId, item.id, item.Id)
+  const invoiceCode = invoiceDisplayCode(item)
   return {
-    id: toNumber(item.invoiceId, item.InvoiceId, item.id, item.Id),
+    id: invoiceCode,
+    invoiceId,
     appointmentId: item.appointmentId || item.AppointmentId ? `#${item.appointmentId || item.AppointmentId}` : '-',
     amount: formatCurrency(amount),
     amountValue: amount,
@@ -577,15 +676,32 @@ function openDetail(row: Row) {
   )
 }
 
-async function pay(row: Row) {
-  const id = Number(row.id)
+function openPayment(row: Row) {
+  paymentRow.value = row
+  paymentOpen.value = true
+}
+
+function closePayment() {
+  paymentOpen.value = false
+  paymentRow.value = null
+}
+
+async function confirmBankTransfer() {
+  const row = paymentRow.value
+  if (!row) return
+  const id = Number(row.invoiceId || row.id)
   if (!id) return
   actingId.value = row.id || null
   error.value = ''
   try {
-    await billingApi.payInvoice(id, toNumber(row.amountValue))
-    note.value = 'Đã cập nhật thanh toán hóa đơn.'
-    showToast('Thanh toán thành công', 'Tiếp theo kiểm tra lại Viện phí để xác nhận trạng thái đã thanh toán.', 'success')
+    await billingApi.payInvoice(id, toNumber(row.amountValue), 'BankTransfer', {
+      paymentContent: paymentContent.value,
+      bankCode: bankTransferConfig.bank,
+      bankAccountNumber: bankTransferConfig.account,
+    })
+    note.value = 'Đã gửi yêu cầu ghi nhận thanh toán chuyển khoản.'
+    showToast('Thanh toán thành công', 'N3 đã ghi nhận thanh toán chuyển khoản ngân hàng.', 'success')
+    closePayment()
     await loadData()
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError)
@@ -593,6 +709,12 @@ async function pay(row: Row) {
   } finally {
     actingId.value = null
   }
+}
+
+async function copyPaymentContent() {
+  if (!paymentContent.value) return
+  await navigator.clipboard?.writeText(paymentContent.value)
+  showToast('Đã copy nội dung', paymentContent.value, 'success')
 }
 
 function uniqueRows(items: Row[]) {
@@ -631,6 +753,24 @@ function toNumber(...values: unknown[]) {
     if (Number.isFinite(numberValue) && numberValue > 0) return numberValue
   }
   return 0
+}
+
+function transferContent(row: Row) {
+  const invoiceCode = String(row.id || row.invoiceId || row.raw?.invoiceCode || row.raw?.invoiceIdCode || '').trim()
+  return normalizeTransferText(`${bankTransferConfig.prefix} ${invoiceCode}`)
+}
+
+function normalizeTransferText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80)
 }
 
 function invoiceAmount(item: Invoice & Record<string, any>) {

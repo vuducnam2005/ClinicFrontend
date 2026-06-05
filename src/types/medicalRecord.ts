@@ -2,6 +2,7 @@ export interface Patient {
   patientId: string
   id?: number | string
   patientCode?: string
+  patientIdCode?: string
   fullName: string
   email?: string
   phone?: string
@@ -24,9 +25,12 @@ export interface MedicalRecord {
   medicalRecordId?: number
   recordId?: string
   medicalRecordCode?: string
+  medicalRecordIdCode?: string
+  recordIdCode?: string
   visitId?: number
   patientId: string
   patientCode?: string
+  patientIdCode?: string
   appointmentId?: string
   doctorId?: string | number
   doctorName?: string

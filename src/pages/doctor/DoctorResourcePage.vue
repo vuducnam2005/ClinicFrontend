@@ -875,7 +875,7 @@ function mapRecord(item: MedicalRecord): Row {
   const patientName = (item as any).patientName || (item as any).patient?.fullName || (item as any).Patient?.FullName || `Bệnh nhân #${item.patientId || ''}`
   return {
     key: `R${item.medicalRecordId || item.recordId || item.id}`,
-    id: item.recordId || item.medicalRecordCode || item.medicalRecordId || item.id,
+    id: item.medicalRecordCode || item.medicalRecordIdCode || item.recordIdCode || item.recordId || item.medicalRecordId || item.id,
     medicalRecordId: item.medicalRecordId,
     patientId: item.patientId,
     doctorId: Number(item.doctorId || 0) || undefined,

@@ -109,7 +109,7 @@ watch(() => form.patientPhoneSnapshot, () => {
 
 async function validatePhone(e?: any) {
   const phone = form.patientPhoneSnapshot.trim()
-  if (!phone || !form.patientId) return
+  if (!phone) return
 
   const initialPhone = props.initialPatientPhone
   // If it matches the registered phone, no need to validate
@@ -139,7 +139,6 @@ const canSubmit = computed(
     Boolean(props.doctorId) &&
     Boolean(props.appointmentDate) &&
     Boolean(props.slotTime) &&
-    Boolean(form.patientId) &&
     Boolean(form.patientNameSnapshot.trim()) &&
     Boolean(form.patientPhoneSnapshot.trim()) &&
     !phoneError.value &&
@@ -149,8 +148,9 @@ const canSubmit = computed(
 async function submit() {
   await validatePhone()
   if (!canSubmit.value) return
+  const patientId = Number(form.patientId)
   emit('submit', {
-    patientId: Number(form.patientId),
+    ...(Number.isFinite(patientId) && patientId > 0 ? { patientId } : {}),
     patientNameSnapshot: form.patientNameSnapshot.trim(),
     patientPhoneSnapshot: form.patientPhoneSnapshot.trim(),
     doctorId: props.doctorId,
