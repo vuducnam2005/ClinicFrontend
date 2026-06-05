@@ -1,65 +1,59 @@
 <template>
   <section class="space-y-6">
-    <div class="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-card">
-      <div class="relative grid gap-6 p-6 sm:p-8 xl:grid-cols-[1fr_360px]">
+    <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div class="relative grid gap-6 p-6 sm:p-8 xl:grid-cols-[1fr_340px]">
         <div class="pointer-events-none absolute right-8 top-6 hidden text-slate-100 xl:block">
           <Stethoscope class="h-40 w-40 stroke-[1.4]" />
         </div>
+
         <div class="relative">
-          <div class="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-blue-700">
+          <span class="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-blue-700">
             <span class="h-2 w-2 rounded-full bg-blue-600"></span>
-            Không gian bác sĩ
-          </div>
+            Bảng điều khiển bác sĩ
+          </span>
           <h1 class="mt-5 max-w-3xl text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
-            Chào mừng trở lại, {{ doctorName }}.
+            Xin chào, {{ doctorName }}
           </h1>
           <p class="mt-4 max-w-3xl text-base leading-7 text-slate-600">
-            Theo dõi hàng đợi, lịch hẹn và bệnh án từ các service N1/N2. Dữ liệu được lọc theo tài khoản bác sĩ đang đăng nhập.
+            Theo dõi lịch khám, hàng chờ và bệnh án cần xử lý trong ngày. Dữ liệu được lọc theo bác sĩ đang đăng nhập để tester đối chiếu nhanh và sạch.
           </p>
+
           <div class="mt-7 flex flex-wrap gap-3">
-            <RouterLink to="/doctor/examine" class="inline-flex h-12 items-center gap-2 rounded-xl bg-blue-700 px-5 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition hover:bg-blue-800">
-              <Stethoscope class="h-4 w-4" />
-              Bắt đầu khám
-            </RouterLink>
-            <RouterLink to="/doctor/appointments" class="inline-flex h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-800 transition hover:border-blue-200 hover:bg-blue-50">
+            <RouterLink to="/doctor/appointments" class="inline-flex h-12 items-center gap-2 rounded-xl bg-[#0F52BA] px-5 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition hover:bg-[#0B4296] focus:outline-none focus:ring-4 focus:ring-blue-100">
               <CalendarClock class="h-4 w-4" />
               Xem lịch hẹn
+            </RouterLink>
+            <RouterLink to="/doctor/examine" class="inline-flex h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 focus:outline-none focus:ring-4 focus:ring-blue-100">
+              <Stethoscope class="h-4 w-4" />
+              Khám bệnh
             </RouterLink>
           </div>
         </div>
 
         <div class="relative rounded-2xl border border-slate-200 bg-slate-50 p-5">
-          <p class="text-sm font-semibold text-slate-500">Thông tin trực</p>
+          <p class="text-sm font-semibold text-slate-500">Thông tin phiên làm việc</p>
           <div class="mt-4 space-y-3">
-            <div class="flex items-center justify-between rounded-xl bg-white px-4 py-3">
-              <span class="text-sm text-slate-500">Bác sĩ</span>
-              <span class="text-sm font-bold text-slate-950">{{ doctorName }}</span>
-            </div>
-            <div class="flex items-center justify-between rounded-xl bg-white px-4 py-3">
-              <span class="text-sm text-slate-500">Chuyên khoa</span>
-              <span class="text-sm font-bold text-slate-950">{{ authStore.user?.specialtyName || 'Chưa cập nhật' }}</span>
-            </div>
-            <div class="flex items-center justify-between rounded-xl bg-white px-4 py-3">
-              <span class="text-sm text-slate-500">Ngày làm việc</span>
-              <span class="text-sm font-bold text-slate-950">{{ todayLabel }}</span>
-            </div>
+            <InfoRow label="Bác sĩ" :value="doctorName" />
+            <InfoRow label="Chuyên khoa" :value="authStore.user?.specialtyName || 'Chưa cập nhật'" />
+            <InfoRow label="Ngày trực" :value="todayLabel" />
           </div>
         </div>
       </div>
     </div>
 
-    <div v-if="error" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{{ error }}</div>
-
-    <div v-if="loading" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <LoadingSkeleton v-for="item in 4" :key="item" />
+    <div v-if="error" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+      {{ error }}
     </div>
 
-    <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div v-if="loading" class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <LoadingSkeleton v-for="item in 5" :key="item" />
+    </div>
+    <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
       <RouterLink
         v-for="stat in stats"
         :key="stat.label"
         :to="stat.to"
-        class="group rounded-2xl border border-slate-200 bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-xl"
+        class="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-100"
       >
         <div class="flex items-start justify-between gap-4">
           <div>
@@ -74,111 +68,150 @@
       </RouterLink>
     </div>
 
-    <div class="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-      <DataPanel title="Hàng đợi hôm nay" subtitle="Nguồn N1 - Waiting Queue">
-        <div v-if="queue.length" class="divide-y divide-slate-100">
-          <div v-for="item in queue.slice(0, 6)" :key="item.id || item.appointmentId" class="flex items-center justify-between gap-4 px-5 py-4">
-            <div class="flex min-w-0 items-center gap-3">
-              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 font-bold text-blue-700">{{ item.queueNumber || '-' }}</span>
-              <div class="min-w-0">
-                <p class="truncate font-semibold text-slate-950">{{ displayText(item.patientName) }}</p>
-                <p class="mt-1 truncate text-sm text-slate-500">{{ item.slotTime || 'Chưa có giờ' }} · {{ item.reason || item.specialtyName || 'Chưa ghi lý do' }}</p>
-              </div>
+    <div class="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+      <PanelCard title="Bệnh nhân tiếp theo" subtitle="Ưu tiên theo giờ hẹn gần nhất">
+        <div v-if="nextPatient" class="p-5">
+          <div class="flex flex-col gap-4 rounded-2xl border border-blue-100 bg-blue-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0">
+              <p class="text-xs font-bold uppercase tracking-[0.14em] text-blue-700">Tiếp theo</p>
+              <h2 class="mt-2 text-2xl font-bold text-slate-950">{{ nextPatient.patientName }}</h2>
+              <p class="mt-2 text-sm text-slate-600">{{ nextPatient.time }} · {{ nextPatient.reason }}</p>
             </div>
-            <span :class="['shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold', statusClass(item.status)]">{{ statusText(item.status) }}</span>
+            <RouterLink
+              to="/doctor/examine"
+              class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#0F52BA] px-4 text-sm font-bold text-white transition hover:bg-[#0B4296] focus:outline-none focus:ring-4 focus:ring-blue-100"
+            >
+              <PlayCircle class="h-4 w-4" />
+              Bắt đầu khám
+            </RouterLink>
           </div>
         </div>
-        <EmptyState v-else title="Chưa có bệnh nhân chờ khám" text="Hàng đợi hôm nay chưa có dữ liệu cho bác sĩ này." />
-      </DataPanel>
+        <EmptyState v-else title="Không có lịch hẹn trong ngày" text="Chưa có bệnh nhân tiếp theo cho bác sĩ này." />
+      </PanelCard>
 
-      <DataPanel title="Lịch làm việc gần nhất" subtitle="Nguồn N1 - Doctor Schedule">
-        <div v-if="schedules.length" class="divide-y divide-slate-100">
-          <div v-for="item in schedules.slice(0, 6)" :key="item.scheduleId" class="px-5 py-4">
-            <div class="flex items-center justify-between gap-3">
-              <p class="font-semibold text-slate-950">{{ formatDate(item.workDate) }}</p>
-              <span :class="['rounded-full px-2.5 py-1 text-xs font-semibold', item.isAvailable === false ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700']">
-                {{ item.isAvailable === false ? 'Tạm ngưng' : 'Đang mở' }}
-              </span>
-            </div>
-            <p class="mt-1 text-sm text-slate-500">{{ item.startTime }} - {{ item.endTime }} · {{ item.slotDurationMinutes || 30 }} phút/slot</p>
-          </div>
+      <PanelCard title="Quick actions" subtitle="Các thao tác bác sĩ dùng thường xuyên">
+        <div class="grid gap-3 p-5 sm:grid-cols-2">
+          <QuickAction to="/doctor/appointments" label="Xem lịch hẹn" text="Lọc theo ngày và trạng thái" :icon="CalendarClock" />
+          <QuickAction to="/doctor/queue" label="Hàng chờ khám" text="Theo dõi bệnh nhân đã check-in" :icon="Users" />
+          <QuickAction to="/doctor/examine" label="Khám & kê đơn" text="Ghi bệnh án, kê thuốc" :icon="Stethoscope" />
+          <QuickAction to="/doctor/records" label="Lịch sử bệnh án" text="Tra cứu hồ sơ đã lưu" :icon="FileHeart" />
         </div>
-        <EmptyState v-else title="Chưa có lịch làm việc" text="N1 chưa trả lịch làm việc cho tài khoản bác sĩ này." />
-      </DataPanel>
+      </PanelCard>
     </div>
 
-    <DataPanel title="Lịch hẹn gần nhất" subtitle="Nguồn N1 - Appointment">
-      <div v-if="appointments.length" class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-100 text-sm">
-          <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <tr>
-              <th class="px-5 py-3">Bệnh nhân</th>
-              <th class="px-5 py-3">Ngày khám</th>
-              <th class="px-5 py-3">Giờ</th>
-              <th class="px-5 py-3">Lý do</th>
-              <th class="px-5 py-3 text-right">Trạng thái</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            <tr v-for="item in appointments.slice(0, 8)" :key="item.appointmentId" class="hover:bg-slate-50">
-              <td class="px-5 py-4 font-semibold text-slate-950">{{ displayText(item.patientName) }}</td>
-              <td class="px-5 py-4 text-slate-600">{{ formatDate(item.appointmentDate) }}</td>
-              <td class="px-5 py-4 text-slate-600">{{ item.slotTime || '-' }}</td>
-              <td class="px-5 py-4 text-slate-600">{{ item.reason || 'Chưa ghi nhận' }}</td>
-              <td class="px-5 py-4 text-right"><span :class="['rounded-full px-2.5 py-1 text-xs font-semibold', statusClass(item.status)]">{{ statusText(item.status) }}</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <EmptyState v-else title="Chưa có lịch hẹn" text="Không có lịch hẹn phù hợp với tài khoản bác sĩ đang đăng nhập." />
-    </DataPanel>
+    <div class="grid gap-6 xl:grid-cols-2">
+      <PanelCard title="Hàng chờ khám" subtitle="Hiển thị tối đa 5 bệnh nhân đang chờ">
+        <div v-if="queueRows.length" class="divide-y divide-slate-100">
+          <QueueRow v-for="item in queueRows.slice(0, 5)" :key="item.key" :item="item" />
+        </div>
+        <EmptyState v-else title="Không có bệnh nhân trong hàng chờ" text="Hàng chờ hôm nay chưa có dữ liệu phù hợp." />
+      </PanelCard>
+
+      <PanelCard title="Lịch hẹn hôm nay" subtitle="Sắp xếp theo giờ khám tăng dần">
+        <div v-if="appointmentRows.length" class="divide-y divide-slate-100">
+          <AppointmentRow v-for="item in appointmentRows.slice(0, 6)" :key="item.key" :item="item" />
+        </div>
+        <EmptyState v-else title="Không có lịch hẹn trong ngày" text="Không có lịch hẹn hôm nay cho bác sĩ đang đăng nhập." />
+      </PanelCard>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, ref, type Component } from 'vue'
-import { CalendarClock, ClipboardList, FileHeart, RefreshCw, Stethoscope, Users } from 'lucide-vue-next'
+import { RouterLink } from 'vue-router'
+import { CalendarClock, CheckCircle2, ClipboardList, FileHeart, PlayCircle, Stethoscope, Users } from 'lucide-vue-next'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { getApiErrorMessage } from '@/services/apiClient'
 import { appointmentApi } from '@/services/appointmentApi'
 import { medicalRecordApi } from '@/services/medicalRecordApi'
-import { currentDoctorId, filterAppointmentsForDoctor, filterQueueForDoctor, filterRecordsForDoctor, filterSchedulesForDoctor } from '@/utils/doctorScope'
+import { currentDoctorId, filterAppointmentsForDoctor, filterQueueForDoctor, filterRecordsForDoctor } from '@/utils/doctorScope'
 import type { Appointment, WaitingQueueItem } from '@/types/appointment'
-import type { DoctorSchedule } from '@/types/doctor'
 import type { MedicalRecord } from '@/types/medicalRecord'
 import { displayText } from '@/utils/displayText'
 
-interface Stat { label: string; value: number; note: string; to: string; icon: Component; iconClass: string }
+type StatusTone = 'success' | 'info' | 'warning' | 'error' | 'muted'
+
+interface SummaryRow {
+  key: string | number
+  patientName: string
+  time: string
+  reason: string
+  status: string
+  tone: StatusTone
+  queueNumber?: number | string
+}
 
 const authStore = useAuthStore()
 const loading = ref(true)
 const error = ref('')
-const queue = ref<WaitingQueueItem[]>([])
 const appointments = ref<Appointment[]>([])
-const schedules = ref<DoctorSchedule[]>([])
+const queue = ref<WaitingQueueItem[]>([])
+const visits = ref<any[]>([])
 const records = ref<MedicalRecord[]>([])
-const today = new Date().toISOString().slice(0, 10)
+
+const today = localDate()
 const todayLabel = new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())
 const doctorName = computed(() => authStore.user?.fullName || 'Bác sĩ')
 
-const stats = computed<Stat[]>(() => [
-  { label: 'Hàng đợi', value: queue.value.length, note: 'Bệnh nhân hôm nay', to: '/doctor/queue', icon: Users, iconClass: 'bg-blue-50 text-blue-700' },
-  { label: 'Lịch hẹn', value: appointments.value.length, note: 'Lịch của bác sĩ', to: '/doctor/appointments', icon: CalendarClock, iconClass: 'bg-cyan-50 text-cyan-700' },
-  { label: 'Bệnh án', value: records.value.length, note: 'Nguồn N2', to: '/doctor/records', icon: FileHeart, iconClass: 'bg-indigo-50 text-indigo-700' },
-  { label: 'Ca làm', value: schedules.value.length, note: 'Lịch cá nhân', to: '/doctor/schedule', icon: ClipboardList, iconClass: 'bg-emerald-50 text-emerald-700' },
+const todayAppointments = computed(() =>
+  appointments.value
+    .filter((item) => normalizeDate(item.appointmentDate) === today)
+    .sort((a, b) => String(a.slotTime || '').localeCompare(String(b.slotTime || ''))),
+)
+
+const activeQueue = computed(() => queue.value.filter((item) => normalizeDate(item.appointmentDate) === today))
+const inProgressVisits = computed(() => visits.value.filter((item) => isInProgress(item.status)))
+const completedVisits = computed(() => visits.value.filter((item) => isCompleted(item.status)))
+const prescriptionsCount = computed(() => records.value.filter((item: any) => Number(item.prescriptionId || item.prescriptions?.length || 0) > 0).length)
+
+const stats = computed(() => [
+  { label: 'Lịch hẹn hôm nay', value: todayAppointments.value.length, note: 'Theo ngày hiện tại', to: '/doctor/appointments', icon: CalendarClock, iconClass: 'bg-blue-50 text-blue-700' },
+  { label: 'Đang chờ khám', value: activeQueue.value.filter((item) => isWaiting(item.status)).length, note: 'Từ hàng chờ N1', to: '/doctor/queue', icon: Users, iconClass: 'bg-amber-50 text-amber-700' },
+  { label: 'Đang khám', value: inProgressVisits.value.length, note: 'Lượt khám N2', to: '/doctor/examine', icon: Stethoscope, iconClass: 'bg-cyan-50 text-cyan-700' },
+  { label: 'Đã hoàn tất', value: completedVisits.value.length, note: 'Hoàn tất trong N2', to: '/doctor/records', icon: CheckCircle2, iconClass: 'bg-emerald-50 text-emerald-700' },
+  { label: 'Đơn thuốc đã kê', value: prescriptionsCount.value, note: 'Theo bệnh án tải được', to: '/doctor/records', icon: ClipboardList, iconClass: 'bg-indigo-50 text-indigo-700' },
 ])
 
-const DataPanel = defineComponent({
+const appointmentRows = computed<SummaryRow[]>(() => todayAppointments.value.map((item) => ({
+  key: item.appointmentId,
+  patientName: displayText(item.patientName) || 'Chưa có tên',
+  time: item.slotTime || '--:--',
+  reason: item.reason || item.specialtyName || 'Chưa ghi lý do',
+  status: statusText(item.status),
+  tone: statusTone(item.status),
+})))
+
+const queueRows = computed<SummaryRow[]>(() => activeQueue.value.map((item) => ({
+  key: item.id || item.queueId || item.appointmentId,
+  queueNumber: item.queueNumber || '-',
+  patientName: displayText(item.patientName) || 'Chưa có tên',
+  time: item.slotTime || '--:--',
+  reason: item.reason || item.specialtyName || 'Chưa ghi lý do',
+  status: statusText(item.status),
+  tone: statusTone(item.status),
+})))
+
+const nextPatient = computed(() => appointmentRows.value.find((item) => !['Đã hoàn tất', 'Đã hủy'].includes(item.status)) || queueRows.value[0])
+
+const InfoRow = defineComponent({
+  props: { label: { type: String, required: true }, value: { type: String, required: true } },
+  setup(props) {
+    return () => h('div', { class: 'flex items-center justify-between gap-3 rounded-xl bg-white px-4 py-3' }, [
+      h('span', { class: 'text-sm text-slate-500' }, props.label),
+      h('span', { class: 'truncate text-sm font-bold text-slate-950' }, props.value),
+    ])
+  },
+})
+
+const PanelCard = defineComponent({
   props: { title: { type: String, required: true }, subtitle: { type: String, required: true } },
   setup(props, { slots }) {
-    return () => h('div', { class: 'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card' }, [
-      h('div', { class: 'flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4' }, [
-        h('div', null, [
-          h('h2', { class: 'font-bold text-slate-950' }, props.title),
-          h('p', { class: 'mt-1 text-sm text-slate-500' }, props.subtitle),
-        ]),
-        h(RefreshCw, { class: 'h-4 w-4 text-slate-300' }),
+    return () => h('div', { class: 'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm' }, [
+      h('div', { class: 'border-b border-slate-100 px-5 py-4' }, [
+        h('h2', { class: 'font-bold text-slate-950' }, props.title),
+        h('p', { class: 'mt-1 text-sm text-slate-500' }, props.subtitle),
       ]),
       slots.default?.(),
     ])
@@ -196,29 +229,73 @@ const EmptyState = defineComponent({
   },
 })
 
+const QuickAction = defineComponent({
+  props: { to: { type: String, required: true }, label: { type: String, required: true }, text: { type: String, required: true }, icon: { type: Object as () => Component, required: true } },
+  setup(props) {
+    return () => h(RouterLink, { to: props.to, class: 'group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-blue-200 hover:bg-blue-50 focus:outline-none focus:ring-4 focus:ring-blue-100' }, () => [
+      h('span', { class: 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700 group-hover:bg-white' }, [h(props.icon, { class: 'h-5 w-5' })]),
+      h('span', { class: 'min-w-0' }, [
+        h('span', { class: 'block font-bold text-slate-950' }, props.label),
+        h('span', { class: 'mt-1 block text-sm text-slate-500' }, props.text),
+      ]),
+    ])
+  },
+})
+
+const QueueRow = defineComponent({
+  props: { item: { type: Object as () => SummaryRow, required: true } },
+  setup(props) {
+    return () => h('div', { class: 'flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50' }, [
+      h('div', { class: 'flex min-w-0 items-center gap-3' }, [
+        h('span', { class: 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 font-bold text-blue-700' }, String(props.item.queueNumber || '-')),
+        h('div', { class: 'min-w-0' }, [
+          h('p', { class: 'truncate font-semibold text-slate-950' }, props.item.patientName),
+          h('p', { class: 'mt-1 truncate text-sm text-slate-500' }, `${props.item.time} · ${props.item.reason}`),
+        ]),
+      ]),
+      h('span', { class: ['shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold', toneClass(props.item.tone)] }, props.item.status),
+    ])
+  },
+})
+
+const AppointmentRow = defineComponent({
+  props: { item: { type: Object as () => SummaryRow, required: true } },
+  setup(props) {
+    return () => h('div', { class: 'flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50' }, [
+      h('div', { class: 'min-w-0' }, [
+        h('p', { class: 'truncate font-semibold text-slate-950' }, props.item.patientName),
+        h('p', { class: 'mt-1 truncate text-sm text-slate-500' }, `${props.item.time} · ${props.item.reason}`),
+      ]),
+      h('span', { class: ['shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold', toneClass(props.item.tone)] }, props.item.status),
+    ])
+  },
+})
+
 onMounted(loadData)
 
 async function loadData() {
   loading.value = true
   error.value = ''
-  const doctorId = currentDoctorId(authStore.user)
-  const appointmentLoader = doctorId ? appointmentApi.getAppointmentsByDoctor(doctorId) : appointmentApi.getAppointments()
-  const scheduleLoader = doctorId ? appointmentApi.getDoctorSchedulesByDoctor(doctorId) : appointmentApi.getDoctorSchedules()
+  appointments.value = []
+  queue.value = []
+  visits.value = []
+  records.value = []
 
+  const doctorId = currentDoctorId(authStore.user)
   const results = await Promise.allSettled([
+    doctorId ? appointmentApi.getAppointmentsByDoctor(doctorId) : Promise.resolve([]),
     appointmentApi.getWaitingQueue(today).then((items) => filterQueueForDoctor(items, authStore.user)),
-    appointmentLoader.then((items) => filterAppointmentsForDoctor(items, authStore.user)),
-    scheduleLoader.then((items) => filterSchedulesForDoctor(items, authStore.user)),
+    doctorId ? medicalRecordApi.getVisitsToday(doctorId) : Promise.resolve([]),
     medicalRecordApi.getMedicalRecords().then((items) => filterRecordsForDoctor(items, authStore.user)),
   ])
 
-  queue.value = readList(results[0])
-  appointments.value = readList(results[1])
-  schedules.value = readList(results[2])
+  appointments.value = readList(results[0])
+  queue.value = readList(results[1])
+  visits.value = readList(results[2])
   records.value = readList(results[3])
 
-  const firstError = results.find((item) => item.status === 'rejected') as PromiseRejectedResult | undefined
-  if (firstError) error.value = `Một số API chưa phản hồi: ${getApiErrorMessage(firstError.reason)}. Giao diện vẫn hiển thị phần dữ liệu đã tải được.`
+  const failed = results.find((item) => item.status === 'rejected') as PromiseRejectedResult | undefined
+  if (failed) error.value = `Một số API chưa phản hồi: ${getApiErrorMessage(failed.reason)}. Các phần còn lại vẫn hiển thị theo dữ liệu tải được.`
   loading.value = false
 }
 
@@ -226,29 +303,59 @@ function readList<T>(result: PromiseSettledResult<T[]>) {
   return result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : []
 }
 
-function formatDate(value?: string) {
-  if (!value) return 'Chưa cập nhật'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('vi-VN').format(date)
+function localDate(date = new Date()) {
+  const offset = date.getTimezoneOffset()
+  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10)
+}
+
+function normalizeDate(value?: string) {
+  return String(value || '').slice(0, 10)
+}
+
+function isWaiting(status?: string) {
+  const value = String(status || '').toLowerCase()
+  return value.includes('waiting') || value.includes('pending') || value.includes('confirmed') || value.includes('checked') || value.includes('chờ')
+}
+
+function isInProgress(status?: string) {
+  const value = String(status || '').toLowerCase()
+  return value.includes('progress') || value.includes('đang')
+}
+
+function isCompleted(status?: string) {
+  const value = String(status || '').toLowerCase()
+  return value.includes('done') || value.includes('completed') || value.includes('hoàn')
 }
 
 function statusText(status?: string) {
   const value = String(status || '')
   const normalized = value.toLowerCase()
+  if (normalized.includes('checked')) return 'Đã check-in'
   if (normalized.includes('confirmed')) return 'Đã xác nhận'
-  if (normalized.includes('inprogress')) return 'Đang khám'
-  if (normalized.includes('completed') || normalized.includes('done')) return 'Hoàn tất'
+  if (normalized.includes('progress')) return 'Đang khám'
+  if (normalized.includes('completed') || normalized.includes('done')) return 'Đã hoàn tất'
   if (normalized.includes('cancel')) return 'Đã hủy'
   if (normalized.includes('waiting') || normalized.includes('pending')) return 'Đang chờ'
   return value || 'Chưa cập nhật'
 }
 
-function statusClass(status?: string) {
+function statusTone(status?: string): StatusTone {
   const value = String(status || '').toLowerCase()
-  if (value.includes('done') || value.includes('completed') || value.includes('confirmed')) return 'bg-emerald-100 text-emerald-700'
-  if (value.includes('inprogress')) return 'bg-blue-100 text-blue-700'
-  if (value.includes('waiting') || value.includes('pending')) return 'bg-amber-100 text-amber-700'
-  if (value.includes('cancel')) return 'bg-rose-100 text-rose-700'
-  return 'bg-slate-100 text-slate-700'
+  if (value.includes('completed') || value.includes('done')) return 'success'
+  if (value.includes('progress')) return 'info'
+  if (value.includes('cancel')) return 'error'
+  if (value.includes('waiting') || value.includes('pending') || value.includes('confirmed') || value.includes('checked')) return 'warning'
+  return 'muted'
+}
+
+function toneClass(tone: StatusTone) {
+  const classes = {
+    success: 'bg-emerald-100 text-emerald-700',
+    info: 'bg-blue-100 text-blue-700',
+    warning: 'bg-amber-100 text-amber-700',
+    error: 'bg-rose-100 text-rose-700',
+    muted: 'bg-slate-100 text-slate-700',
+  }
+  return classes[tone]
 }
 </script>

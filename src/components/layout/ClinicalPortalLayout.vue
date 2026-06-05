@@ -237,6 +237,6 @@ function scrollToTop() {
 
 function reloadRoute() {
   layoutError.value = ''
-  router.replace({ path: route.fullPath, query: { ...route.query, _reload: Date.now().toString() } })
+  router.replace({ path: route.path, query: { ...route.query, _reload: Date.now().toString() } })
 }
 </script>
