@@ -3,13 +3,20 @@ export interface Patient {
   id?: number | string
   patientCode?: string
   fullName: string
+  email?: string
   phone?: string
   phoneNumber?: string
   dateOfBirth?: string
   gender?: string
+  address?: string
+  citizenId?: string
+  bloodType?: string
+  allergyNote?: string | null
   allergies?: string
   medicalHistory?: string | null
+  status?: string
   createdAt?: string
+  updatedAt?: string
 }
 
 export interface MedicalRecord {

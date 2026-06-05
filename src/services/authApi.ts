@@ -62,6 +62,12 @@ export interface RegisterRequest {
   roleId: RoleId
 }
 
+export interface UpdateProfileRequest {
+  fullName: string
+  email: string
+  phoneNumber?: string
+}
+
 export const authApi = {
   async login(payload: LoginRequest) {
     const identifier = payload.identifier.trim()
@@ -79,13 +85,28 @@ export const authApi = {
       email: payload.email,
       username: payload.username,
       password: payload.password,
+      phoneNumber: payload.phoneNumber,
       role: RoleId[payload.roleId] || 'Patient',
     })
     return normalizeUser(readApiResponse<any>(response.data))
   },
 
+  async checkDuplicate(payload: { username?: string; email?: string; phoneNumber?: string }) {
+    const response = await client.post('/api/auth/check-duplicate', payload)
+    return response.data as {
+      usernameExists: boolean
+      emailExists: boolean
+      phoneNumberExists: boolean
+    }
+  },
+
   async getMe() {
     const response = await client.get('/api/auth/profile')
+    return normalizeUser(readApiResponse<any>(response.data))
+  },
+
+  async updateProfile(payload: UpdateProfileRequest) {
+    const response = await client.put('/api/auth/profile', payload)
     return normalizeUser(readApiResponse<any>(response.data))
   },
 

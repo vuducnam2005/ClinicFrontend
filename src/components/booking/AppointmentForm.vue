@@ -3,7 +3,27 @@
     <div class="rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-800">
       Mã bệnh nhân được hệ thống tự gắn khi đặt lịch. Bạn chỉ cần nhập họ tên, số điện thoại và lý do khám.
     </div>
-    <BaseInput v-model="form.patientPhoneSnapshot" label="Số điện thoại" placeholder="0900000000" required />
+    <div>
+      <BaseInput
+        v-model="form.patientPhoneSnapshot"
+        label="Số điện thoại"
+        placeholder="0900000000"
+        required
+        :error="phoneError"
+        @blur="validatePhone"
+      />
+      <button
+        v-if="showPhoneSuggestion"
+        type="button"
+        class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 transition hover:bg-blue-100 hover:border-blue-300"
+        @click="useRegisteredPhone"
+      >
+        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        Sử dụng SĐT đã đăng ký: {{ initialPatientPhone }}
+      </button>
+    </div>
     <BaseInput v-model="form.patientNameSnapshot" label="Họ tên" placeholder="Nguyễn Văn D" required />
     <label class="block">
       <span class="mb-2 block text-sm font-medium text-slate-700">Lý do khám</span>
@@ -22,10 +42,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { CalendarCheck } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
+import { appointmentApi } from '@/services/appointmentApi'
+import { authApi } from '@/services/authApi'
 import type { CreateAppointmentRequest } from '@/types/appointment'
 
 const props = defineProps<{
@@ -49,15 +71,68 @@ const form = reactive({
   reason: '',
 })
 
+const phoneError = ref('')
+const phoneValidating = ref(false)
+
 watch(
   () => [props.initialPatientId, props.initialPatientName, props.initialPatientPhone],
-  ([patientId, patientName, patientPhone]) => {
+  (values: any[]) => {
+    const patientId = values[0]
+    const patientName = values[1]
+    const patientPhone = values[2]
     form.patientId = patientId ? String(patientId) : ''
     if (patientName && !form.patientNameSnapshot) form.patientNameSnapshot = String(patientName)
     if (patientPhone && !form.patientPhoneSnapshot) form.patientPhoneSnapshot = String(patientPhone)
   },
   { immediate: true },
 )
+
+// Show phone suggestion chip when the user clears or changes away from their registered phone
+const showPhoneSuggestion = computed(() => {
+  const initialPhone = props.initialPatientPhone
+  if (!initialPhone) return false
+  return form.patientPhoneSnapshot.trim() !== initialPhone.trim()
+})
+
+function useRegisteredPhone() {
+  const initialPhone = props.initialPatientPhone
+  if (initialPhone) {
+    form.patientPhoneSnapshot = initialPhone
+    phoneError.value = ''
+  }
+}
+
+// Clear error when user types
+watch(() => form.patientPhoneSnapshot, () => {
+  if (phoneError.value) phoneError.value = ''
+})
+
+async function validatePhone(e?: any) {
+  const phone = form.patientPhoneSnapshot.trim()
+  if (!phone || !form.patientId) return
+
+  const initialPhone = props.initialPatientPhone
+  // If it matches the registered phone, no need to validate
+  if (initialPhone && phone === initialPhone.trim()) {
+    phoneError.value = ''
+    return
+  }
+
+  phoneValidating.value = true
+  try {
+    const result = await authApi.checkDuplicate({ phoneNumber: phone })
+    if (result.phoneNumberExists) {
+      phoneError.value = 'Số điện thoại này đã được đăng ký với bệnh nhân khác.'
+    } else {
+      phoneError.value = ''
+    }
+  } catch (error) {
+    // If check fails, allow submission (don't block on network errors)
+    phoneError.value = ''
+  } finally {
+    phoneValidating.value = false
+  }
+}
 
 const canSubmit = computed(
   () =>
@@ -66,10 +141,13 @@ const canSubmit = computed(
     Boolean(props.slotTime) &&
     Boolean(form.patientId) &&
     Boolean(form.patientNameSnapshot.trim()) &&
-    Boolean(form.patientPhoneSnapshot.trim()),
+    Boolean(form.patientPhoneSnapshot.trim()) &&
+    !phoneError.value &&
+    !phoneValidating.value,
 )
 
-function submit() {
+async function submit() {
+  await validatePhone()
   if (!canSubmit.value) return
   emit('submit', {
     patientId: Number(form.patientId),

@@ -148,7 +148,7 @@ function normalizeHistory(payload: unknown): PatientMedicalHistory {
   const patient = data?.patient ?? data?.Patient
   const fallbackPatientId = String(patient?.patientId ?? patient?.PatientId ?? patient?.id ?? patient?.Id ?? patient?.patientCode ?? patient?.PatientCode ?? '')
   return {
-    patient,
+    patient: patient ? normalizePatient(patient) : undefined,
     visits: arrayValue(data?.visits, data?.Visits).map(normalizeVisit),
     medicalRecords: normalizeRecords(data, fallbackPatientId),
     prescriptions: arrayValue(data?.prescriptions, data?.Prescriptions),
@@ -159,22 +159,36 @@ function emptyHistory(): PatientMedicalHistory {
   return { visits: [], medicalRecords: [], prescriptions: [] }
 }
 
+function normalizePatient(patient: any): Patient {
+  const id = patient?.id ?? patient?.Id ?? patient?.patientId ?? patient?.PatientId
+  const patientCode = patient?.patientCode ?? patient?.PatientCode
+  return {
+    ...patient,
+    patientId: String(patient?.patientId ?? patient?.PatientId ?? id ?? ''),
+    id,
+    patientCode,
+    fullName: patient?.fullName ?? patient?.FullName ?? patient?.name ?? patient?.Name ?? '',
+    email: patient?.email ?? patient?.Email,
+    phone: patient?.phone ?? patient?.Phone ?? patient?.phoneNumber ?? patient?.PhoneNumber,
+    phoneNumber: patient?.phoneNumber ?? patient?.PhoneNumber ?? patient?.phone ?? patient?.Phone,
+    dateOfBirth: patient?.dateOfBirth ?? patient?.DateOfBirth,
+    gender: patient?.gender ?? patient?.Gender,
+    address: patient?.address ?? patient?.Address,
+    citizenId: patient?.citizenId ?? patient?.CitizenId,
+    bloodType: patient?.bloodType ?? patient?.BloodType,
+    allergyNote: patient?.allergyNote ?? patient?.AllergyNote,
+    allergies: patient?.allergies ?? patient?.Allergies ?? patient?.allergyNote ?? patient?.AllergyNote,
+    medicalHistory: patient?.medicalHistory ?? patient?.MedicalHistory,
+    status: patient?.status ?? patient?.Status,
+    createdAt: patient?.createdAt ?? patient?.CreatedAt,
+    updatedAt: patient?.updatedAt ?? patient?.UpdatedAt,
+  }
+}
+
 function normalizePatients(payload: unknown): Patient[] {
   const data = readApiResponse<any>(payload as any)
   const patients = Array.isArray(data) ? data : data?.items || data?.Items || data?.data || data?.Data || data?.patients || data?.Patients || []
-  return patients.map((patient: any) => ({
-    ...patient,
-    patientId: patient.patientId ?? patient.PatientId ?? patient.id ?? patient.Id ?? patient.patientCode ?? patient.PatientCode ?? '',
-    id: patient.id ?? patient.Id ?? patient.patientId ?? patient.PatientId,
-    patientCode: patient.patientCode ?? patient.PatientCode,
-    fullName: patient.fullName ?? patient.FullName ?? patient.name ?? patient.Name ?? '',
-    phone: patient.phone ?? patient.Phone ?? patient.phoneNumber ?? patient.PhoneNumber,
-    phoneNumber: patient.phoneNumber ?? patient.PhoneNumber ?? patient.phone ?? patient.Phone,
-    dateOfBirth: patient.dateOfBirth ?? patient.DateOfBirth,
-    gender: patient.gender ?? patient.Gender,
-    medicalHistory: patient.medicalHistory ?? patient.MedicalHistory,
-    createdAt: patient.createdAt ?? patient.CreatedAt,
-  }))
+  return patients.map(normalizePatient)
 }
 
 function patientKeys(patient: Partial<Patient> & Record<string, any>) {
@@ -253,20 +267,20 @@ export const medicalRecordApi = {
   },
   async getPatient(id: string | number) {
     const response = await client.get(`/api/v1/medical/patients/${id}`)
-    return readApiResponse<Patient>(response.data)
+    return normalizePatient(readApiResponse<any>(response.data))
   },
   async createPatient(payload: Partial<Patient>) {
     const response = await client.post('/api/v1/medical/patients', payload)
-    return readApiResponse<Patient>(response.data)
+    return normalizePatient(readApiResponse<any>(response.data))
   },
   async updatePatient(id: string | number, payload: Partial<Patient>) {
     const response = await client.put(`/api/v1/medical/patients/${id}`, payload)
-    return readApiResponse<Patient>(response.data)
+    return normalizePatient(readApiResponse<any>(response.data))
   },
   async getPatientHistory(patientId: string | number): Promise<PatientMedicalHistory> {
-    const id = Number(patientId)
-    if (!Number.isFinite(id) || id <= 0) return emptyHistory()
-    const response = await client.get(`/api/v1/medical/patients/${id}/history`)
+    const key = String(patientId || '').trim()
+    if (!key) return emptyHistory()
+    const response = await client.get(`/api/v1/medical/patients/${encodeURIComponent(key)}/history`)
     return normalizeHistory(response.data)
   },
   async getMedicalRecords(patientId?: string | number): Promise<MedicalRecord[]> {
