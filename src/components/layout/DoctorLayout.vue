@@ -15,7 +15,7 @@ const menuGroups = [
     title: 'Khám bệnh',
     items: [
       { label: 'Hàng đợi khám', to: '/doctor/queue', icon: Users },
-      { label: 'Lịch hẹn hôm nay', to: '/doctor/appointments', icon: CalendarClock },
+      { label: 'Lịch hẹn', to: '/doctor/appointments', icon: CalendarClock },
       { label: 'Khám & kê đơn', to: '/doctor/examine', icon: Stethoscope },
       { label: 'Lịch sử bệnh án', to: '/doctor/records', icon: FileText },
     ],

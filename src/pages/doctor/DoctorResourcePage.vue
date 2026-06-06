@@ -361,13 +361,13 @@ const prescriptionItems = ref<PrescriptionItemPayload[]>([])
 const configs: Record<Resource, Config> = {
   appointments: {
     kicker: 'N1 Appointments',
-    title: 'Lịch hẹn hôm nay',
-    description: 'Quản lý lịch khám và trạng thái tiếp nhận bệnh nhân trong ngày.',
+    title: 'Lịch hẹn',
+    description: 'Quản lý lịch khám, bao gồm lịch hôm nay và các lịch sắp tới của bác sĩ đang đăng nhập.',
     endpoint: 'GET /appointment/api/appointments/doctor/{doctorId}',
     searchPlaceholder: 'Tìm tên bệnh nhân, mã lịch hẹn, lý do khám...',
     tableTitle: 'Danh sách lịch hẹn',
-    tableSubtitle: 'Mặc định theo ngày hiện tại và bác sĩ đang đăng nhập.',
-    emptyTitle: 'Không có lịch hẹn trong ngày',
+    tableSubtitle: 'Mặc định hiển thị lịch từ hôm nay trở đi theo bác sĩ đang đăng nhập.',
+    emptyTitle: 'Không có lịch hẹn phù hợp',
     emptyText: 'Không tìm thấy lịch hẹn phù hợp với bộ lọc hiện tại.',
     detailTitle: 'Chi tiết lịch hẹn',
     columns: cols(['id', 'Mã lịch hẹn'], ['patientName', 'Bệnh nhân', true], ['timeLabel', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái']),
@@ -543,8 +543,8 @@ async function loadScheduleRows() {
 
 function resetFilters(reload = true) {
   filters.keyword = ''
-  filters.date = today()
-  filters.fromDate = ''
+  filters.date = resource.value === 'appointments' ? '' : today()
+  filters.fromDate = resource.value === 'appointments' ? today() : ''
   filters.toDate = ''
   filters.status = ''
   page.value = 1

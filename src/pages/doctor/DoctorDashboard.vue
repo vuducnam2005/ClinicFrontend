@@ -69,7 +69,7 @@
     </div>
 
     <div class="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-      <PanelCard title="Bệnh nhân tiếp theo" subtitle="Ưu tiên theo giờ hẹn gần nhất">
+      <PanelCard title="Bệnh nhân tiếp theo" subtitle="Ưu tiên lịch hôm nay, sau đó đến lịch sắp tới gần nhất">
         <div v-if="nextPatient" class="p-5">
           <div class="flex flex-col gap-4 rounded-2xl border border-blue-100 bg-blue-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div class="min-w-0">
@@ -86,7 +86,7 @@
             </RouterLink>
           </div>
         </div>
-        <EmptyState v-else title="Không có lịch hẹn trong ngày" text="Chưa có bệnh nhân tiếp theo cho bác sĩ này." />
+        <EmptyState v-else title="Không có lịch hẹn sắp tới" text="Chưa có bệnh nhân tiếp theo cho bác sĩ này." />
       </PanelCard>
 
       <PanelCard title="Quick actions" subtitle="Các thao tác bác sĩ dùng thường xuyên">
@@ -161,6 +161,13 @@ const todayAppointments = computed(() =>
     .sort((a, b) => String(a.slotTime || '').localeCompare(String(b.slotTime || ''))),
 )
 
+const upcomingAppointments = computed(() =>
+  appointments.value
+    .filter((item) => normalizeDate(item.appointmentDate) >= today)
+    .filter((item) => !isCompleted(item.status) && !isCancelled(item.status))
+    .sort((a, b) => `${normalizeDate(a.appointmentDate)} ${a.slotTime || ''}`.localeCompare(`${normalizeDate(b.appointmentDate)} ${b.slotTime || ''}`)),
+)
+
 const activeQueue = computed(() => queue.value.filter((item) => normalizeDate(item.appointmentDate) === today))
 const inProgressVisits = computed(() => visits.value.filter((item) => isInProgress(item.status)))
 const completedVisits = computed(() => visits.value.filter((item) => isCompleted(item.status)))
@@ -183,6 +190,15 @@ const appointmentRows = computed<SummaryRow[]>(() => todayAppointments.value.map
   tone: statusTone(item.status),
 })))
 
+const upcomingRows = computed<SummaryRow[]>(() => upcomingAppointments.value.map((item) => ({
+  key: item.appointmentId,
+  patientName: displayText(item.patientName) || 'Chưa có tên',
+  time: `${formatDate(item.appointmentDate)} · ${item.slotTime || '--:--'}`,
+  reason: item.reason || item.specialtyName || 'Chưa ghi lý do',
+  status: statusText(item.status),
+  tone: statusTone(item.status),
+})))
+
 const queueRows = computed<SummaryRow[]>(() => activeQueue.value.map((item) => ({
   key: item.id || item.queueId || item.appointmentId,
   queueNumber: item.queueNumber || '-',
@@ -193,7 +209,7 @@ const queueRows = computed<SummaryRow[]>(() => activeQueue.value.map((item) => (
   tone: statusTone(item.status),
 })))
 
-const nextPatient = computed(() => appointmentRows.value.find((item) => !['Đã hoàn tất', 'Đã hủy'].includes(item.status)) || queueRows.value[0])
+const nextPatient = computed(() => appointmentRows.value.find((item) => !['Đã hoàn tất', 'Đã hủy'].includes(item.status)) || upcomingRows.value[0] || queueRows.value[0])
 
 const InfoRow = defineComponent({
   props: { label: { type: String, required: true }, value: { type: String, required: true } },
@@ -325,6 +341,17 @@ function isInProgress(status?: string) {
 function isCompleted(status?: string) {
   const value = String(status || '').toLowerCase()
   return value.includes('done') || value.includes('completed') || value.includes('hoàn')
+}
+
+function isCancelled(status?: string) {
+  const value = String(status || '').toLowerCase()
+  return value.includes('cancel') || value.includes('hủy') || value.includes('huy')
+}
+
+function formatDate(value?: string) {
+  if (!value) return 'Chưa cập nhật'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? String(value).slice(0, 10) : new Intl.DateTimeFormat('vi-VN').format(date)
 }
 
 function statusText(status?: string) {
