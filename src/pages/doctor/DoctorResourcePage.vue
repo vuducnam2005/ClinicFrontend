@@ -502,6 +502,8 @@ async function loadData() {
     if (resource.value === 'records') rows.value = await loadRecordRows()
     if (resource.value === 'schedule') rows.value = await loadScheduleRows()
 
+    if (resource.value === 'examine') await openRequestedExam()
+
     showToast('Tải dữ liệu thành công', 'Dữ liệu đã được lọc theo bác sĩ và bộ lọc hiện tại.', 'success')
   } catch (apiError) {
     error.value = businessError(apiError)
@@ -524,7 +526,14 @@ async function loadQueueRows() {
 async function loadVisitRows() {
   try {
     const data = await medicalRecordApi.getVisitsToday(doctorId.value)
-    return data.map(mapVisit)
+    const visitRows = data.map(mapVisit)
+    const appointmentId = Number(route.query.appointmentId || 0)
+    const hasRequestedVisit = appointmentId && visitRows.some((row) => Number(row.appointmentId) === appointmentId)
+    if (appointmentId && !hasRequestedVisit) {
+      const requestedVisit = await medicalRecordApi.getVisitByAppointment(appointmentId).catch(() => null)
+      if (requestedVisit?.visitId) visitRows.unshift(mapVisit(requestedVisit))
+    }
+    return visitRows
   } catch (apiError) {
     note.value = `N2 /visits/today đang lỗi (${getApiErrorMessage(apiError)}). Đang hiển thị hàng chờ N1 để đối chiếu, chỉ dòng có Visit N2 mới khám được.`
     const queueRows = await loadQueueRows()
@@ -544,7 +553,7 @@ async function loadScheduleRows() {
 
 function resetFilters(reload = true) {
   filters.keyword = ''
-  filters.date = resource.value === 'appointments' ? '' : today()
+  filters.date = resource.value === 'appointments' || route.query.appointmentId ? '' : today()
   filters.fromDate = resource.value === 'appointments' ? today() : ''
   filters.toDate = ''
   filters.status = ''
@@ -609,18 +618,35 @@ async function checkInAndOpenExam(row: Row) {
   const appointmentId = Number(row.appointmentId || row.id)
   if (!appointmentId) return showToast('Thiếu lịch hẹn', 'Không xác định được mã lịch hẹn để check-in.', 'error')
   try {
-    await appointmentApi.checkInAppointment(appointmentId).catch((apiError: any) => {
+    await appointmentApi.ensureAppointmentInProgress(appointmentId, row.date).catch((apiError: any) => {
       const message = normalize(getApiErrorMessage(apiError))
-      if (!message.includes('only confirmed') && !message.includes('queue') && !message.includes('already')) throw apiError
+      if (!message.includes('only confirmed') && !message.includes('queue') && !message.includes('already') && !message.includes('progress')) throw apiError
     })
     await medicalRecordApi.syncAppointmentConfirmed(row).catch(() => undefined)
-    await medicalRecordApi.syncPatientCheckedIn(row)
-    await medicalRecordApi.getVisitByAppointment(appointmentId)
+    await medicalRecordApi.syncPatientCheckedIn({ ...row, status: 'InProgress' })
+    const visit = await medicalRecordApi.getVisitByAppointment(appointmentId)
     showToast('Đã tạo lượt khám', 'Bệnh nhân đã được check-in và có thể khám trong màn Khám & kê đơn.', 'success')
-    await router.push('/doctor/examine')
+    await router.push({
+      path: '/doctor/examine',
+      query: {
+        appointmentId: String(appointmentId),
+        visitId: String(visit.visitId || visit.id || ''),
+      },
+    })
   } catch (apiError) {
     showToast('Chưa thể vào khám', businessError(apiError), 'error')
   }
+}
+
+async function openRequestedExam() {
+  const appointmentId = Number(route.query.appointmentId || 0)
+  const visitId = Number(route.query.visitId || 0)
+  if (!appointmentId && !visitId) return
+  const target = rows.value.find((row) =>
+    (visitId && Number(row.visitId || row.id) === visitId)
+    || (appointmentId && Number(row.appointmentId) === appointmentId)
+  )
+  if (target) await selectVisit(target)
 }
 
 async function selectVisit(row: Row) {

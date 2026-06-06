@@ -426,7 +426,7 @@ export const medicalRecordApi = {
         doctorId: Number(payload.doctorId || 0),
         queueNumber: payload.queueNumber ? Number(payload.queueNumber) : null,
         checkedInAt: new Date().toISOString(),
-        status: 'CheckedIn',
+        status: payload.status || 'CheckedIn',
       },
     })
     return readApiResponse(response.data)
