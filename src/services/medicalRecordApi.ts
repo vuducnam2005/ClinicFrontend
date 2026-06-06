@@ -15,23 +15,31 @@ export interface PatientMedicalHistory {
 export interface MedicalVisit extends Record<string, any> {
   visitId?: number
   id?: number
+  visitCode?: string
   medicalRecordId?: number
   appointmentId?: number
   patientId?: number
+  patientCode?: string
+  patientIdCode?: string
   patientName?: string
   doctorId?: number
   doctorName?: string
   chiefComplaint?: string
   symptoms?: string
+  vitalSignsJson?: string
   status?: string
   visitDate?: string
   createdAt?: string
+  startedAt?: string
+  completedAt?: string
 }
 
 export interface VisitVitalsPayload {
   temperature?: number | null
   bloodPressure?: string | null
   heartRate?: number | null
+  respiratoryRate?: number | null
+  spo2?: number | null
   weight?: number | null
   height?: number | null
   note?: string | null
@@ -132,6 +140,7 @@ function normalizeVisit(item: Record<string, any>): MedicalVisit {
     ...item,
     visitId: item.visitId ?? item.VisitId ?? item.id ?? item.Id,
     id: item.id ?? item.Id ?? item.visitId ?? item.VisitId,
+    visitCode: item.visitCode ?? item.VisitCode,
     medicalRecordId: item.medicalRecordId ?? item.MedicalRecordId ?? item.recordId ?? item.RecordId,
     appointmentId: item.appointmentId ?? item.AppointmentId,
     patientId: item.patientId ?? item.PatientId ?? patient?.patientId ?? patient?.PatientId ?? patientCode,
@@ -142,9 +151,12 @@ function normalizeVisit(item: Record<string, any>): MedicalVisit {
     doctorName: item.doctorName ?? item.DoctorName ?? doctor?.fullName ?? doctor?.FullName,
     chiefComplaint: item.chiefComplaint ?? item.ChiefComplaint,
     symptoms: item.symptoms ?? item.Symptoms,
+    vitalSignsJson: item.vitalSignsJson ?? item.VitalSignsJson,
     status: item.status ?? item.Status,
     visitDate: item.visitDate ?? item.VisitDate ?? item.createdAt ?? item.CreatedAt,
     createdAt: item.createdAt ?? item.CreatedAt,
+    startedAt: item.startedAt ?? item.StartedAt,
+    completedAt: item.completedAt ?? item.CompletedAt,
   }
 }
 

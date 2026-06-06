@@ -103,18 +103,24 @@
         :row="selectedRow"
         :active-visit="activeVisit"
         :active-record="activeRecord"
+        :active-patient="activePatient"
         :clinical-orders="clinicalOrders"
         :medicines="medicines"
         :medicine-loading="medicineLoading"
         :saving="savingExam"
-        :exam-tab="examTab"
         :exam-form="examForm"
+        :vitals-form="vitalsForm"
+        :history-form="historyForm"
         :order-form="orderForm"
+        :clinical-checklist="clinicalChecklist"
         :prescription-items="prescriptionItems"
-        @tab="examTab = $event"
         @start="startVisit"
+        @save-draft="saveDraft"
+        @save-vitals="saveVitals"
         @save-record="saveMedicalRecord"
         @add-order="addClinicalOrder"
+        @add-prescription-row="addPrescriptionRow"
+        @select-prescription-medicine="selectPrescriptionMedicine"
         @toggle-medicine="toggleMedicine"
         @remove-medicine="removeMedicine"
         @submit="submitExamination"
@@ -187,21 +193,33 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, reactive, ref, watch, type PropType } from 'vue'
+import { computed, defineComponent, h, reactive, ref, watch, type PropType } from 'vue'
 import { useRoute } from 'vue-router'
 import {
+  Activity,
+  AlertTriangle,
   CalendarClock,
   CheckCircle2,
   Clock3,
-  FileHeart,
-  Pill,
-  PlayCircle,
+  ClipboardCheck,
+  ClipboardList,
+  FileText,
+  FlaskConical,
+  HeartPulse,
+  Plus,
   RefreshCw,
   RotateCcw,
+  Ruler,
+  Save,
   Search,
   SearchX,
+  ShieldCheck,
   Stethoscope,
+  Thermometer,
   Trash2,
+  UserRound,
+  Weight,
+  Wind,
   X,
 } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -216,7 +234,7 @@ import { medicalRecordApi, type MedicalVisit, type PrescriptionItemPayload } fro
 import { currentDoctorId, filterAppointmentsForDoctor, filterQueueForDoctor, filterRecordsForDoctor, filterSchedulesForDoctor } from '@/utils/doctorScope'
 import type { Appointment, WaitingQueueItem } from '@/types/appointment'
 import type { DoctorSchedule } from '@/types/doctor'
-import type { MedicalRecord } from '@/types/medicalRecord'
+import type { MedicalRecord, Patient } from '@/types/medicalRecord'
 import type { Medicine } from '@/types/medicine'
 import { displayText } from '@/utils/displayText'
 
@@ -274,11 +292,11 @@ const actingKey = ref<string | number | null>(null)
 const selectedRow = ref<Row | null>(null)
 const activeVisit = ref<MedicalVisit | null>(null)
 const activeRecord = ref<MedicalRecord | null>(null)
+const activePatient = ref<Patient | null>(null)
 const clinicalOrders = ref<Record<string, any>[]>([])
 const medicines = ref<(Medicine & Record<string, any>)[]>([])
 const medicineLoading = ref(false)
 const savingExam = ref(false)
-const examTab = ref('overview')
 const recordDrawerOpen = ref(false)
 const detailDrawerOpen = ref(false)
 const selectedRecord = ref<Row | null>(null)
@@ -296,17 +314,46 @@ const filters = reactive({
 const examForm = reactive({
   chiefComplaint: '',
   symptoms: '',
+  clinicalExam: '',
   diagnosisCode: '',
   diagnosis: '',
   doctorNote: '',
   treatmentPlan: '',
   followUpDate: '',
+  conclusionStatus: 'Hoàn thành',
+})
+
+const vitalsForm = reactive({
+  bloodPressure: '',
+  heartRate: '',
+  temperature: '',
+  respiratoryRate: '',
+  spo2: '',
+  height: '',
+  weight: '',
+})
+
+const historyForm = reactive({
+  diabetes: false,
+  hypertension: false,
+  cardiovascular: false,
+  asthma: false,
+  other: '',
+  allergies: '',
 })
 
 const orderForm = reactive({
   orderType: 'Xét nghiệm',
   orderName: '',
   reason: '',
+})
+
+const clinicalChecklist = reactive({
+  bloodTest: false,
+  urineTest: false,
+  ultrasound: false,
+  xray: false,
+  ecg: false,
 })
 
 const prescriptionItems = ref<PrescriptionItemPayload[]>([])
@@ -568,7 +615,8 @@ async function selectVisit(row: Row) {
     if (!visit?.visitId) throw new Error('Lịch hẹn chưa được check-in hoặc N2 chưa tạo lượt khám.')
     activeVisit.value = visit
     examForm.chiefComplaint = meaningful(visit.chiefComplaint || row.reason)
-    await Promise.all([loadExistingRecord(), loadMedicines()])
+    hydrateVitalsFromVisit(visit)
+    await Promise.all([loadActivePatient(), loadExistingRecord(), loadMedicines()])
     return true
   } catch (apiError) {
     showToast('Không mở được lượt khám', businessError(apiError), 'error')
@@ -583,6 +631,7 @@ async function startVisit() {
   try {
     await medicalRecordApi.startVisit(activeVisit.value.visitId, { doctorId: doctorId.value, chiefComplaint: examForm.chiefComplaint.trim() })
     activeVisit.value = await medicalRecordApi.getVisit(activeVisit.value.visitId)
+    hydrateVitalsFromVisit(activeVisit.value)
     showToast('Đã bắt đầu khám', 'Tiếp theo nhập bệnh án ở tab Bệnh án.', 'success')
   } catch (apiError) {
     showToast('Chưa thể bắt đầu khám', businessError(apiError), 'error')
@@ -602,12 +651,13 @@ async function saveMedicalRecord() {
   }
   savingExam.value = true
   try {
+    await saveVitals(false)
     const payload = {
       visitId: activeVisit.value.visitId,
       diagnosisCode: examForm.diagnosisCode.trim() || undefined,
       diagnosisText: examForm.diagnosis.trim(),
-      doctorNote: examForm.doctorNote.trim() || undefined,
-      treatmentPlan: examForm.treatmentPlan.trim() || undefined,
+      doctorNote: clinicalDoctorNote(),
+      treatmentPlan: clinicalTreatmentPlan(),
       followUpDate: examForm.followUpDate || undefined,
     }
     activeRecord.value = activeRecord.value?.medicalRecordId
@@ -626,17 +676,23 @@ async function saveMedicalRecord() {
 
 async function addClinicalOrder() {
   if (!activeRecord.value?.medicalRecordId) return showToast('Chưa có bệnh án', 'Cần lưu bệnh án trước khi tạo chỉ định lâm sàng.', 'error')
-  if (!orderForm.orderName.trim()) return showToast('Thiếu chỉ định', 'Vui lòng nhập tên chỉ định lâm sàng.', 'error')
+  const selectedOrders = selectedClinicalOrderNames()
+  const manualName = orderForm.orderName.trim()
+  const orders = manualName ? [{ orderType: orderForm.orderType, orderName: manualName }] : selectedOrders
+  if (!orders.length) return showToast('Thiếu chỉ định', 'Vui lòng chọn hoặc nhập tên chỉ định cận lâm sàng.', 'error')
   savingExam.value = true
   try {
-    await medicalRecordApi.createClinicalOrder({
-      medicalRecordId: activeRecord.value.medicalRecordId,
-      orderType: orderForm.orderType,
-      orderName: orderForm.orderName.trim(),
-      reason: orderForm.reason.trim() || undefined,
-    })
+    for (const order of orders) {
+      await medicalRecordApi.createClinicalOrder({
+        medicalRecordId: activeRecord.value.medicalRecordId,
+        orderType: order.orderType,
+        orderName: order.orderName,
+        reason: orderForm.reason.trim() || undefined,
+      })
+    }
     orderForm.orderName = ''
     orderForm.reason = ''
+    Object.assign(clinicalChecklist, { bloodTest: false, urineTest: false, ultrasound: false, xray: false, ecg: false })
     await loadClinicalOrders()
     showToast('Đã tạo chỉ định', 'Chỉ định đã lưu vào N2.', 'success')
   } catch (apiError) {
@@ -644,6 +700,16 @@ async function addClinicalOrder() {
   } finally {
     savingExam.value = false
   }
+}
+
+function selectedClinicalOrderNames() {
+  return [
+    clinicalChecklist.bloodTest ? { orderType: 'Xét nghiệm', orderName: 'Xét nghiệm máu' } : null,
+    clinicalChecklist.urineTest ? { orderType: 'Xét nghiệm', orderName: 'Xét nghiệm nước tiểu' } : null,
+    clinicalChecklist.ultrasound ? { orderType: 'Siêu âm', orderName: 'Siêu âm' } : null,
+    clinicalChecklist.xray ? { orderType: 'X-Quang', orderName: 'X-Quang' } : null,
+    clinicalChecklist.ecg ? { orderType: 'Điện tim', orderName: 'Điện tim' } : null,
+  ].filter(Boolean) as { orderType: string; orderName: string }[]
 }
 
 async function submitExamination() {
@@ -704,6 +770,18 @@ async function cancelAppointment(row: Row) {
   }
 }
 
+async function loadActivePatient() {
+  const patientId = activeVisit.value?.patientId || selectedRow.value?.patientId
+  if (!patientId) {
+    activePatient.value = null
+    hydrateHistoryFromPatient(null)
+    return
+  }
+
+  activePatient.value = await medicalRecordApi.getPatient(patientId).catch(() => null)
+  hydrateHistoryFromPatient(activePatient.value)
+}
+
 async function loadExistingRecord() {
   if (!activeVisit.value?.visitId) return
   if (!activeVisit.value.medicalRecordId) {
@@ -718,9 +796,63 @@ async function loadExistingRecord() {
     examForm.doctorNote = activeRecord.value.doctorNote || activeRecord.value.doctorNotes || ''
     examForm.treatmentPlan = activeRecord.value.treatmentPlan || ''
     examForm.followUpDate = String(activeRecord.value.followUpDate || '').slice(0, 10)
+    hydrateClinicalTextFromRecord(activeRecord.value)
     await loadClinicalOrders()
   } catch (apiError: any) {
     if (apiError?.response?.status !== 404) note.value = `Chưa tải được bệnh án theo visit: ${getApiErrorMessage(apiError)}`
+  }
+}
+
+async function saveVitals(showSuccess = true) {
+  if (!activeVisit.value?.visitId) return false
+  await savePatientHistory()
+  await medicalRecordApi.updateVisitVitals(activeVisit.value.visitId, {
+    bloodPressure: textOrNull(vitalsForm.bloodPressure),
+    heartRate: numberOrNull(vitalsForm.heartRate),
+    temperature: numberOrNull(vitalsForm.temperature),
+    respiratoryRate: numberOrNull(vitalsForm.respiratoryRate),
+    spo2: numberOrNull(vitalsForm.spo2),
+    height: numberOrNull(vitalsForm.height),
+    weight: numberOrNull(vitalsForm.weight),
+    note: textOrNull(historyNote()),
+  })
+  activeVisit.value = await medicalRecordApi.getVisit(activeVisit.value.visitId)
+  hydrateVitalsFromVisit(activeVisit.value)
+  if (showSuccess) showToast('Đã lưu sinh hiệu', 'Sinh hiệu được cập nhật trực tiếp vào N2.', 'success')
+  return true
+}
+
+async function savePatientHistory() {
+  const patient = activePatient.value
+  const id = patient?.id || patient?.patientId
+  if (!id || !patient?.fullName) return
+  const medicalHistory = patientHistoryText()
+  activePatient.value = await medicalRecordApi.updatePatient(id, {
+    fullName: patient.fullName,
+    dateOfBirth: patient.dateOfBirth,
+    gender: patient.gender,
+    phoneNumber: patient.phoneNumber || patient.phone,
+    email: patient.email,
+    address: patient.address,
+    citizenId: patient.citizenId,
+    bloodType: patient.bloodType,
+    allergyNote: textOrNull(historyForm.allergies),
+    medicalHistory: textOrNull(medicalHistory),
+    status: patient.status,
+  }).catch(() => patient)
+}
+
+async function saveDraft() {
+  if (!activeVisit.value?.visitId) return showToast('Thiếu lượt khám', 'Cần mở lượt khám N2 trước khi lưu nháp.', 'error')
+  savingExam.value = true
+  try {
+    await saveVitals(false)
+    if (examForm.diagnosis.trim()) await saveMedicalRecord()
+    else showToast('Đã lưu nháp', 'Sinh hiệu và thông tin khám hiện có đã được lưu.', 'success')
+  } catch (apiError) {
+    showToast('Lưu nháp thất bại', businessError(apiError), 'error')
+  } finally {
+    savingExam.value = false
   }
 }
 
@@ -762,6 +894,48 @@ function toggleMedicine(medicine: Medicine & Record<string, any>) {
   })
 }
 
+function addPrescriptionRow() {
+  const available = medicines.value.find((medicine) => {
+    const id = medicineId(medicine)
+    return id && !prescriptionItems.value.some((item) => item.medicineId === id)
+  })
+  if (available) {
+    const id = medicineId(available)
+    prescriptionItems.value.push({
+      medicineId: id,
+      medicineNameSnapshot: medicineName(available),
+      unitSnapshot: medicineUnit(available),
+      dosage: '',
+      frequency: 'Theo liều dùng',
+      durationDays: 1,
+      quantity: 1,
+      usageInstruction: '',
+      note: '',
+    })
+    return
+  }
+
+  prescriptionItems.value.push({
+    medicineId: 0,
+    medicineNameSnapshot: '',
+    unitSnapshot: '',
+    dosage: '',
+    frequency: 'Theo liều dùng',
+    durationDays: 1,
+    quantity: 1,
+    usageInstruction: '',
+    note: '',
+  })
+}
+
+function selectPrescriptionMedicine(item: PrescriptionItemPayload, value: string | number) {
+  const id = Number(value)
+  const medicine = medicines.value.find((entry) => medicineId(entry) === id)
+  item.medicineId = Number.isFinite(id) ? id : 0
+  item.medicineNameSnapshot = medicine ? medicineName(medicine) : ''
+  item.unitSnapshot = medicine ? medicineUnit(medicine) : ''
+}
+
 function removeMedicine(medicineIdValue: number) {
   prescriptionItems.value = prescriptionItems.value.filter((item) => item.medicineId !== medicineIdValue)
 }
@@ -788,10 +962,14 @@ function clearWorkingState() {
 function clearExamOnly() {
   activeVisit.value = null
   activeRecord.value = null
+  activePatient.value = null
   clinicalOrders.value = []
   prescriptionItems.value = []
-  examTab.value = 'overview'
-  Object.assign(examForm, { chiefComplaint: '', symptoms: '', diagnosisCode: '', diagnosis: '', doctorNote: '', treatmentPlan: '', followUpDate: '' })
+  Object.assign(examForm, { chiefComplaint: '', symptoms: '', clinicalExam: '', diagnosisCode: '', diagnosis: '', doctorNote: '', treatmentPlan: '', followUpDate: '', conclusionStatus: 'Hoàn thành' })
+  Object.assign(vitalsForm, { bloodPressure: '', heartRate: '', temperature: '', respiratoryRate: '', spo2: '', height: '', weight: '' })
+  Object.assign(historyForm, { diabetes: false, hypertension: false, cardiovascular: false, asthma: false, other: '', allergies: '' })
+  Object.assign(clinicalChecklist, { bloodTest: false, urineTest: false, ultrasound: false, xray: false, ecg: false })
+  Object.assign(orderForm, { orderType: 'Xét nghiệm', orderName: '', reason: '' })
 }
 
 function mapAppointment(item: Appointment): Row {
@@ -905,10 +1083,10 @@ function statusBucket(status?: string) {
 function statusText(status?: string) {
   const bucket = statusBucket(status)
   if (bucket === 'cancelled') return 'Đã hủy'
-  if (bucket === 'completed') return 'Đã hoàn tất'
+  if (bucket === 'completed') return 'Hoàn thành'
   if (bucket === 'progress') return 'Đang khám'
   if (bucket === 'confirmed') return 'Đã xác nhận'
-  if (bucket === 'waiting') return 'Đang chờ'
+  if (bucket === 'waiting') return 'Chờ khám'
   return status || 'Chưa cập nhật'
 }
 
@@ -978,6 +1156,126 @@ function medicinePrice(medicineIdValue: number) {
 
 function prescriptionNote() {
   return prescriptionItems.value.map((item) => `${item.medicineNameSnapshot}: ${item.quantity} ${item.unitSnapshot || ''}; ${item.dosage}; ${item.frequency}; ${item.durationDays} ngày`).join('\n')
+}
+
+function parseVitals(visit?: MedicalVisit | null) {
+  const raw = visit?.vitalSignsJson || visit?.VitalSignsJson
+  if (!raw || typeof raw !== 'string') return {} as Record<string, any>
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return {}
+  }
+}
+
+function hydrateVitalsFromVisit(visit?: MedicalVisit | null) {
+  const vitals = parseVitals(visit)
+  vitalsForm.bloodPressure = stringValue(vitals.bloodPressure ?? vitals.BloodPressure)
+  vitalsForm.heartRate = stringValue(vitals.heartRate ?? vitals.HeartRate)
+  vitalsForm.temperature = stringValue(vitals.temperature ?? vitals.Temperature)
+  vitalsForm.respiratoryRate = stringValue(vitals.respiratoryRate ?? vitals.RespiratoryRate)
+  vitalsForm.spo2 = stringValue(vitals.spo2 ?? vitals.Spo2 ?? vitals.spO2 ?? vitals.SpO2)
+  vitalsForm.height = stringValue(vitals.height ?? vitals.Height)
+  vitalsForm.weight = stringValue(vitals.weight ?? vitals.Weight)
+}
+
+function hydrateHistoryFromPatient(patient?: Patient | null) {
+  const medicalHistory = String(patient?.medicalHistory || '').trim()
+  const normalized = normalize(medicalHistory)
+  historyForm.diabetes = normalized.includes('tieu duong') || normalized.includes('diabetes')
+  historyForm.hypertension = normalized.includes('tang huyet ap') || normalized.includes('hypertension')
+  historyForm.cardiovascular = normalized.includes('tim mach') || normalized.includes('cardio')
+  historyForm.asthma = normalized.includes('hen') || normalized.includes('asthma')
+  historyForm.other = medicalHistory || ''
+  historyForm.allergies = String(patient?.allergyNote || patient?.allergies || '').trim()
+}
+
+function hydrateClinicalTextFromRecord(record?: MedicalRecord | null) {
+  const note = record?.doctorNote || record?.doctorNotes || ''
+  const plan = record?.treatmentPlan || ''
+  if (!examForm.clinicalExam && note) examForm.clinicalExam = note
+  if (!examForm.doctorNote && plan) examForm.doctorNote = plan
+}
+
+function textOrNull(value: unknown) {
+  const textValue = String(value ?? '').trim()
+  return textValue || null
+}
+
+function numberOrNull(value: unknown) {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : null
+}
+
+function stringValue(value: unknown) {
+  return value === null || value === undefined ? '' : String(value)
+}
+
+function historyNote() {
+  const items = [
+    historyForm.diabetes ? 'Tiểu đường' : '',
+    historyForm.hypertension ? 'Tăng huyết áp' : '',
+    historyForm.cardiovascular ? 'Tim mạch' : '',
+    historyForm.asthma ? 'Hen suyễn' : '',
+    historyForm.other ? `Khác: ${historyForm.other}` : '',
+    historyForm.allergies ? `Dị ứng: ${historyForm.allergies}` : '',
+  ].filter(Boolean)
+  return items.join('; ')
+}
+
+function patientHistoryText() {
+  return [
+    historyForm.diabetes ? 'Tiểu đường' : '',
+    historyForm.hypertension ? 'Tăng huyết áp' : '',
+    historyForm.cardiovascular ? 'Tim mạch' : '',
+    historyForm.asthma ? 'Hen suyễn' : '',
+    historyForm.other,
+  ].map((item) => item.trim()).filter(Boolean).join('; ')
+}
+
+function clinicalDoctorNote() {
+  const parts = [
+    examForm.symptoms.trim() ? `Triệu chứng: ${examForm.symptoms.trim()}` : '',
+    examForm.clinicalExam.trim() ? `Khám lâm sàng: ${examForm.clinicalExam.trim()}` : '',
+    examForm.doctorNote.trim() ? `Lời dặn: ${examForm.doctorNote.trim()}` : '',
+  ].filter(Boolean)
+  return parts.join('\n') || undefined
+}
+
+function clinicalTreatmentPlan() {
+  const parts = [
+    examForm.treatmentPlan.trim(),
+    examForm.conclusionStatus ? `Tình trạng: ${examForm.conclusionStatus}` : '',
+  ].filter(Boolean)
+  return parts.join('\n') || undefined
+}
+
+function patientAge(patient?: Patient | null) {
+  const birth = patient?.dateOfBirth
+  if (!birth) return ''
+  const date = new Date(birth)
+  if (Number.isNaN(date.getTime())) return ''
+  const now = new Date()
+  let age = now.getFullYear() - date.getFullYear()
+  const month = now.getMonth() - date.getMonth()
+  if (month < 0 || (month === 0 && now.getDate() < date.getDate())) age -= 1
+  return age > 0 ? `${age} tuổi` : ''
+}
+
+function bmiValue(height: unknown, weight: unknown) {
+  const heightCm = Number(height)
+  const weightKg = Number(weight)
+  if (!Number.isFinite(heightCm) || !Number.isFinite(weightKg) || heightCm <= 0 || weightKg <= 0) return ''
+  return (weightKg / ((heightCm / 100) ** 2)).toFixed(1)
+}
+
+function displayOrEmpty(value: unknown) {
+  const textValue = String(value ?? '').trim()
+  return textValue || 'Chưa có'
+}
+
+function patientInsurance(patient?: (Patient & Record<string, any>) | null) {
+  return patient?.healthInsuranceNumber || patient?.HealthInsuranceNumber || patient?.insuranceNumber || patient?.InsuranceNumber || ''
 }
 
 function businessError(apiError: unknown) {
@@ -1090,130 +1388,326 @@ const ExaminationWorkspace = defineComponent({
     row: { type: Object as PropType<Row | null>, default: null },
     activeVisit: { type: Object as PropType<MedicalVisit | null>, default: null },
     activeRecord: { type: Object as PropType<MedicalRecord | null>, default: null },
+    activePatient: { type: Object as PropType<Patient | null>, default: null },
     clinicalOrders: { type: Array as PropType<Record<string, any>[]>, required: true },
     medicines: { type: Array as PropType<(Medicine & Record<string, any>)[]>, required: true },
     medicineLoading: Boolean,
     saving: Boolean,
-    examTab: { type: String, required: true },
     examForm: { type: Object as PropType<typeof examForm>, required: true },
+    vitalsForm: { type: Object as PropType<typeof vitalsForm>, required: true },
+    historyForm: { type: Object as PropType<typeof historyForm>, required: true },
     orderForm: { type: Object as PropType<typeof orderForm>, required: true },
+    clinicalChecklist: { type: Object as PropType<typeof clinicalChecklist>, required: true },
     prescriptionItems: { type: Array as PropType<PrescriptionItemPayload[]>, required: true },
   },
-  emits: ['tab', 'start', 'save-record', 'add-order', 'toggle-medicine', 'remove-medicine', 'submit'],
+  emits: ['start', 'save-draft', 'save-vitals', 'save-record', 'add-order', 'add-prescription-row', 'select-prescription-medicine', 'toggle-medicine', 'remove-medicine', 'submit'],
   setup(props, { emit }) {
-    const tabs = [
-      ['overview', 'Thông tin khám'],
-      ['record', 'Bệnh án'],
-      ['prescription', 'Đơn thuốc'],
-      ['history', 'Lịch sử'],
-    ]
-    return () => h('div', { class: 'overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm' }, [
+    return () => h('div', { class: 'min-w-0' }, [
       props.row
         ? [
-            h('div', { class: 'border-b border-slate-100 p-5' }, [
-              h('div', { class: 'flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between' }, [
-                h('div', null, [
-                  h('p', { class: 'text-xs font-bold uppercase tracking-[0.16em] text-blue-700' }, 'Không gian khám'),
-                  h('h2', { class: 'mt-1 text-2xl font-bold text-slate-950' }, props.row.patientName || 'Bệnh nhân'),
-                  h('p', { class: 'mt-2 text-sm text-slate-500' }, `${props.row.timeLabel || ''} · ${props.row.reason || 'Chưa ghi lý do'}`),
-                ]),
-                h(StatusChip, { status: props.activeVisit?.status || props.row.status }),
+            renderProgressSteps(props),
+            h('div', { class: 'space-y-6 pb-28' }, [
+              renderPatientCard(props, emit),
+              renderVitalsCard(props, emit),
+              h('div', { class: 'grid gap-6 2xl:grid-cols-2' }, [
+                renderHistoryCard(props),
+                renderAllergyCard(props),
               ]),
-              h('div', { class: 'mt-4 flex flex-wrap gap-2' }, tabs.map(([key, label]) =>
-                h('button', {
-                  type: 'button',
-                  class: ['rounded-xl px-3 py-2 text-sm font-bold transition', props.examTab === key ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700'],
-                  onClick: () => emit('tab', key),
-                }, label),
-              )),
+              renderMedicalRecordCard(props),
+              renderClinicalOrdersCard(props, emit),
+              renderPrescriptionCard(props, emit),
+              renderConclusionCard(props),
             ]),
-            h('div', { class: 'p-5' }, renderExamTab(props, emit)),
+            renderFooterActionBar(props, emit),
           ]
-        : h(EmptyState, { title: 'Chưa chọn bệnh nhân', text: 'Chọn một bệnh nhân bên trái để bắt đầu khám, lưu bệnh án và kê đơn.' }),
+        : h('div', { class: 'rounded-2xl border border-slate-200 bg-white p-10 shadow-sm' }, [
+            h(EmptyState, { title: 'Chưa chọn bệnh nhân', text: 'Chọn một bệnh nhân bên trái để bắt đầu khám, lưu bệnh án và kê đơn.' }),
+          ]),
     ])
   },
 })
 
-function renderExamTab(props: any, emit: any) {
-  if (props.examTab === 'overview') {
-    return h('div', { class: 'space-y-4' }, [
-      sectionBlock('Thông tin lượt khám', [
-        ['Visit', props.activeVisit?.visitId || props.row?.visitId || 'Chưa có'],
-        ['Lịch hẹn', props.activeVisit?.appointmentId || props.row?.appointmentId || 'Không gắn lịch'],
-        ['Lý do khám', props.examForm.chiefComplaint || props.row?.reason || 'Chưa ghi nhận'],
+function renderProgressSteps(props: any) {
+  const steps = ['Bắt đầu khám', 'Bệnh án', 'Chỉ định', 'Kê đơn', 'Hoàn thành']
+  const active = statusBucket(props.activeVisit?.status || props.row?.status) === 'completed'
+    ? 4
+    : props.prescriptionItems.length
+      ? 3
+      : props.clinicalOrders.length
+        ? 2
+        : props.activeRecord?.medicalRecordId || props.examForm.diagnosis
+          ? 1
+          : statusBucket(props.activeVisit?.status || props.row?.status) === 'progress'
+            ? 0
+            : 0
+  return h('div', { class: 'mb-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm' }, [
+    h('div', { class: 'grid min-w-[720px] grid-cols-5 gap-3' }, steps.map((label, index) =>
+      h('div', { class: ['flex items-center gap-3', index < steps.length - 1 ? 'after:h-px after:flex-1 after:bg-slate-200' : ''] }, [
+        h('span', { class: ['flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold', index <= active ? 'bg-[#0F52BA] text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200'] }, String(index + 1)),
+        h('span', { class: ['whitespace-nowrap text-sm font-bold', index <= active ? 'text-[#0F52BA]' : 'text-slate-500'] }, label),
       ]),
-      h('div', { class: 'grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end' }, [
-        h('label', { class: 'block' }, [
-          h('span', { class: 'mb-2 block text-sm font-semibold text-slate-700' }, 'Lý do khám *'),
-          h('input', {
-            value: props.examForm.chiefComplaint,
-            class: 'form-input',
-            placeholder: 'Nhập lý do khám trước khi bắt đầu',
-            onInput: (event: Event) => { props.examForm.chiefComplaint = (event.target as HTMLInputElement).value },
-          }),
+    )),
+  ])
+}
+
+function renderPatientCard(props: any, emit: any) {
+  const patient = props.activePatient as (Patient & Record<string, any>) | null
+  const visit = props.activeVisit as MedicalVisit | null
+  const visitStatus = statusBucket(visit?.status || props.row?.status)
+  return medicalCard('Thông tin bệnh nhân', UserRound, [
+    h('div', { class: 'flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between' }, [
+      h('div', { class: 'flex min-w-0 items-center gap-4' }, [
+        h('div', { class: 'flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-[#0F52BA]' }, [h(UserRound, { class: 'h-8 w-8' })]),
+        h('div', { class: 'min-w-0' }, [
+          h('div', { class: 'flex flex-wrap items-center gap-2' }, [
+            h('h2', { class: 'truncate text-2xl font-bold text-slate-950' }, displayOrEmpty(patient?.fullName || props.row?.patientName)),
+            h('span', { class: 'rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600' }, displayOrEmpty(patient?.gender)),
+            h('span', { class: 'rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700' }, patientAge(patient) || 'Chưa có tuổi'),
+          ]),
+          h('p', { class: 'mt-2 text-sm text-slate-500' }, displayOrEmpty(props.examForm.chiefComplaint || props.row?.reason)),
         ]),
-        h(BaseButton, { type: 'button', variant: 'primary', loading: props.saving, onClick: () => emit('start') }, () => 'Bắt đầu lượt khám'),
       ]),
-    ])
-  }
-  if (props.examTab === 'record') {
-    return h('div', { class: 'space-y-4' }, [
-      h('div', { class: 'grid gap-4 sm:grid-cols-2' }, [
-        textareaField('Triệu chứng', props.examForm.symptoms, (value: string) => { props.examForm.symptoms = value }, 'Ghi nhận triệu chứng lâm sàng', 'sm:col-span-2'),
-        inputField('Mã ICD', props.examForm.diagnosisCode, (value: string) => { props.examForm.diagnosisCode = value }, 'VD: H10'),
-        inputField('Ngày tái khám', props.examForm.followUpDate, (value: string) => { props.examForm.followUpDate = value }, '', 'date'),
-        textareaField('Chẩn đoán *', props.examForm.diagnosis, (value: string) => { props.examForm.diagnosis = value }, 'Chẩn đoán hoặc kết luận khám', 'sm:col-span-2'),
-        textareaField('Ghi chú bác sĩ', props.examForm.doctorNote, (value: string) => { props.examForm.doctorNote = value }, 'Ghi chú nội bộ', 'sm:col-span-2'),
-        textareaField('Kế hoạch điều trị', props.examForm.treatmentPlan, (value: string) => { props.examForm.treatmentPlan = value }, 'Hướng điều trị', 'sm:col-span-2'),
-      ]),
-      h('div', { class: 'flex justify-end' }, [h(BaseButton, { type: 'button', variant: 'outline', loading: props.saving, onClick: () => emit('save-record') }, () => 'Lưu bệnh án')]),
-      h('div', { class: 'rounded-2xl border border-slate-200 bg-slate-50 p-4' }, [
-        h('h3', { class: 'font-bold text-slate-950' }, 'Chỉ định lâm sàng'),
-        h('div', { class: 'mt-3 grid gap-3 md:grid-cols-[160px_1fr_1fr_auto] md:items-end' }, [
-          selectField('Loại', props.orderForm.orderType, (value: string) => { props.orderForm.orderType = value }, ['Xét nghiệm', 'Siêu âm', 'X-quang', 'Khác']),
-          inputField('Tên chỉ định', props.orderForm.orderName, (value: string) => { props.orderForm.orderName = value }, 'VD: X-quang phổi'),
-          inputField('Lý do', props.orderForm.reason, (value: string) => { props.orderForm.reason = value }, 'Lý do chỉ định'),
-          h(BaseButton, { type: 'button', variant: 'outline', loading: props.saving, onClick: () => emit('add-order') }, () => 'Thêm'),
-        ]),
-        props.clinicalOrders.length
-          ? h('div', { class: 'mt-3 flex flex-wrap gap-2' }, props.clinicalOrders.map((order: any) => h('span', { class: 'rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-700 ring-1 ring-slate-200' }, `${order.orderType || order.OrderType} - ${order.orderName || order.OrderName}`)))
-          : null,
-      ]),
-    ])
-  }
-  if (props.examTab === 'prescription') {
-    return h('div', { class: 'space-y-4' }, [
-      props.medicineLoading ? h(LoadingSkeleton) : h('div', { class: 'grid gap-3 md:grid-cols-2' }, props.medicines.map((medicine: any) => {
-        const id = medicineId(medicine)
-        const selected = props.prescriptionItems.some((item: PrescriptionItemPayload) => item.medicineId === id)
-        return h('button', {
+      h('div', { class: 'flex shrink-0 flex-wrap items-center gap-2' }, [
+        h(StatusChip, { status: visit?.status || props.row?.status }),
+        h(BaseButton, {
           type: 'button',
-          class: ['rounded-2xl border bg-white p-4 text-left transition hover:border-blue-200', selected ? 'border-blue-500 ring-4 ring-blue-100' : 'border-slate-200'],
-          onClick: () => emit('toggle-medicine', medicine),
-        }, [
-          h('p', { class: 'font-bold text-slate-950' }, medicineName(medicine)),
-          h('p', { class: 'mt-1 text-sm text-slate-500' }, `Tồn: ${medicineStock(medicine)} ${medicineUnit(medicine)}`),
-        ])
-      })),
-      props.prescriptionItems.length
-        ? h('div', { class: 'space-y-3' }, props.prescriptionItems.map((item: PrescriptionItemPayload) => h('div', { class: 'rounded-2xl border border-slate-200 p-4' }, [
-            h('div', { class: 'flex items-start justify-between gap-3' }, [
-              h('p', { class: 'font-bold text-slate-950' }, item.medicineNameSnapshot),
-              h('button', { type: 'button', class: 'text-rose-600', onClick: () => emit('remove-medicine', item.medicineId) }, [h(Trash2, { class: 'h-4 w-4' })]),
+          variant: visitStatus === 'progress' ? 'outline' : 'primary',
+          loading: props.saving,
+          disabled: ['completed', 'progress'].includes(visitStatus),
+          onClick: () => emit('start'),
+        }, () => [h(Stethoscope, { class: 'h-4 w-4' }), visitStatus === 'progress' ? 'Đang khám' : 'Bắt đầu khám']),
+      ]),
+    ]),
+    h('div', { class: 'mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4' }, [
+      infoItem('Mã bệnh nhân', patient?.patientCode || patient?.patientIdCode || visit?.patientCode || props.row?.patientId),
+      infoItem('Số điện thoại', patient?.phoneNumber || patient?.phone),
+      infoItem('BHYT', patientInsurance(patient)),
+      infoItem('Mã lịch hẹn', visit?.appointmentId || props.row?.appointmentId),
+      infoItem('Visit ID', visit?.visitCode || visit?.visitId || props.row?.visitId),
+      infoItem('Ngày khám', props.row?.timeLabel || formatDate(visit?.visitDate || visit?.createdAt)),
+      infoItem('Bác sĩ', visit?.doctorName || props.row?.doctorName || doctorName.value),
+      infoItem('Bệnh án', props.activeRecord?.medicalRecordCode || props.activeRecord?.medicalRecordIdCode || props.activeRecord?.medicalRecordId),
+    ]),
+  ])
+}
+
+function renderVitalsCard(props: any, emit: any) {
+  const bmi = bmiValue(props.vitalsForm.height, props.vitalsForm.weight)
+  return medicalCard('Sinh hiệu', HeartPulse, [
+    h('div', { class: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8' }, [
+      vitalField('Huyết áp', props.vitalsForm.bloodPressure, (value: string) => { props.vitalsForm.bloodPressure = value }, 'mmHg', HeartPulse),
+      vitalField('Mạch', props.vitalsForm.heartRate, (value: string) => { props.vitalsForm.heartRate = value }, 'lần/phút', Activity, 'number'),
+      vitalField('Nhiệt độ', props.vitalsForm.temperature, (value: string) => { props.vitalsForm.temperature = value }, '°C', Thermometer, 'number'),
+      vitalField('Nhịp thở', props.vitalsForm.respiratoryRate, (value: string) => { props.vitalsForm.respiratoryRate = value }, 'lần/phút', Wind, 'number'),
+      vitalField('SpO2', props.vitalsForm.spo2, (value: string) => { props.vitalsForm.spo2 = value }, '%', Activity, 'number'),
+      vitalField('Chiều cao', props.vitalsForm.height, (value: string) => { props.vitalsForm.height = value }, 'cm', Ruler, 'number'),
+      vitalField('Cân nặng', props.vitalsForm.weight, (value: string) => { props.vitalsForm.weight = value }, 'kg', Weight, 'number'),
+      h('div', { class: 'rounded-xl border border-blue-100 bg-blue-50 p-3' }, [
+        h('p', { class: 'text-xs font-bold text-blue-700' }, 'BMI'),
+        h('p', { class: 'mt-2 text-xl font-bold text-slate-950' }, bmi || 'Chưa có'),
+        h('p', { class: 'text-xs text-slate-500' }, bmi ? 'kg/m²' : 'Nhập chiều cao/cân nặng'),
+      ]),
+    ]),
+    h('div', { class: 'mt-4 flex justify-end' }, [
+      h(BaseButton, { type: 'button', variant: 'outline', loading: props.saving, onClick: () => emit('save-vitals') }, () => 'Lưu sinh hiệu'),
+    ]),
+  ])
+}
+
+function renderHistoryCard(props: any) {
+  return medicalCard('Tiền sử bệnh', ShieldCheck, [
+    h('div', { class: 'grid gap-3 sm:grid-cols-2' }, [
+      checkboxField('Tiểu đường', props.historyForm.diabetes, (value: boolean) => { props.historyForm.diabetes = value }),
+      checkboxField('Tăng huyết áp', props.historyForm.hypertension, (value: boolean) => { props.historyForm.hypertension = value }),
+      checkboxField('Tim mạch', props.historyForm.cardiovascular, (value: boolean) => { props.historyForm.cardiovascular = value }),
+      checkboxField('Hen suyễn', props.historyForm.asthma, (value: boolean) => { props.historyForm.asthma = value }),
+    ]),
+    h('div', { class: 'mt-4' }, [
+      inputField('Khác', props.historyForm.other, (value: string) => { props.historyForm.other = value }, 'Nhập tiền sử khác nếu có'),
+    ]),
+  ])
+}
+
+function renderAllergyCard(props: any) {
+  return medicalCard('Dị ứng thuốc', AlertTriangle, [
+    textareaField('Dị ứng thuốc', props.historyForm.allergies, (value: string) => { props.historyForm.allergies = value }, 'Chưa có', ''),
+  ])
+}
+
+function renderMedicalRecordCard(props: any) {
+  return medicalCard('Bệnh án khám', ClipboardList, [
+    h('div', { class: 'grid gap-4 xl:grid-cols-2' }, [
+      textareaField('Triệu chứng', props.examForm.symptoms, (value: string) => { props.examForm.symptoms = value }, 'Chưa có'),
+      textareaField('Khám lâm sàng', props.examForm.clinicalExam, (value: string) => { props.examForm.clinicalExam = value }, 'Chưa có'),
+      textareaField('Chẩn đoán *', props.examForm.diagnosis, (value: string) => { props.examForm.diagnosis = value }, 'VD: Cảm lạnh thông thường', 'xl:col-span-2'),
+      h('div', { class: 'xl:col-span-2 grid gap-3 xl:grid-cols-[1fr_1fr]' }, [
+        h('label', { class: 'block' }, [
+          h('span', { class: 'mb-2 block text-sm font-semibold text-slate-700' }, 'Mã ICD'),
+          h('input', {
+            value: props.examForm.diagnosisCode,
+            list: 'icd-options',
+            class: 'form-input',
+            placeholder: 'Search ICD',
+            onInput: (event: Event) => { props.examForm.diagnosisCode = (event.target as HTMLInputElement).value },
+          }),
+          h('datalist', { id: 'icd-options' }, [
+            h('option', { value: 'J00 - Cảm lạnh thông thường' }),
+            h('option', { value: 'I10 - Tăng huyết áp' }),
+            h('option', { value: 'E11 - Đái tháo đường type 2' }),
+          ]),
+        ]),
+        inputField('Lý do khám', props.examForm.chiefComplaint, (value: string) => { props.examForm.chiefComplaint = value }, 'Chưa có'),
+      ]),
+    ]),
+  ])
+}
+
+function renderClinicalOrdersCard(props: any, emit: any) {
+  return medicalCard('Chỉ định cận lâm sàng', FlaskConical, [
+    h('div', { class: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-5' }, [
+      checkboxField('Xét nghiệm máu', props.clinicalChecklist.bloodTest, (value: boolean) => { props.clinicalChecklist.bloodTest = value }),
+      checkboxField('Xét nghiệm nước tiểu', props.clinicalChecklist.urineTest, (value: boolean) => { props.clinicalChecklist.urineTest = value }),
+      checkboxField('Siêu âm', props.clinicalChecklist.ultrasound, (value: boolean) => { props.clinicalChecklist.ultrasound = value }),
+      checkboxField('X-Quang', props.clinicalChecklist.xray, (value: boolean) => { props.clinicalChecklist.xray = value }),
+      checkboxField('Điện tim', props.clinicalChecklist.ecg, (value: boolean) => { props.clinicalChecklist.ecg = value }),
+    ]),
+    h('div', { class: 'mt-4 grid gap-3 xl:grid-cols-[160px_1fr_1fr_auto] xl:items-end' }, [
+      selectField('Loại', props.orderForm.orderType, (value: string) => { props.orderForm.orderType = value }, ['Xét nghiệm', 'Siêu âm', 'X-Quang', 'Điện tim', 'Khác']),
+      inputField('Tên chỉ định khác', props.orderForm.orderName, (value: string) => { props.orderForm.orderName = value }, 'VD: Nội soi tai mũi họng'),
+      inputField('Lý do', props.orderForm.reason, (value: string) => { props.orderForm.reason = value }, 'Chưa có'),
+      h(BaseButton, { type: 'button', variant: 'outline', loading: props.saving, onClick: () => emit('add-order') }, () => [h(Plus, { class: 'h-4 w-4' }), 'Thêm chỉ định']),
+    ]),
+    props.clinicalOrders.length
+      ? h('div', { class: 'mt-4 flex flex-wrap gap-2' }, props.clinicalOrders.map((order: any) =>
+          h('span', { class: 'rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-100' }, `${order.orderType || order.OrderType || 'Chỉ định'} - ${order.orderName || order.OrderName || 'Chưa có'}`),
+        ))
+      : h('p', { class: 'mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-500' }, 'Chưa có chỉ định cận lâm sàng.'),
+  ])
+}
+
+function renderPrescriptionCard(props: any, emit: any) {
+  return medicalCard('Kê đơn thuốc', ClipboardCheck, [
+    props.medicineLoading
+      ? h(LoadingSkeleton)
+      : h('div', { class: 'overflow-x-auto rounded-xl border border-slate-200' }, [
+          h('table', { class: 'min-w-[900px] w-full divide-y divide-slate-200 text-sm' }, [
+            h('thead', { class: 'bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500' }, [
+              h('tr', null, ['Thuốc', 'Liều dùng', 'Số lượng', 'Ghi chú', 'Thao tác'].map((label) => h('th', { class: 'px-4 py-3' }, label))),
             ]),
-            h('div', { class: 'mt-3 grid gap-3 md:grid-cols-5' }, [
-              inputField('SL', item.quantity, (value: string) => { item.quantity = Number(value) }, '1', 'number'),
-              inputField('Liều dùng', item.dosage, (value: string) => { item.dosage = value }, '1 viên/lần'),
-              inputField('Tần suất', item.frequency, (value: string) => { item.frequency = value }, '2 lần/ngày'),
-              inputField('Số ngày', item.durationDays, (value: string) => { item.durationDays = Number(value) }, '1', 'number'),
-              inputField('Cách dùng', item.usageInstruction || '', (value: string) => { item.usageInstruction = value }, 'Sau ăn'),
-            ]),
-          ])))
-        : h('p', { class: 'rounded-xl bg-slate-50 p-4 text-sm text-slate-500' }, 'Chưa chọn thuốc. Chọn thuốc từ danh mục phía trên để kê đơn.'),
-      h('div', { class: 'flex justify-end' }, [h(BaseButton, { type: 'button', loading: props.saving, onClick: () => emit('submit') }, () => 'Kê đơn & hoàn tất khám')]),
-    ])
-  }
-  return h('div', { class: 'rounded-2xl border border-slate-200 p-6 text-sm text-slate-500' }, 'Lịch sử gần đây sẽ hiển thị sau khi API lịch sử bệnh nhân trả dữ liệu theo patientId.')
+            h('tbody', { class: 'divide-y divide-slate-100 bg-white' }, props.prescriptionItems.length
+              ? props.prescriptionItems.map((item: PrescriptionItemPayload) =>
+                  h('tr', null, [
+                    h('td', { class: 'px-4 py-3' }, [
+                      h('select', {
+                        value: item.medicineId || '',
+                        class: 'form-input min-w-[220px]',
+                        onChange: (event: Event) => emit('select-prescription-medicine', item, (event.target as HTMLSelectElement).value),
+                      }, [
+                        h('option', { value: '' }, 'Chọn thuốc'),
+                        ...props.medicines.map((medicine: any) => h('option', { value: medicineId(medicine) }, `${medicineName(medicine)} - tồn ${medicineStock(medicine)}`)),
+                      ]),
+                    ]),
+                    h('td', { class: 'px-4 py-3' }, h('input', { value: item.dosage, class: 'form-input min-w-[160px]', placeholder: 'VD: 1 viên x 2 lần/ngày', onInput: (event: Event) => { item.dosage = (event.target as HTMLInputElement).value } })),
+                    h('td', { class: 'px-4 py-3' }, h('input', { value: item.quantity, type: 'number', class: 'form-input min-w-[110px]', onInput: (event: Event) => { item.quantity = Number((event.target as HTMLInputElement).value) } })),
+                    h('td', { class: 'px-4 py-3' }, h('input', { value: item.note || item.usageInstruction || '', class: 'form-input min-w-[180px]', placeholder: 'Sau ăn, khi đau...', onInput: (event: Event) => { item.note = (event.target as HTMLInputElement).value; item.usageInstruction = (event.target as HTMLInputElement).value } })),
+                    h('td', { class: 'px-4 py-3 text-center' }, h('button', { type: 'button', class: 'inline-flex h-9 w-9 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50', onClick: () => emit('remove-medicine', item.medicineId) }, [h(Trash2, { class: 'h-4 w-4' })])),
+                  ]),
+                )
+              : [h('tr', null, [h('td', { class: 'px-4 py-6 text-center text-slate-500', colspan: 5 }, 'Chưa có thuốc trong đơn.')])]),
+          ]),
+        ]),
+    h('div', { class: 'mt-4 flex flex-wrap gap-3' }, [
+      h(BaseButton, { type: 'button', variant: 'outline', onClick: () => emit('add-prescription-row') }, () => [h(Plus, { class: 'h-4 w-4' }), 'Thêm thuốc']),
+    ]),
+  ])
+}
+
+function renderConclusionCard(props: any) {
+  return medicalCard('Kết luận khám', FileText, [
+    h('div', { class: 'grid gap-4 xl:grid-cols-2' }, [
+      textareaField('Kết luận', props.examForm.treatmentPlan, (value: string) => { props.examForm.treatmentPlan = value }, 'Chưa có'),
+      textareaField('Lời dặn bác sĩ', props.examForm.doctorNote, (value: string) => { props.examForm.doctorNote = value }, 'Chưa có'),
+      inputField('Ngày tái khám', props.examForm.followUpDate, (value: string) => { props.examForm.followUpDate = value }, '', 'date'),
+      h('div', null, [
+        h('p', { class: 'mb-2 text-sm font-semibold text-slate-700' }, 'Tình trạng'),
+        h('div', { class: 'grid gap-2 sm:grid-cols-2' }, ['Hoàn thành', 'Theo dõi', 'Nhập viện', 'Chuyển viện'].map((option) =>
+          radioField(option, props.examForm.conclusionStatus === option, () => { props.examForm.conclusionStatus = option }),
+        )),
+      ]),
+    ]),
+  ])
+}
+
+function renderFooterActionBar(props: any, emit: any) {
+  return h('div', { class: 'sticky bottom-0 z-20 mt-6 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-soft backdrop-blur' }, [
+    h('div', { class: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-4' }, [
+      h(BaseButton, { type: 'button', variant: 'outline', loading: props.saving, onClick: () => emit('save-draft') }, () => [h(Save, { class: 'h-4 w-4' }), 'Lưu nháp']),
+      h(BaseButton, { type: 'button', variant: 'outline', loading: props.saving, onClick: () => emit('save-record') }, () => [h(FileText, { class: 'h-4 w-4' }), 'Lưu bệnh án']),
+      h(BaseButton, { type: 'button', variant: 'outline', loading: props.saving, onClick: () => emit('submit') }, () => [h(ClipboardCheck, { class: 'h-4 w-4' }), 'Kê đơn']),
+      h(BaseButton, { type: 'button', variant: 'primary', loading: props.saving, onClick: () => emit('submit') }, () => [h(CheckCircle2, { class: 'h-4 w-4' }), 'Hoàn thành khám']),
+    ]),
+  ])
+}
+
+function medicalCard(title: string, icon: any, children: any[]) {
+  return h('section', { class: 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm' }, [
+    h('div', { class: 'mb-5 flex items-center gap-3' }, [
+      h('span', { class: 'flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[#0F52BA]' }, [h(icon, { class: 'h-5 w-5' })]),
+      h('h3', { class: 'text-lg font-bold text-slate-950' }, title),
+    ]),
+    ...children,
+  ])
+}
+
+function infoItem(label: string, value: unknown) {
+  return h('div', { class: 'rounded-xl border border-slate-100 bg-slate-50 px-4 py-3' }, [
+    h('p', { class: 'text-xs font-bold uppercase tracking-wide text-slate-400' }, label),
+    h('p', { class: 'mt-1 min-h-[20px] break-words text-sm font-bold text-slate-800' }, displayOrEmpty(value)),
+  ])
+}
+
+function vitalField(label: string, value: any, update: (value: string) => void, unit: string, icon: any, type = 'text') {
+  return h('label', { class: 'block rounded-xl border border-slate-200 bg-white p-3' }, [
+    h('span', { class: 'flex items-center gap-2 text-xs font-bold text-slate-600' }, [
+      h(icon, { class: 'h-4 w-4 text-[#0F52BA]' }),
+      label,
+    ]),
+    h('span', { class: 'mt-2 flex h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100' }, [
+      h('input', {
+        value,
+        type,
+        class: 'min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400',
+        placeholder: 'Chưa có',
+        onInput: (event: Event) => update((event.target as HTMLInputElement).value),
+      }),
+      h('span', { class: 'shrink-0 text-xs font-semibold text-slate-400' }, unit),
+    ]),
+  ])
+}
+
+function checkboxField(label: string, checked: boolean, update: (value: boolean) => void) {
+  return h('label', { class: 'flex h-11 cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50' }, [
+    h('input', {
+      checked,
+      type: 'checkbox',
+      class: 'h-4 w-4 rounded border-slate-300 text-[#0F52BA] focus:ring-blue-500',
+      onChange: (event: Event) => update((event.target as HTMLInputElement).checked),
+    }),
+    label,
+  ])
+}
+
+function radioField(label: string, checked: boolean, update: () => void) {
+  return h('label', { class: ['flex h-11 cursor-pointer items-center gap-3 rounded-xl border px-3 text-sm font-semibold transition', checked ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700 hover:border-blue-200'] }, [
+    h('input', {
+      checked,
+      type: 'radio',
+      name: 'conclusionStatus',
+      class: 'h-4 w-4 border-slate-300 text-[#0F52BA] focus:ring-blue-500',
+      onChange: update,
+    }),
+    label,
+  ])
 }
 
 function inputField(label: string, value: any, update: (value: string) => void, placeholder = '', type = 'text') {
