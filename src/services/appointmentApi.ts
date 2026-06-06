@@ -153,6 +153,10 @@ export const appointmentApi = {
     const response = await client.put(`/api/appointments/${id}/confirm`)
     return readApiResponse<Appointment>(response.data)
   },
+  async checkInAppointment(id: number) {
+    const response = await client.put(`/api/appointments/${id}/check-in`)
+    return readApiResponse<Appointment>(response.data)
+  },
   async cancelAppointment(id: number) {
     const response = await client.put(`/api/appointments/${id}/cancel`)
     return readApiResponse<Appointment>(response.data)

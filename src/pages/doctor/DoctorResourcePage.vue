@@ -194,7 +194,7 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, reactive, ref, watch, type PropType } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   Activity,
   AlertTriangle,
@@ -239,7 +239,7 @@ import type { Medicine } from '@/types/medicine'
 import { displayText } from '@/utils/displayText'
 
 type Resource = 'appointments' | 'queue' | 'examine' | 'records' | 'schedule'
-type ActionKey = 'view' | 'start' | 'complete' | 'cancel' | 'record'
+type ActionKey = 'view' | 'start' | 'checkin' | 'complete' | 'cancel' | 'record'
 type ToastType = 'success' | 'error'
 
 interface Row {
@@ -281,6 +281,7 @@ interface Config {
 }
 
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 const loading = ref(false)
 const error = ref('')
@@ -554,6 +555,7 @@ function resetFilters(reload = true) {
 function rowActions(row: Row) {
   if (resource.value === 'appointments') {
     const actions = [{ key: 'view' as ActionKey, label: 'Chi tiết', className: 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50' }]
+    if (canCheckInAppointment(row.status)) actions.push({ key: 'checkin', label: 'Vào khám', className: 'bg-blue-600 text-white hover:bg-blue-700' })
     if (statusBucket(row.status) === 'progress') actions.push({ key: 'complete', label: 'Hoàn tất', className: 'bg-emerald-600 text-white hover:bg-emerald-700' })
     if (!['completed', 'cancelled'].includes(statusBucket(row.status))) actions.push({ key: 'cancel', label: 'Hủy', className: 'bg-rose-50 text-rose-700 hover:bg-rose-100' })
     return actions
@@ -576,6 +578,7 @@ async function runAction(action: ActionKey, row: Row) {
     if (action === 'view') openDetail(row)
     if (action === 'record') openRecord(row)
     if (action === 'start') await openExamFromRow(row)
+    if (action === 'checkin') await checkInAndOpenExam(row)
     if (action === 'complete') await completeAppointment(row)
     if (action === 'cancel') await cancelAppointment(row)
   } finally {
@@ -600,6 +603,24 @@ async function openExamFromRow(row: Row) {
   const opened = await selectVisit(row)
   if (!opened) return
   if (resource.value !== 'examine') showToast('Đã mở lượt khám', 'Chuyển sang trang Khám & kê đơn nếu cần thao tác đầy đủ.', 'success')
+}
+
+async function checkInAndOpenExam(row: Row) {
+  const appointmentId = Number(row.appointmentId || row.id)
+  if (!appointmentId) return showToast('Thiếu lịch hẹn', 'Không xác định được mã lịch hẹn để check-in.', 'error')
+  try {
+    await appointmentApi.checkInAppointment(appointmentId).catch((apiError: any) => {
+      const message = normalize(getApiErrorMessage(apiError))
+      if (!message.includes('only confirmed') && !message.includes('queue') && !message.includes('already')) throw apiError
+    })
+    await medicalRecordApi.syncAppointmentConfirmed(row).catch(() => undefined)
+    await medicalRecordApi.syncPatientCheckedIn(row)
+    await medicalRecordApi.getVisitByAppointment(appointmentId)
+    showToast('Đã tạo lượt khám', 'Bệnh nhân đã được check-in và có thể khám trong màn Khám & kê đơn.', 'success')
+    await router.push('/doctor/examine')
+  } catch (apiError) {
+    showToast('Chưa thể vào khám', businessError(apiError), 'error')
+  }
 }
 
 async function selectVisit(row: Row) {
@@ -1078,6 +1099,11 @@ function statusBucket(status?: string) {
   if (value.includes('confirm') || value.includes('checked')) return 'confirmed'
   if (value.includes('wait') || value.includes('pending') || value.includes('cho') || value.includes('chờ')) return 'waiting'
   return 'other'
+}
+
+function canCheckInAppointment(status?: string) {
+  const value = normalize(status)
+  return value.includes('confirm') || value.includes('xac nhan') || value.includes('xác nhận') || value.includes('checked')
 }
 
 function statusText(status?: string) {
