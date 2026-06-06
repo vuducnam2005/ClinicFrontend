@@ -145,6 +145,10 @@ export const appointmentApi = {
     const response = await client.get(`/api/appointments/doctor/${doctorId}`)
     return readApiResponse<Appointment[]>(response.data)
   },
+  async getAppointment(id: number | string) {
+    const response = await client.get(`/api/appointments/${id}`)
+    return readApiResponse<Appointment>(response.data)
+  },
   async createAppointment(payload: CreateAppointmentRequest) {
     const response = await client.post('/api/appointments', payload)
     return readApiResponse<Appointment>(response.data)

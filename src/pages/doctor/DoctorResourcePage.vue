@@ -299,6 +299,7 @@ interface Row {
   patientId?: number | string
   doctorId?: number
   patientName?: string
+  patientPhone?: string
   doctorName?: string
   date?: string
   time?: string
@@ -715,6 +716,7 @@ async function selectVisit(row: Row) {
         : null
     if (!visit?.visitId) throw new Error('Lịch hẹn chưa được check-in hoặc N2 chưa tạo lượt khám.')
     activeVisit.value = visit
+    await hydrateSelectedRowFromAppointment(visit.appointmentId || row.appointmentId)
     examForm.chiefComplaint = meaningful(visit.chiefComplaint || row.reason)
     hydrateVitalsFromVisit(visit)
     await Promise.all([loadActivePatient(), loadExistingRecord(), loadMedicines()])
@@ -722,6 +724,26 @@ async function selectVisit(row: Row) {
   } catch (apiError) {
     showToast('Không mở được lượt khám', businessError(apiError), 'error')
     return false
+  }
+}
+
+async function hydrateSelectedRowFromAppointment(appointmentId?: number | string) {
+  if (!appointmentId || !selectedRow.value) return
+  const appointment = await appointmentApi.getAppointment(appointmentId).catch(() => null)
+  if (!appointment) return
+  selectedRow.value = {
+    ...selectedRow.value,
+    appointmentId: appointment.appointmentId,
+    patientId: appointment.patientId || selectedRow.value.patientId,
+    patientName: displayText(appointment.patientName) || selectedRow.value.patientName,
+    patientPhone: appointment.patientPhone || selectedRow.value.patientPhone,
+    doctorId: appointment.doctorId || selectedRow.value.doctorId,
+    doctorName: displayText(appointment.doctorName) || selectedRow.value.doctorName,
+    date: normalizeDate(appointment.appointmentDate) || selectedRow.value.date,
+    time: appointment.slotTime || selectedRow.value.time,
+    timeLabel: `${formatDate(appointment.appointmentDate)} · ${appointment.slotTime || selectedRow.value.time || '--:--'}`,
+    reason: appointment.reason || appointment.specialtyName || selectedRow.value.reason,
+    raw: { ...(selectedRow.value.raw || {}), ...appointment },
   }
 }
 
@@ -1081,6 +1103,7 @@ function mapAppointment(item: Appointment): Row {
     patientId: item.patientId,
     doctorId: item.doctorId,
     patientName: displayText(item.patientName) || 'Chưa có tên',
+    patientPhone: item.patientPhone,
     doctorName: displayText(item.doctorName),
     date: normalizeDate(item.appointmentDate),
     time: item.slotTime || '',
@@ -1099,6 +1122,7 @@ function mapQueue(item: WaitingQueueItem): Row {
     patientId: item.patientId,
     doctorId: item.doctorId,
     patientName: displayText(item.patientName) || 'Chưa có tên',
+    patientPhone: item.patientPhone,
     doctorName: displayText(item.doctorName),
     date: normalizeDate(item.appointmentDate),
     time: item.slotTime || '',
@@ -1119,6 +1143,7 @@ function mapVisit(item: MedicalVisit): Row {
     patientId: item.patientId,
     doctorId: item.doctorId,
     patientName: displayText(item.patientName) || 'Chưa có tên',
+    patientPhone: item.patientPhone || item.patientPhoneSnapshot || item.PatientPhone,
     doctorName: displayText(item.doctorName),
     date: normalizeDate(item.visitDate || item.createdAt),
     time: timeOf(item.visitDate || item.createdAt),
@@ -1592,7 +1617,7 @@ function renderPatientCard(props: any, emit: any) {
     ]),
     h('div', { class: 'mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4' }, [
       infoItem('Mã bệnh nhân', patient?.patientCode || patient?.patientIdCode || visit?.patientCode || props.row?.patientId),
-      infoItem('Số điện thoại', patient?.phoneNumber || patient?.phone),
+      infoItem('Số điện thoại', patient?.phoneNumber || patient?.phone || props.row?.patientPhone || props.row?.raw?.patientPhone || props.row?.raw?.PatientPhone),
       infoItem('BHYT', patientInsurance(patient)),
       infoItem('Mã lịch hẹn', visit?.appointmentId || props.row?.appointmentId),
       infoItem('Visit ID', visit?.visitCode || visit?.visitId || props.row?.visitId),
