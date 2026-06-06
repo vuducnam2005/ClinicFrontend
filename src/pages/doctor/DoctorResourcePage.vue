@@ -1,6 +1,25 @@
 <template>
   <section class="space-y-6">
-    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div v-if="isExamDetailMode" class="sticky top-0 z-20 -mx-2 border-b border-slate-200 bg-white/95 px-2 py-3 backdrop-blur">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+            @click="backToAppointments"
+          >
+            <X class="h-5 w-5 rotate-45" />
+          </button>
+          <div>
+            <h1 class="text-2xl font-bold text-slate-950">Chi tiết lượt khám</h1>
+            <p class="mt-1 text-sm text-slate-500">Dữ liệu lấy trực tiếp từ lịch hẹn N1, lượt khám và hồ sơ N2.</p>
+          </div>
+        </div>
+        <StatusChip :status="activeVisit?.status || selectedRow?.status" />
+      </div>
+    </div>
+
+    <div v-if="!isExamDetailMode" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">{{ config.kicker }}</p>
@@ -29,11 +48,11 @@
       </div>
     </div>
 
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div v-if="!isExamDetailMode" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <MetricCard v-for="metric in metrics" :key="metric.label" :metric="metric" />
     </div>
 
-    <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div v-if="!isExamDetailMode" class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <div class="grid gap-3 xl:grid-cols-[1.4fr_180px_180px_180px_180px_auto] xl:items-end">
         <label class="block">
           <span class="mb-2 block text-sm font-semibold text-slate-700">Tìm kiếm</span>
@@ -67,7 +86,36 @@
       <button type="button" class="ml-2 font-bold text-blue-700 underline" @click="loadData">Thử lại</button>
     </div>
 
-    <div v-if="resource === 'examine'" class="grid gap-6 xl:grid-cols-[420px_1fr]">
+    <div v-if="resource === 'examine' && isExamDetailMode">
+      <ExaminationWorkspace
+        :row="selectedRow"
+        :active-visit="activeVisit"
+        :active-record="activeRecord"
+        :active-patient="activePatient"
+        :clinical-orders="clinicalOrders"
+        :medicines="medicines"
+        :medicine-loading="medicineLoading"
+        :saving="savingExam"
+        :exam-form="examForm"
+        :vitals-form="vitalsForm"
+        :history-form="historyForm"
+        :order-form="orderForm"
+        :clinical-checklist="clinicalChecklist"
+        :prescription-items="prescriptionItems"
+        @start="startVisit"
+        @save-draft="saveDraft"
+        @save-vitals="saveVitals"
+        @save-record="saveMedicalRecord"
+        @add-order="addClinicalOrder"
+        @add-prescription-row="addPrescriptionRow"
+        @select-prescription-medicine="selectPrescriptionMedicine"
+        @toggle-medicine="toggleMedicine"
+        @remove-medicine="removeMedicine"
+        @submit="submitExamination"
+      />
+    </div>
+
+    <div v-else-if="resource === 'examine'" class="grid gap-6 xl:grid-cols-[420px_1fr]">
       <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div class="border-b border-slate-100 p-4">
           <h2 class="font-bold text-slate-950">Bệnh nhân cần khám</h2>
@@ -431,6 +479,7 @@ const resource = computed<Resource>(() => isResource(route.meta.doctorResource) 
 const config = computed(() => configs[resource.value])
 const doctorId = computed(() => currentDoctorId(authStore.user))
 const doctorName = computed(() => authStore.user?.fullName || 'Bác sĩ')
+const isExamDetailMode = computed(() => resource.value === 'examine' && Boolean(selectedRow.value))
 
 const statusOptions = computed(() => [
   { label: 'Tất cả', value: '' },
@@ -598,6 +647,11 @@ async function runAction(action: ActionKey, row: Row) {
 function openDetail(row: Row) {
   selectedDetail.value = row
   detailDrawerOpen.value = true
+}
+
+function backToAppointments() {
+  clearWorkingState()
+  router.push('/doctor/appointments')
 }
 
 function openRecord(row: Row) {
@@ -1458,17 +1512,23 @@ const ExaminationWorkspace = defineComponent({
       props.row
         ? [
             renderProgressSteps(props),
-            h('div', { class: 'space-y-6 pb-28' }, [
-              renderPatientCard(props, emit),
-              renderVitalsCard(props, emit),
-              h('div', { class: 'grid gap-6 2xl:grid-cols-2' }, [
-                renderHistoryCard(props),
-                renderAllergyCard(props),
+            h('div', { class: 'grid gap-6 pb-28 xl:grid-cols-[minmax(0,1fr)_360px]' }, [
+              h('div', { class: 'space-y-6' }, [
+                renderPatientCard(props, emit),
+                renderVitalsCard(props, emit),
+                h('div', { class: 'grid gap-6 2xl:grid-cols-2' }, [
+                  renderHistoryCard(props),
+                  renderAllergyCard(props),
+                ]),
+                renderMedicalRecordCard(props),
+                renderPrescriptionCard(props, emit),
               ]),
-              renderMedicalRecordCard(props),
-              renderClinicalOrdersCard(props, emit),
-              renderPrescriptionCard(props, emit),
-              renderConclusionCard(props),
+              h('aside', { class: 'space-y-6 xl:sticky xl:top-28 xl:self-start' }, [
+                renderVisitInfoCard(props),
+                renderReasonCard(props),
+                renderClinicalOrdersCard(props, emit),
+                renderConclusionCard(props),
+              ]),
             ]),
             renderFooterActionBar(props, emit),
           ]
@@ -1539,6 +1599,30 @@ function renderPatientCard(props: any, emit: any) {
       infoItem('Ngày khám', props.row?.timeLabel || formatDate(visit?.visitDate || visit?.createdAt)),
       infoItem('Bác sĩ', visit?.doctorName || props.row?.doctorName || doctorName.value),
       infoItem('Bệnh án', props.activeRecord?.medicalRecordCode || props.activeRecord?.medicalRecordIdCode || props.activeRecord?.medicalRecordId),
+    ]),
+  ])
+}
+
+function renderVisitInfoCard(props: any) {
+  const visit = props.activeVisit as MedicalVisit | null
+  const row = props.row as Row | null
+  return medicalCard('Thông tin lượt khám', ClipboardCheck, [
+    h('div', { class: 'space-y-3' }, [
+      sideInfoItem('Bác sĩ khám', visit?.doctorName || row?.doctorName || doctorName.value),
+      sideInfoItem('Khoa/Phòng', row?.raw?.specialtyName || row?.specialtyName || 'Chưa có'),
+      sideInfoItem('Phòng khám', row?.raw?.roomName || row?.raw?.room || 'Chưa có'),
+      sideInfoItem('Loại khám', row?.raw?.type || row?.raw?.visitType || 'Khám thường'),
+      sideInfoItem('Mã lịch hẹn', visit?.appointmentId || row?.appointmentId),
+      sideInfoItem('Visit ID', visit?.visitCode || visit?.visitId || row?.visitId),
+    ]),
+  ])
+}
+
+function renderReasonCard(props: any) {
+  return medicalCard('Lý do khám', ClipboardList, [
+    h('div', { class: 'space-y-4' }, [
+      inputField('Lý do khám *', props.examForm.chiefComplaint, (value: string) => { props.examForm.chiefComplaint = value }, 'Chưa có'),
+      inputField('Ngày bắt đầu', String(props.activeVisit?.startedAt || props.activeVisit?.visitDate || props.row?.date || '').slice(0, 10), () => undefined, '', 'date'),
     ]),
   ])
 }
@@ -1715,6 +1799,13 @@ function infoItem(label: string, value: unknown) {
   return h('div', { class: 'rounded-xl border border-slate-100 bg-slate-50 px-4 py-3' }, [
     h('p', { class: 'text-xs font-bold uppercase tracking-wide text-slate-400' }, label),
     h('p', { class: 'mt-1 min-h-[20px] break-words text-sm font-bold text-slate-800' }, displayOrEmpty(value)),
+  ])
+}
+
+function sideInfoItem(label: string, value: unknown) {
+  return h('div', { class: 'flex items-center justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3' }, [
+    h('span', { class: 'text-sm font-semibold text-slate-500' }, label),
+    h('span', { class: 'min-w-0 truncate text-right text-sm font-bold text-slate-950' }, displayOrEmpty(value)),
   ])
 }
 
