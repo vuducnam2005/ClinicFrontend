@@ -244,6 +244,14 @@ const USERNAME_MIN_LENGTH = 5
 const USERNAME_MAX_LENGTH = 13
 const letterPattern = /^[\p{L}\s]+$/u
 
+function capitalizeWords(str: string): string {
+  return str
+    .trim()
+    .split(/\s+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}
+
 function showValidationError(message: string) {
   toast.title = 'Thông tin chưa hợp lệ'
   toast.message = message
@@ -312,17 +320,9 @@ function validateFullName(value: string) {
   if (!letterPattern.test(value)) return 'Họ và tên chỉ được chứa chữ cái và khoảng trắng'
 
   const parts = value.split(' ')
-  if (parts.length < 3) return 'Họ và tên phải gồm ít nhất 3 phần: Họ + Đệm + Tên'
+  if (parts.length < 2) return 'Họ và tên phải gồm ít nhất 2 phần (VD: Đàm Hưng)'
 
-  const invalidPart = parts.find((part) => {
-    const [firstLetter, ...restLetters] = Array.from(part)
-    return (
-      firstLetter !== firstLetter.toLocaleUpperCase('vi-VN') ||
-      restLetters.join('') !== restLetters.join('').toLocaleLowerCase('vi-VN')
-    )
-  })
-
-  return invalidPart ? 'Họ và tên phải viết hoa chữ cái đầu mỗi từ, ví dụ: Nguyễn Văn An' : ''
+  return ''
 }
 
 async function submitRegister() {
@@ -338,7 +338,9 @@ async function submitRegister() {
     showValidationError(fullNameError)
     return
   }
-  registerData.fullName = fullName
+
+  registerData.fullName = capitalizeWords(fullName)
+
   if (!username) {
     showValidationError('Tên đăng nhập là bắt buộc')
     return
@@ -430,7 +432,7 @@ async function submitRegister() {
     await authApi.register({
       username,
       password,
-      fullName,
+      fullName: capitalizeWords(fullName),
       email,
       phoneNumber,
       roleId: RoleId.Patient,

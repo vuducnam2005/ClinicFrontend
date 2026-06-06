@@ -532,10 +532,10 @@ async function saveProfile() {
   profileSaving.value = true
   error.value = ''
   try {
-    await authStore.updateProfile({ fullName, email, phoneNumber: phoneNumber || undefined })
+    await authStore.updateProfile({ fullName: capitalizeWords(fullName), email, phoneNumber: phoneNumber || undefined })
     const id = toNumber(currentPatient.value?.id, currentPatient.value?.patientId, authStore.user?.patientId)
     if (id) {
-      currentPatient.value = await medicalRecordApi.updatePatient(id, patientPayload({ fullName, email, phoneNumber }))
+      currentPatient.value = await medicalRecordApi.updatePatient(id, patientPayload({ fullName: capitalizeWords(fullName), email, phoneNumber }))
     }
     history.value = null
     syncProfileForm()
@@ -729,6 +729,14 @@ function uniqueRows(items: Row[]) {
 
 function normalizeText(value: unknown) {
   return String(value ?? '').trim().toLowerCase()
+}
+
+function capitalizeWords(str: string): string {
+  return str
+    .trim()
+    .split(/\s+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
 }
 
 function cfg(title: string, service: string, description: string, placeholder: string, icon: any, iconClass: string, search: string[], columns: Column[]) {
