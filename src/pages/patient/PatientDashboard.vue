@@ -356,10 +356,11 @@ async function resolvePatientKeys() {
   const user = authStore.user
   const keys = new Set<string>()
   addKey(keys, user?.patientId)
+  addKey(keys, user?.id)
 
   const phones = new Set([user?.phoneNumber].map(normalizeText).filter(Boolean))
   const names = new Set([user?.fullName].map(normalizeText).filter(Boolean))
-  const patients = await medicalRecordApi.getPatients().catch(() => [] as Patient[])
+  const patients = await medicalRecordApi.getPatients({ pageSize: 100 }).catch(() => [] as Patient[])
   const match = patients.find((patient) => {
     const patientPhones = [patient.phone, patient.phoneNumber].map(normalizeText).filter(Boolean)
     const patientName = normalizeText(patient.fullName)

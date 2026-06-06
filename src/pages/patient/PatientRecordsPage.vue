@@ -1087,6 +1087,11 @@ function addAppointmentKeys(keys: Set<string>, appointment?: Partial<Appointment
   addKey(keys, appointment.patientId)
 }
 
+function isCompletedAppointment(appointment: Appointment) {
+  const status = normalizeText(appointment.status)
+  return status.includes('completed') || status.includes('done') || status.includes('hoàn tất')
+}
+
 function profileMatchesPatient(patient: Patient) {
   const user = authStore.user
   const userPhone = normalizePhone(user?.phoneNumber)
@@ -1143,6 +1148,7 @@ async function loadData() {
 
   const keys = new Set<string>()
   addKey(keys, authStore.user?.patientId)
+  addKey(keys, authStore.user?.id)
 
   try {
     // 0. Load doctors list
@@ -1154,7 +1160,7 @@ async function loadData() {
 
     // 1. Resolve Patient ID from JWT/profile, then match N2 patient by profile data.
     try {
-      const patientsResponse = await medicalRecordApi.getPatients()
+      const patientsResponse = await medicalRecordApi.getPatients({ pageSize: 100 })
       const matchedPatients = patientsResponse.filter(profileMatchesPatient)
       const match = matchedPatients[0]
       if (match) {
@@ -1203,10 +1209,11 @@ async function loadData() {
     const resolvedKeysList = Array.from(keys).filter(Boolean)
     const recordsPromises = resolvedKeysList.map(key => medicalRecordApi.getMedicalRecords(String(key)).catch(() => [] as MedicalRecord[]))
     const visitRecordPromises = appointments.value
+      .filter(isCompletedAppointment)
       .filter(appointment => appointment.appointmentId)
       .map(async (appointment) => {
-        const visit = await medicalRecordApi.getVisitByAppointment(appointment.appointmentId)
-        if (!visit.visitId) return null
+        const visit = await medicalRecordApi.getVisitByAppointment(appointment.appointmentId).catch(() => null)
+        if (!visit?.visitId) return null
         return medicalRecordApi.getMedicalRecordByVisit(visit.visitId).catch(() => null)
       })
     const results = await Promise.allSettled(recordsPromises)

@@ -286,7 +286,7 @@ export const medicalRecordApi = {
     return response.data
   },
   async getPatients(params?: { keyword?: string; pageNumber?: number; pageSize?: number }) {
-    const response = await client.get('/api/v1/medical/patients', { params })
+    const response = await client.get('/api/v1/medical/patients', { params: { pageSize: 100, ...params } })
     return normalizePatients(response.data)
   },
   async getPatient(id: string | number) {
