@@ -1066,10 +1066,79 @@ function addKey(keys: Set<string>, value: unknown) {
   if (textValue && textValue !== '0') keys.add(textValue)
 }
 
+function normalizeText(value: unknown) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+function normalizePhone(value: unknown) {
+  return String(value ?? '').replace(/\D/g, '')
+}
+
+function addPatientKeys(keys: Set<string>, patient?: Partial<Patient> | null) {
+  if (!patient) return
+  addKey(keys, patient.id)
+  addKey(keys, patient.patientId)
+  addKey(keys, patient.patientCode)
+  addKey(keys, patient.patientIdCode)
+}
+
+function addAppointmentKeys(keys: Set<string>, appointment?: Partial<Appointment> | null) {
+  if (!appointment) return
+  addKey(keys, appointment.patientId)
+}
+
+function profileMatchesPatient(patient: Patient) {
+  const user = authStore.user
+  const userPhone = normalizePhone(user?.phoneNumber)
+  const userEmail = normalizeText(user?.email)
+  const userName = normalizeText(user?.fullName)
+  const patientPhones = [patient.phone, patient.phoneNumber].map(normalizePhone).filter(Boolean)
+  const patientEmail = normalizeText(patient.email)
+  const patientName = normalizeText(patient.fullName)
+  const phoneMatches = Boolean(userPhone && patientPhones.includes(userPhone))
+
+  if (userPhone && patientPhones.length) return phoneMatches
+  if (userEmail && patientEmail) return userEmail === patientEmail
+  return Boolean(userName && patientName && userName === patientName)
+}
+
+function appointmentMatchesProfile(appointment: Appointment) {
+  const user = authStore.user
+  const userPhone = normalizePhone(user?.phoneNumber)
+  const userName = normalizeText(user?.fullName)
+  const appointmentPhone = normalizePhone(appointment.patientPhone)
+  const appointmentName = normalizeText(appointment.patientName)
+  const phoneMatches = Boolean(userPhone && appointmentPhone && userPhone === appointmentPhone)
+
+  if (userPhone && appointmentPhone) return phoneMatches
+  return Boolean(userName && appointmentName && userName === appointmentName)
+}
+
+function uniqueAppointments(list: Appointment[]) {
+  const seen = new Set<string>()
+  return list.filter((appointment) => {
+    const key = String(appointment.appointmentId || `${appointment.patientId}-${appointment.appointmentDate}-${appointment.slotTime}`)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+function recordIdentity(record: MedicalRecord) {
+  return String(
+    record.medicalRecordId ||
+    record.recordId ||
+    record.medicalRecordCode ||
+    record.id ||
+    (record.visitId ? `visit-${record.visitId}` : '') ||
+    `${record.patientId}-${record.createdAt}-${record.diagnosisCode}-${record.diagnosisText}`,
+  )
+}
+
 async function loadData() {
   loading.value = true
   error.value = ''
-  
+
   resolvedN2Id.value = Number(authStore.user?.patientId || 0)
 
   const keys = new Set<string>()
@@ -1085,26 +1154,43 @@ async function loadData() {
 
     // 1. Resolve Patient ID from JWT/profile, then match N2 patient by profile data.
     try {
-      const phone = authStore.user?.phoneNumber
       const patientsResponse = await medicalRecordApi.getPatients()
-      const match = patientsResponse.find(p => (phone && (p.phoneNumber === phone || p.phone === phone)) || p.fullName === authStore.user?.fullName)
+      const matchedPatients = patientsResponse.filter(profileMatchesPatient)
+      const match = matchedPatients[0]
       if (match) {
-        resolvedN2Id.value = Number(match.id || match.patientId)
-        addKey(keys, match.id)
-        addKey(keys, match.patientId)
-        addKey(keys, match.patientCode)
+        const numericId = Number(match.id || match.patientId)
+        resolvedN2Id.value = Number.isFinite(numericId) && numericId > 0 ? numericId : null
+        patientDetail.value = match
+        matchedPatients.forEach((patient) => addPatientKeys(keys, patient))
         if (authStore.user) {
-          authStore.user.patientId = resolvedN2Id.value
+          authStore.user.patientId = String(match.id || match.patientId || match.patientCode || '')
         }
       }
     } catch (e) {
       console.error('Failed to resolve N2 Patient ID', e)
     }
 
+    // 2. Load real appointments for this patient and enrich patient keys from N1/N2 linkage.
+    const appointmentSeedKeys = Array.from(keys).filter(k => /^\d+$/.test(k))
+    const appointmentResults = await Promise.allSettled(
+      appointmentSeedKeys.map(key => appointmentApi.getAppointmentsByPatient(key).catch(() => [] as Appointment[])),
+    )
+    let matchedAppointments = appointmentResults.flatMap(result => result.status === 'fulfilled' ? result.value : [])
+
+    if (!matchedAppointments.length) {
+      const allAppointments = await appointmentApi.getAppointments().catch(() => [] as Appointment[])
+      matchedAppointments = allAppointments.filter(appointmentMatchesProfile)
+    } else {
+      matchedAppointments = matchedAppointments.filter((appointment) => appointmentMatchesProfile(appointment) || appointmentSeedKeys.includes(String(appointment.patientId)))
+    }
+
+    appointments.value = uniqueAppointments(matchedAppointments)
+    appointments.value.forEach((appointment) => addAppointmentKeys(keys, appointment))
+
     // Store resolved keys
     resolvedPatientKeys.value = Array.from(keys).filter(Boolean).filter(k => /^\d+$/.test(k)).map(Number)
 
-    // 2. Fetch specific patient detail from N2
+    // 3. Fetch specific patient detail from N2
     if (resolvedN2Id.value) {
       try {
         patientDetail.value = await medicalRecordApi.getPatient(String(resolvedN2Id.value))
@@ -1113,26 +1199,43 @@ async function loadData() {
       }
     }
 
-    // 3. Fetch all medical records for all resolved patient keys
-    const resolvedKeysList = resolvedPatientKeys.value
+    // 4. Fetch all medical records for all resolved patient keys
+    const resolvedKeysList = Array.from(keys).filter(Boolean)
     const recordsPromises = resolvedKeysList.map(key => medicalRecordApi.getMedicalRecords(String(key)).catch(() => [] as MedicalRecord[]))
+    const visitRecordPromises = appointments.value
+      .filter(appointment => appointment.appointmentId)
+      .map(async (appointment) => {
+        const visit = await medicalRecordApi.getVisitByAppointment(appointment.appointmentId)
+        if (!visit.visitId) return null
+        return medicalRecordApi.getMedicalRecordByVisit(visit.visitId).catch(() => null)
+      })
     const results = await Promise.allSettled(recordsPromises)
-    
+    const visitRecordResults = await Promise.allSettled(visitRecordPromises)
+
     const combined: MedicalRecord[] = []
     for (const r of results) {
       if (r.status === 'fulfilled') {
         combined.push(...r.value)
       }
     }
-    
+    for (const r of visitRecordResults) {
+      if (r.status === 'fulfilled' && r.value) {
+        combined.push(r.value)
+        addKey(keys, r.value.patientId)
+        addKey(keys, r.value.patientCode)
+        addKey(keys, r.value.patientIdCode)
+      }
+    }
+
     // Merge and deduplicate
-    const seen = new Set()
+    const seen = new Set<string>()
     medicalRecords.value = combined.filter(r => {
-      const rid = r.recordId || r.medicalRecordId || r.id
+      const rid = recordIdentity(r)
       if (seen.has(rid)) return false
       seen.add(rid)
       return true
     })
+    resolvedPatientKeys.value = Array.from(keys).filter(Boolean).filter(k => /^\d+$/.test(k)).map(Number)
   } catch (err) {
     error.value = getApiErrorMessage(err)
   } finally {

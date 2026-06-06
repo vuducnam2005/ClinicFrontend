@@ -615,7 +615,7 @@ function rowActions(row: Row) {
   if (resource.value === 'appointments') {
     const actions = [{ key: 'view' as ActionKey, label: 'Chi tiết', className: 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50' }]
     if (canCheckInAppointment(row.status)) actions.push({ key: 'checkin', label: 'Vào khám', className: 'bg-blue-600 text-white hover:bg-blue-700' })
-    if (statusBucket(row.status) === 'progress') actions.push({ key: 'complete', label: 'Hoàn tất', className: 'bg-emerald-600 text-white hover:bg-emerald-700' })
+    if (statusBucket(row.status) === 'progress') actions.push({ key: 'checkin', label: 'Tiếp tục khám', className: 'bg-blue-600 text-white hover:bg-blue-700' })
     if (!['completed', 'cancelled'].includes(statusBucket(row.status))) actions.push({ key: 'cancel', label: 'Hủy', className: 'bg-rose-50 text-rose-700 hover:bg-rose-100' })
     return actions
   }
