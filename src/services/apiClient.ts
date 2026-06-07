@@ -87,6 +87,14 @@ export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<ApiResponse<unknown>>
     const data = axiosError.response?.data as any
+    const validationErrors = data?.errors || data?.Errors
+    if (validationErrors && typeof validationErrors === 'object') {
+      const messages = Object.values(validationErrors)
+        .flatMap((value) => (Array.isArray(value) ? value : [value]))
+        .map((value) => String(value || '').trim())
+        .filter(Boolean)
+      if (messages.length) return messages.join('\n')
+    }
     return data?.message || data?.Message || axiosError.message || 'Không thể kết nối API'
   }
 

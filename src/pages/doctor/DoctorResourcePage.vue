@@ -406,6 +406,10 @@ const clinicalChecklist = reactive({
   ecg: false,
 })
 
+const formInputClass = 'h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500'
+const formTextareaClass = 'w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100'
+const compactOptionClass = 'flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold leading-5 transition'
+
 const prescriptionItems = ref<PrescriptionItemPayload[]>([])
 
 const configs: Record<Resource, Config> = {
@@ -936,22 +940,45 @@ async function loadExistingRecord() {
 }
 
 async function saveVitals(showSuccess = true) {
-  if (!activeVisit.value?.visitId) return false
-  await savePatientHistory()
-  await medicalRecordApi.updateVisitVitals(activeVisit.value.visitId, {
-    bloodPressure: textOrNull(vitalsForm.bloodPressure),
-    heartRate: numberOrNull(vitalsForm.heartRate),
-    temperature: numberOrNull(vitalsForm.temperature),
-    respiratoryRate: numberOrNull(vitalsForm.respiratoryRate),
-    spo2: numberOrNull(vitalsForm.spo2),
-    height: numberOrNull(vitalsForm.height),
-    weight: numberOrNull(vitalsForm.weight),
-    note: textOrNull(historyNote()),
-  })
-  activeVisit.value = await medicalRecordApi.getVisit(activeVisit.value.visitId)
-  hydrateVitalsFromVisit(activeVisit.value)
-  if (showSuccess) showToast('Đã lưu sinh hiệu', 'Sinh hiệu được cập nhật trực tiếp vào N2.', 'success')
-  return true
+  if (!activeVisit.value?.visitId) {
+    if (showSuccess) showToast('Thiếu lượt khám', 'Cần mở lượt khám N2 trước khi lưu sinh hiệu.', 'error')
+    return false
+  }
+
+  const validationError = validateVitalsForm()
+  if (validationError) {
+    if (showSuccess) {
+      showToast('Sinh hiệu chưa hợp lệ', validationError, 'error')
+      return false
+    }
+    throw new Error(validationError)
+  }
+
+  const shouldToggleSaving = showSuccess && !savingExam.value
+  if (shouldToggleSaving) savingExam.value = true
+  try {
+    await savePatientHistory()
+    await medicalRecordApi.updateVisitVitals(activeVisit.value.visitId, {
+      bloodPressure: textOrNull(vitalsForm.bloodPressure),
+      heartRate: numberOrNull(vitalsForm.heartRate),
+      temperature: numberOrNull(vitalsForm.temperature),
+      respiratoryRate: numberOrNull(vitalsForm.respiratoryRate),
+      spo2: numberOrNull(vitalsForm.spo2),
+      height: numberOrNull(vitalsForm.height),
+      weight: numberOrNull(vitalsForm.weight),
+      note: textOrNull(historyNote()),
+    })
+    activeVisit.value = await medicalRecordApi.getVisit(activeVisit.value.visitId)
+    hydrateVitalsFromVisit(activeVisit.value)
+    if (showSuccess) showToast('Đã lưu sinh hiệu', 'Sinh hiệu được cập nhật trực tiếp vào N2.', 'success')
+    return true
+  } catch (apiError) {
+    if (!showSuccess) throw apiError
+    showToast('Lưu sinh hiệu thất bại', businessError(apiError), 'error')
+    return false
+  } finally {
+    if (shouldToggleSaving) savingExam.value = false
+  }
 }
 
 async function savePatientHistory() {
@@ -1365,6 +1392,31 @@ function numberOrNull(value: unknown) {
   return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : null
 }
 
+function validateVitalsForm() {
+  const ranges: { value: unknown; label: string; min: number; max: number; integer?: boolean; unit?: string }[] = [
+    { value: vitalsForm.temperature, label: 'Nhiệt độ', min: 30, max: 45, unit: '°C' },
+    { value: vitalsForm.heartRate, label: 'Mạch', min: 1, max: 250, integer: true, unit: 'lần/phút' },
+    { value: vitalsForm.respiratoryRate, label: 'Nhịp thở', min: 1, max: 100, integer: true, unit: 'lần/phút' },
+    { value: vitalsForm.spo2, label: 'SpO2', min: 1, max: 100, integer: true, unit: '%' },
+    { value: vitalsForm.height, label: 'Chiều cao', min: 1, max: 300, unit: 'cm' },
+    { value: vitalsForm.weight, label: 'Cân nặng', min: 1, max: 500, unit: 'kg' },
+  ]
+
+  for (const item of ranges) {
+    const textValue = String(item.value ?? '').trim()
+    if (!textValue) continue
+    const numberValue = Number(textValue)
+    if (!Number.isFinite(numberValue)) return `${item.label} phải là số hợp lệ.`
+    if (item.integer && !Number.isInteger(numberValue)) return `${item.label} phải là số nguyên.`
+    if (numberValue < item.min || numberValue > item.max) {
+      return `${item.label} phải nằm trong khoảng ${item.min}-${item.max}${item.unit ? ` ${item.unit}` : ''}.`
+    }
+  }
+
+  if (String(vitalsForm.bloodPressure ?? '').trim().length > 30) return 'Huyết áp tối đa 30 ký tự.'
+  return ''
+}
+
 function stringValue(value: unknown) {
   return value === null || value === undefined ? '' : String(value)
 }
@@ -1734,7 +1786,7 @@ function renderMedicalRecordCard(props: any) {
           h('input', {
             value: props.examForm.diagnosisCode,
             list: 'icd-options',
-            class: 'form-input',
+            class: formInputClass,
             placeholder: 'Search ICD',
             onInput: (event: Event) => { props.examForm.diagnosisCode = (event.target as HTMLInputElement).value },
           }),
@@ -1752,14 +1804,14 @@ function renderMedicalRecordCard(props: any) {
 
 function renderClinicalOrdersCard(props: any, emit: any) {
   return medicalCard('Chỉ định cận lâm sàng', FlaskConical, [
-    h('div', { class: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-5' }, [
+    h('div', { class: 'grid gap-2 sm:grid-cols-2' }, [
       checkboxField('Xét nghiệm máu', props.clinicalChecklist.bloodTest, (value: boolean) => { props.clinicalChecklist.bloodTest = value }),
       checkboxField('Xét nghiệm nước tiểu', props.clinicalChecklist.urineTest, (value: boolean) => { props.clinicalChecklist.urineTest = value }),
       checkboxField('Siêu âm', props.clinicalChecklist.ultrasound, (value: boolean) => { props.clinicalChecklist.ultrasound = value }),
       checkboxField('X-Quang', props.clinicalChecklist.xray, (value: boolean) => { props.clinicalChecklist.xray = value }),
       checkboxField('Điện tim', props.clinicalChecklist.ecg, (value: boolean) => { props.clinicalChecklist.ecg = value }),
     ]),
-    h('div', { class: 'mt-4 grid gap-3 xl:grid-cols-[160px_1fr_1fr_auto] xl:items-end' }, [
+    h('div', { class: 'mt-4 grid gap-3' }, [
       selectField('Loại', props.orderForm.orderType, (value: string) => { props.orderForm.orderType = value }, ['Xét nghiệm', 'Siêu âm', 'X-Quang', 'Điện tim', 'Khác']),
       inputField('Tên chỉ định khác', props.orderForm.orderName, (value: string) => { props.orderForm.orderName = value }, 'VD: Nội soi tai mũi họng'),
       inputField('Lý do', props.orderForm.reason, (value: string) => { props.orderForm.reason = value }, 'Chưa có'),
@@ -1788,16 +1840,16 @@ function renderPrescriptionCard(props: any, emit: any) {
                     h('td', { class: 'px-4 py-3' }, [
                       h('select', {
                         value: item.medicineId || '',
-                        class: 'form-input min-w-[220px]',
+                        class: [formInputClass, 'min-w-[220px]'],
                         onChange: (event: Event) => emit('select-prescription-medicine', item, (event.target as HTMLSelectElement).value),
                       }, [
                         h('option', { value: '' }, 'Chọn thuốc'),
                         ...props.medicines.map((medicine: any) => h('option', { value: medicineId(medicine) }, `${medicineName(medicine)} - tồn ${medicineStock(medicine)}`)),
                       ]),
                     ]),
-                    h('td', { class: 'px-4 py-3' }, h('input', { value: item.dosage, class: 'form-input min-w-[160px]', placeholder: 'VD: 1 viên x 2 lần/ngày', onInput: (event: Event) => { item.dosage = (event.target as HTMLInputElement).value } })),
-                    h('td', { class: 'px-4 py-3' }, h('input', { value: item.quantity, type: 'number', class: 'form-input min-w-[110px]', onInput: (event: Event) => { item.quantity = Number((event.target as HTMLInputElement).value) } })),
-                    h('td', { class: 'px-4 py-3' }, h('input', { value: item.note || item.usageInstruction || '', class: 'form-input min-w-[180px]', placeholder: 'Sau ăn, khi đau...', onInput: (event: Event) => { item.note = (event.target as HTMLInputElement).value; item.usageInstruction = (event.target as HTMLInputElement).value } })),
+                    h('td', { class: 'px-4 py-3' }, h('input', { value: item.dosage, class: [formInputClass, 'min-w-[160px]'], placeholder: 'VD: 1 viên x 2 lần/ngày', onInput: (event: Event) => { item.dosage = (event.target as HTMLInputElement).value } })),
+                    h('td', { class: 'px-4 py-3' }, h('input', { value: item.quantity, type: 'number', class: [formInputClass, 'min-w-[110px]'], onInput: (event: Event) => { item.quantity = Number((event.target as HTMLInputElement).value) } })),
+                    h('td', { class: 'px-4 py-3' }, h('input', { value: item.note || item.usageInstruction || '', class: [formInputClass, 'min-w-[180px]'], placeholder: 'Sau ăn, khi đau...', onInput: (event: Event) => { item.note = (event.target as HTMLInputElement).value; item.usageInstruction = (event.target as HTMLInputElement).value } })),
                     h('td', { class: 'px-4 py-3 text-center' }, h('button', { type: 'button', class: 'inline-flex h-9 w-9 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50', onClick: () => emit('remove-medicine', item.medicineId) }, [h(Trash2, { class: 'h-4 w-4' })])),
                   ]),
                 )
@@ -1812,13 +1864,13 @@ function renderPrescriptionCard(props: any, emit: any) {
 
 function renderConclusionCard(props: any) {
   return medicalCard('Kết luận khám', FileText, [
-    h('div', { class: 'grid gap-4 xl:grid-cols-2' }, [
+    h('div', { class: 'grid gap-4' }, [
       textareaField('Kết luận', props.examForm.treatmentPlan, (value: string) => { props.examForm.treatmentPlan = value }, 'Chưa có'),
       textareaField('Lời dặn bác sĩ', props.examForm.doctorNote, (value: string) => { props.examForm.doctorNote = value }, 'Chưa có'),
       inputField('Ngày tái khám', props.examForm.followUpDate, (value: string) => { props.examForm.followUpDate = value }, '', 'date'),
       h('div', null, [
         h('p', { class: 'mb-2 text-sm font-semibold text-slate-700' }, 'Tình trạng'),
-        h('div', { class: 'grid gap-2 sm:grid-cols-2' }, ['Hoàn thành', 'Theo dõi', 'Nhập viện', 'Chuyển viện'].map((option) =>
+        h('div', { class: 'grid gap-2' }, ['Hoàn thành', 'Theo dõi', 'Nhập viện', 'Chuyển viện'].map((option) =>
           radioField(option, props.examForm.conclusionStatus === option, () => { props.examForm.conclusionStatus = option }),
         )),
       ]),
@@ -1862,7 +1914,7 @@ function sideInfoItem(label: string, value: unknown) {
 }
 
 function vitalField(label: string, value: any, update: (value: string) => void, unit: string, icon: any, type = 'text') {
-  return h('label', { class: 'block rounded-xl border border-slate-200 bg-white p-3' }, [
+  return h('label', { class: 'block rounded-xl border border-slate-200 bg-white p-3 transition focus-within:border-blue-200 focus-within:shadow-sm' }, [
     h('span', { class: 'flex items-center gap-2 text-xs font-bold text-slate-600' }, [
       h(icon, { class: 'h-4 w-4 text-[#0F52BA]' }),
       label,
@@ -1871,7 +1923,7 @@ function vitalField(label: string, value: any, update: (value: string) => void, 
       h('input', {
         value,
         type,
-        class: 'min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400',
+        class: 'min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 focus:outline-none focus:ring-0',
         placeholder: 'Chưa có',
         onInput: (event: Event) => update((event.target as HTMLInputElement).value),
       }),
@@ -1881,48 +1933,48 @@ function vitalField(label: string, value: any, update: (value: string) => void, 
 }
 
 function checkboxField(label: string, checked: boolean, update: (value: boolean) => void) {
-  return h('label', { class: 'flex h-11 cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50' }, [
+  return h('label', { class: 'flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-5 text-slate-700 transition hover:border-blue-200 hover:bg-blue-50' }, [
     h('input', {
       checked,
       type: 'checkbox',
-      class: 'h-4 w-4 rounded border-slate-300 text-[#0F52BA] focus:ring-blue-500',
+      class: 'h-4 w-4 shrink-0 rounded border-slate-300 text-[#0F52BA] focus:ring-blue-500',
       onChange: (event: Event) => update((event.target as HTMLInputElement).checked),
     }),
-    label,
+    h('span', { class: 'min-w-0 break-words' }, label),
   ])
 }
 
 function radioField(label: string, checked: boolean, update: () => void) {
-  return h('label', { class: ['flex h-11 cursor-pointer items-center gap-3 rounded-xl border px-3 text-sm font-semibold transition', checked ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700 hover:border-blue-200'] }, [
+  return h('label', { class: [compactOptionClass, checked ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700 hover:border-blue-200'] }, [
     h('input', {
       checked,
       type: 'radio',
       name: 'conclusionStatus',
-      class: 'h-4 w-4 border-slate-300 text-[#0F52BA] focus:ring-blue-500',
+      class: 'h-4 w-4 shrink-0 border-slate-300 text-[#0F52BA] focus:ring-blue-500',
       onChange: update,
     }),
-    label,
+    h('span', { class: 'min-w-0 break-words' }, label),
   ])
 }
 
 function inputField(label: string, value: any, update: (value: string) => void, placeholder = '', type = 'text') {
   return h('label', { class: 'block' }, [
     h('span', { class: 'mb-2 block text-sm font-semibold text-slate-700' }, label),
-    h('input', { value, type, placeholder, class: 'form-input', onInput: (event: Event) => update((event.target as HTMLInputElement).value) }),
+    h('input', { value, type, placeholder, class: formInputClass, onInput: (event: Event) => update((event.target as HTMLInputElement).value) }),
   ])
 }
 
 function textareaField(label: string, value: any, update: (value: string) => void, placeholder = '', extraClass = '') {
   return h('label', { class: ['block', extraClass] }, [
     h('span', { class: 'mb-2 block text-sm font-semibold text-slate-700' }, label),
-    h('textarea', { value, rows: 3, placeholder, class: 'form-textarea', onInput: (event: Event) => update((event.target as HTMLTextAreaElement).value) }),
+    h('textarea', { value, rows: 3, placeholder, class: formTextareaClass, onInput: (event: Event) => update((event.target as HTMLTextAreaElement).value) }),
   ])
 }
 
 function selectField(label: string, value: string, update: (value: string) => void, options: string[]) {
   return h('label', { class: 'block' }, [
     h('span', { class: 'mb-2 block text-sm font-semibold text-slate-700' }, label),
-    h('select', { value, class: 'form-input', onChange: (event: Event) => update((event.target as HTMLSelectElement).value) }, options.map((option) => h('option', { value: option }, option))),
+    h('select', { value, class: formInputClass, onChange: (event: Event) => update((event.target as HTMLSelectElement).value) }, options.map((option) => h('option', { value: option }, option))),
   ])
 }
 
