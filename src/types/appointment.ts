@@ -41,6 +41,7 @@ export interface WaitingQueueItem {
   doctorName?: string
   specialtyName?: string
   status: QueueStatus
+  queueDate?: string
   appointmentDate: string
   slotTime?: string
   reason?: string

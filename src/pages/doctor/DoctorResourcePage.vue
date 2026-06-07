@@ -569,8 +569,21 @@ async function loadAppointmentRows() {
 }
 
 async function loadQueueRows() {
-  const data = await appointmentApi.getWaitingQueue(filters.date || today())
-  return filterQueueForDoctor(data, authStore.user).map(mapQueue)
+  const selectedDate = filters.date || today()
+  const [queueData, appointments] = await Promise.all([
+    appointmentApi.getWaitingQueue(selectedDate).catch(() => [] as WaitingQueueItem[]),
+    appointmentApi.getAppointmentsByDoctor(doctorId.value).catch(() => [] as Appointment[]),
+  ])
+  const appointmentById = new Map(appointments.map((item) => [Number(item.appointmentId), item]))
+  const queueRows = filterQueueForDoctor(queueData, authStore.user).map((item) => mapQueue(item, appointmentById.get(Number(item.appointmentId))))
+  const queuedAppointments = new Set(queueRows.map((row) => Number(row.appointmentId)).filter((value) => Number.isFinite(value) && value > 0))
+  const confirmedRows = filterAppointmentsForDoctor(appointments, authStore.user)
+    .filter((item) => normalizeDate(item.appointmentDate) === selectedDate)
+    .filter((item) => isQueueVisibleAppointmentStatus(item.status))
+    .filter((item) => !queuedAppointments.has(Number(item.appointmentId)))
+    .map((item) => ({ ...mapAppointment(item), key: `AQ${item.appointmentId}`, id: item.queueNumber || item.appointmentId }))
+
+  return [...queueRows, ...confirmedRows].sort(compareQueueRows)
 }
 
 async function loadVisitRows() {
@@ -1114,23 +1127,37 @@ function mapAppointment(item: Appointment): Row {
   }
 }
 
-function mapQueue(item: WaitingQueueItem): Row {
+function mapQueue(item: WaitingQueueItem, appointment?: Appointment): Row {
+  const appointmentDate = item.appointmentDate || item.queueDate || appointment?.appointmentDate
+  const slotTime = item.slotTime || appointment?.slotTime || ''
+  const queueNumber = item.queueNumber || appointment?.queueNumber
   return {
     key: `Q${item.id || item.queueId || item.appointmentId}`,
-    id: item.queueNumber || item.id || item.appointmentId,
+    id: queueNumber || item.id || item.appointmentId,
     appointmentId: item.appointmentId,
-    patientId: item.patientId,
-    doctorId: item.doctorId,
-    patientName: displayText(item.patientName) || 'Chưa có tên',
-    patientPhone: item.patientPhone,
-    doctorName: displayText(item.doctorName),
-    date: normalizeDate(item.appointmentDate),
-    time: item.slotTime || '',
-    timeLabel: `${formatDate(item.appointmentDate)} · ${item.slotTime || '--:--'}`,
-    reason: item.reason || item.specialtyName || 'Chưa ghi lý do',
-    status: item.status,
-    raw: item,
+    patientId: item.patientId || appointment?.patientId,
+    doctorId: item.doctorId || appointment?.doctorId,
+    patientName: displayText(item.patientName || appointment?.patientName) || 'Chưa có tên',
+    patientPhone: item.patientPhone || appointment?.patientPhone,
+    doctorName: displayText(item.doctorName || appointment?.doctorName),
+    date: normalizeDate(appointmentDate),
+    time: slotTime,
+    timeLabel: `${formatDate(appointmentDate)} · ${slotTime || '--:--'}`,
+    reason: item.reason || appointment?.reason || item.specialtyName || appointment?.specialtyName || 'Chưa ghi lý do',
+    status: item.status || appointment?.status,
+    raw: { ...appointment, ...item },
   }
+}
+
+function isQueueVisibleAppointmentStatus(status?: string) {
+  return ['confirmed', 'progress', 'waiting'].includes(statusBucket(status))
+}
+
+function compareQueueRows(left: Row, right: Row) {
+  const leftQueue = Number(left.id)
+  const rightQueue = Number(right.id)
+  if (Number.isFinite(leftQueue) && Number.isFinite(rightQueue) && leftQueue !== rightQueue) return leftQueue - rightQueue
+  return String(left.time || '').localeCompare(String(right.time || ''))
 }
 
 function mapVisit(item: MedicalVisit): Row {
