@@ -1401,7 +1401,7 @@ function rowActions(row: Row) {
   const actions: Array<{ key: ActionKey; label: string; className: string }> = []
   if (resource.value === 'appointments') {
     if (status.includes('pending') || status.includes('waiting')) actions.push({ key: 'confirm', label: 'Xác nhận', className: 'bg-blue-700 text-white hover:bg-blue-800' })
-    if (!status.includes('completed') && !status.includes('cancel')) actions.push({ key: 'checkin', label: 'Check-in N2', className: 'bg-emerald-600 text-white hover:bg-emerald-700' })
+    if (status.includes('confirmed')) actions.push({ key: 'checkin', label: 'Check-in', className: 'bg-emerald-600 text-white hover:bg-emerald-700' })
     if (!isDoneStatus(row.status) && !status.includes('cancel')) actions.push({ key: 'cancelAppointment', label: 'Hủy', className: 'bg-rose-50 text-rose-700 hover:bg-rose-100' })
   }
   if (resource.value === 'queue' && Number(row.visitId) > 0) {
@@ -1523,15 +1523,16 @@ async function executeCheckInN2() {
   saving.value = true
   const row = selectedRow.value
   try {
-    await medicalRecordApi.syncAppointmentConfirmed(row).catch(() => undefined)
-    await medicalRecordApi.syncPatientCheckedIn(row)
     const appointmentId = Number(row.appointmentId || row.id)
+    await appointmentApi.checkInAppointment(appointmentId)
+    await medicalRecordApi.syncAppointmentConfirmed(row).catch(() => undefined)
+    await medicalRecordApi.syncPatientCheckedIn({ ...row, status: 'CheckedIn' })
     await medicalRecordApi.getVisitByAppointment(appointmentId).catch(() => null)
-    showToast('Check-in N2 thành công', 'Bệnh nhân đã check-in. Lượt khám đã được tạo bên N2.', 'success')
+    showToast('Check-in thành công', 'N1 đã cập nhật hàng chờ và lượt khám đã được đồng bộ sang N2.', 'success')
     checkInConfirmOpen.value = false
     await loadData()
   } catch (apiError) {
-    showToast('Check-in N2 thất bại', `${getApiErrorMessage(apiError)} Vui lòng thử lại.`, 'error')
+    showToast('Check-in thất bại', `${getApiErrorMessage(apiError)} Vui lòng thử lại.`, 'error')
   } finally {
     saving.value = false
   }
@@ -1692,12 +1693,13 @@ async function dispenseActivePrescription() {
 }
 
 async function syncMedicalVisit(row: Row) {
-  await medicalRecordApi.syncAppointmentConfirmed(row).catch(() => undefined)
-  await medicalRecordApi.syncPatientCheckedIn(row)
   const appointmentId = Number(row.appointmentId || row.id)
+  await appointmentApi.checkInAppointment(appointmentId)
+  await medicalRecordApi.syncAppointmentConfirmed(row).catch(() => undefined)
+  await medicalRecordApi.syncPatientCheckedIn({ ...row, status: 'CheckedIn' })
   await medicalRecordApi.getVisitByAppointment(appointmentId)
-  note.value = 'Đã check-in và xác nhận N2 đã tạo lượt khám.'
-  showToast('Check-in N2 thành công', 'Tiếp theo sang Hàng chờ khám để cập nhật chỉ số sức khỏe trước khi bác sĩ khám.', 'success')
+  note.value = 'Đã check-in N1 và xác nhận N2 đã tạo lượt khám.'
+  showToast('Check-in thành công', 'Tiếp theo sang Hàng chờ khám để cập nhật chỉ số sức khỏe trước khi bác sĩ khám.', 'success')
 }
 
 function openVitals(row: Row) {

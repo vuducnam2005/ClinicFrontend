@@ -915,8 +915,12 @@ function statusClass(status?: string) {
 
 function statusLabel(status?: string) {
   const valueText = String(status || '').toLowerCase()
+  if (valueText.includes('checked')) return 'Đã check-in'
+  if (valueText.includes('progress')) return 'Đang khám'
   if (valueText.includes('confirmed')) return 'Đã xác nhận'
   if (valueText.includes('completed') || valueText.includes('done')) return 'Hoàn tất'
+  if (valueText.includes('noshow')) return 'Không đến khám'
+  if (valueText.includes('expired')) return 'Đã quá hạn'
   if (valueText.includes('pending') || valueText.includes('waiting')) return 'Đang chờ'
   if (valueText.includes('unpaid')) return 'Chưa thanh toán'
   if (valueText.includes('paid')) return 'Đã thanh toán'

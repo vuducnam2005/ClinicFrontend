@@ -132,9 +132,12 @@ function statusLabel(status: string) {
  const map: Record<string, string> = {
  Pending: 'Chờ xác nhận',
  Confirmed: 'Đã xác nhận',
+ CheckedIn: 'Đã check-in',
  InProgress: 'Đang khám',
  Cancelled: 'Đã hủy',
  Completed: 'Hoàn tất',
+ NoShow: 'Không đến khám',
+ Expired: 'Đã quá hạn',
  }
  return map[status] || status
 }
@@ -143,9 +146,12 @@ function statusClass(status: string) {
  const map: Record<string, string> = {
  Pending: 'bg-amber-50 text-amber-700',
  Confirmed: 'bg-blue-50 text-blue-700',
+ CheckedIn: 'bg-emerald-50 text-emerald-700',
  InProgress: 'bg-cyan-50 text-cyan-700',
  Cancelled: 'bg-rose-50 text-rose-700',
  Completed: 'bg-teal-50 text-teal-700',
+ NoShow: 'bg-slate-100 text-slate-700',
+ Expired: 'bg-slate-100 text-slate-700',
  }
  return map[status] || 'bg-slate-100 text-slate-700'
 }

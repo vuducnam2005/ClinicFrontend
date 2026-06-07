@@ -397,11 +397,15 @@ function invoiceDisplayCode(invoice: Invoice & Record<string, any>) {
 
 function formatCurrency(value: number) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0)) }
 function formatDate(value?: string) { if (!value) return 'Chưa cập nhật'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('vi-VN').format(date) }
-function statusClass(status?: string) { const value = String(status || '').toLowerCase(); if (value.includes('paid') || value.includes('confirmed') || value.includes('completed')) return 'bg-teal-100 text-teal-700'; if (value.includes('pending') || value.includes('unpaid') || value.includes('waiting')) return 'bg-amber-100 text-amber-700'; if (value.includes('cancel')) return 'bg-rose-100 text-rose-700'; return 'bg-slate-100 text-slate-700' }
+function statusClass(status?: string) { const value = String(status || '').toLowerCase(); if (value.includes('paid') || value.includes('confirmed') || value.includes('checked') || value.includes('progress') || value.includes('completed')) return 'bg-teal-100 text-teal-700'; if (value.includes('pending') || value.includes('unpaid') || value.includes('waiting')) return 'bg-amber-100 text-amber-700'; if (value.includes('cancel')) return 'bg-rose-100 text-rose-700'; return 'bg-slate-100 text-slate-700' }
 function statusLabel(status?: string) {
   const value = String(status || '').toLowerCase()
+  if (value.includes('checked')) return 'Đã check-in'
+  if (value.includes('progress')) return 'Đang khám'
   if (value.includes('confirmed')) return 'Đã xác nhận'
   if (value.includes('completed') || value.includes('done')) return 'Hoàn tất'
+  if (value.includes('noshow')) return 'Không đến khám'
+  if (value.includes('expired')) return 'Đã quá hạn'
   if (value.includes('pending') || value.includes('waiting')) return 'Đang chờ'
   if (value.includes('unpaid')) return 'Chưa thanh toán'
   if (value.includes('paid')) return 'Đã thanh toán'

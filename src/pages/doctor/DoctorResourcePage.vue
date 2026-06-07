@@ -570,20 +570,16 @@ async function loadAppointmentRows() {
 
 async function loadQueueRows() {
   const selectedDate = filters.date || today()
-  const [queueData, appointments] = await Promise.all([
-    appointmentApi.getWaitingQueue(selectedDate).catch(() => [] as WaitingQueueItem[]),
-    appointmentApi.getAppointmentsByDoctor(doctorId.value).catch(() => [] as Appointment[]),
-  ])
-  const appointmentById = new Map(appointments.map((item) => [Number(item.appointmentId), item]))
-  const queueRows = filterQueueForDoctor(queueData, authStore.user).map((item) => mapQueue(item, appointmentById.get(Number(item.appointmentId))))
-  const queuedAppointments = new Set(queueRows.map((row) => Number(row.appointmentId)).filter((value) => Number.isFinite(value) && value > 0))
-  const confirmedRows = filterAppointmentsForDoctor(appointments, authStore.user)
-    .filter((item) => normalizeDate(item.appointmentDate) === selectedDate)
-    .filter((item) => isQueueVisibleAppointmentStatus(item.status))
-    .filter((item) => !queuedAppointments.has(Number(item.appointmentId)))
-    .map((item) => ({ ...mapAppointment(item), key: `AQ${item.appointmentId}`, id: item.queueNumber || item.appointmentId }))
+  const queueData = await appointmentApi.getWaitingQueue({
+    date: selectedDate,
+    doctorId: doctorId.value,
+    keyword: filters.keyword || undefined,
+  }).catch(() => [] as WaitingQueueItem[])
 
-  return [...queueRows, ...confirmedRows].sort(compareQueueRows)
+  return filterQueueForDoctor(queueData, authStore.user)
+    .map((item) => mapQueue(item))
+    .filter((row) => isQueueVisibleAppointmentStatus(row.status))
+    .sort(compareQueueRows)
 }
 
 async function loadVisitRows() {
@@ -1131,6 +1127,7 @@ function mapQueue(item: WaitingQueueItem, appointment?: Appointment): Row {
   const appointmentDate = item.appointmentDate || item.queueDate || appointment?.appointmentDate
   const slotTime = item.slotTime || appointment?.slotTime || ''
   const queueNumber = item.queueNumber || appointment?.queueNumber
+  const status = item.appointmentStatus || item.status || appointment?.status
   return {
     key: `Q${item.id || item.queueId || item.appointmentId}`,
     id: queueNumber || item.id || item.appointmentId,
@@ -1144,13 +1141,13 @@ function mapQueue(item: WaitingQueueItem, appointment?: Appointment): Row {
     time: slotTime,
     timeLabel: `${formatDate(appointmentDate)} · ${slotTime || '--:--'}`,
     reason: item.reason || appointment?.reason || item.specialtyName || appointment?.specialtyName || 'Chưa ghi lý do',
-    status: item.status || appointment?.status,
+    status,
     raw: { ...appointment, ...item },
   }
 }
 
 function isQueueVisibleAppointmentStatus(status?: string) {
-  return ['confirmed', 'progress', 'waiting'].includes(statusBucket(status))
+  return ['confirmed', 'checkedin', 'progress', 'waiting'].includes(statusBucket(status))
 }
 
 function compareQueueRows(left: Row, right: Row) {
@@ -1228,7 +1225,8 @@ function statusBucket(status?: string) {
   if (value.includes('cancel') || value.includes('huy') || value.includes('hủy')) return 'cancelled'
   if (value.includes('complete') || value.includes('done') || value.includes('hoan') || value.includes('hoàn')) return 'completed'
   if (value.includes('progress') || value.includes('dang') || value.includes('đang')) return 'progress'
-  if (value.includes('confirm') || value.includes('checked')) return 'confirmed'
+  if (value.includes('checked')) return 'checkedin'
+  if (value.includes('confirm')) return 'confirmed'
   if (value.includes('wait') || value.includes('pending') || value.includes('cho') || value.includes('chờ')) return 'waiting'
   return 'other'
 }
@@ -1243,6 +1241,7 @@ function statusText(status?: string) {
   if (bucket === 'cancelled') return 'Đã hủy'
   if (bucket === 'completed') return 'Hoàn thành'
   if (bucket === 'progress') return 'Đang khám'
+  if (bucket === 'checkedin') return 'Đã check-in'
   if (bucket === 'confirmed') return 'Đã xác nhận'
   if (bucket === 'waiting') return 'Chờ khám'
   return status || 'Chưa cập nhật'
@@ -1252,6 +1251,7 @@ function statusClass(status?: string) {
   const bucket = statusBucket(status)
   if (bucket === 'completed') return 'bg-emerald-100 text-emerald-700'
   if (bucket === 'progress') return 'bg-blue-100 text-blue-700'
+  if (bucket === 'checkedin') return 'bg-teal-100 text-teal-700'
   if (bucket === 'confirmed') return 'bg-cyan-100 text-cyan-700'
   if (bucket === 'waiting') return 'bg-amber-100 text-amber-700'
   if (bucket === 'cancelled') return 'bg-rose-100 text-rose-700'

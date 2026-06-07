@@ -118,6 +118,7 @@ onMounted(async () => {
 function statusLabel(status: string) {
  const map: Record<string, string> = {
  Waiting: 'Đang chờ',
+ CheckedIn: 'Đã check-in',
  InProgress: 'Đang khám',
  Done: 'Hoàn tất',
  Cancelled: 'Đã hủy',
@@ -128,6 +129,7 @@ function statusLabel(status: string) {
 function statusClass(status: string) {
  const map: Record<string, string> = {
  Waiting: 'bg-amber-500/10 text-amber-600 border border-amber-500/20',
+ CheckedIn: 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20',
  InProgress: 'bg-teal-500/10 text-teal-600 border border-teal-500/20',
  Done: 'bg-slate-100 text-slate-500 border border-slate-200/30 ',
  Cancelled: 'bg-rose-500/10 text-rose-600 border border-rose-500/20',

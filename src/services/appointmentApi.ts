@@ -16,7 +16,7 @@ function normalizeSlot(slot: unknown) {
 
 function isActiveAppointmentStatus(status?: string) {
   const value = String(status || '').toLowerCase()
-  return !value.includes('cancel')
+  return !value.includes('cancel') && !value.includes('expired') && !value.includes('noshow')
 }
 
 function queueIdentity(item: WaitingQueueItem) {
@@ -161,8 +161,8 @@ export const appointmentApi = {
     const response = await client.put(`/api/appointments/${id}/check-in`)
     return readApiResponse<Appointment>(response.data)
   },
-  async cancelAppointment(id: number) {
-    const response = await client.put(`/api/appointments/${id}/cancel`)
+  async cancelAppointment(id: number, reason?: string) {
+    const response = await client.put(`/api/appointments/${id}/cancel`, null, { params: reason ? { reason } : undefined })
     return readApiResponse<Appointment>(response.data)
   },
   async completeAppointment(id: number) {
@@ -210,8 +210,9 @@ export const appointmentApi = {
       return await this.completeAppointment(id)
     }
   },
-  async getWaitingQueue(date: string) {
-    const response = await client.get('/api/waiting-queue', { params: { date } })
+  async getWaitingQueue(filters?: string | { date?: string; doctorId?: number | string; status?: string; keyword?: string }) {
+    const params = typeof filters === 'string' ? { date: filters } : filters
+    const response = await client.get('/api/waiting-queue', { params })
     return readApiResponse<WaitingQueueItem[]>(response.data)
   },
   async getWaitingQueueItem(id: number) {
@@ -221,6 +222,11 @@ export const appointmentApi = {
   async setQueueInProgress(idOrItem: number | WaitingQueueItem) {
     const id = typeof idOrItem === 'number' ? idOrItem : queueIdentity(idOrItem)
     const response = await client.put(`/api/waiting-queue/${id}/in-progress`)
+    return readApiResponse<WaitingQueueItem | Appointment>(response.data)
+  },
+  async checkInQueueItem(idOrItem: number | WaitingQueueItem) {
+    const id = typeof idOrItem === 'number' ? idOrItem : queueIdentity(idOrItem)
+    const response = await client.put(`/api/waiting-queue/${id}/check-in`)
     return readApiResponse<WaitingQueueItem | Appointment>(response.data)
   },
   async setQueueDone(idOrItem: number | WaitingQueueItem) {

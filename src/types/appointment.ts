@@ -1,4 +1,4 @@
-export type AppointmentStatus = 'Pending' | 'Confirmed' | 'InProgress' | 'Cancelled' | 'Completed' | string
+export type AppointmentStatus = 'Pending' | 'Confirmed' | 'CheckedIn' | 'InProgress' | 'Cancelled' | 'Completed' | 'NoShow' | 'Expired' | string
 
 export interface Appointment {
   appointmentId: number
@@ -15,6 +15,10 @@ export interface Appointment {
   status: AppointmentStatus
   queueNumber: number
   reason?: string
+  cancelReason?: string
+  checkedInAt?: string
+  startedAt?: string
+  completedAt?: string
 }
 
 export interface CreateAppointmentRequest {
@@ -27,7 +31,7 @@ export interface CreateAppointmentRequest {
   reason?: string
 }
 
-export type QueueStatus = 'Waiting' | 'InProgress' | 'Done' | 'Cancelled' | string
+export type QueueStatus = 'Waiting' | 'CheckedIn' | 'InProgress' | 'Done' | 'Cancelled' | string
 
 export interface WaitingQueueItem {
   id?: number
@@ -41,8 +45,11 @@ export interface WaitingQueueItem {
   doctorName?: string
   specialtyName?: string
   status: QueueStatus
+  queueStatus?: QueueStatus
+  appointmentStatus?: AppointmentStatus
   queueDate?: string
   appointmentDate: string
   slotTime?: string
   reason?: string
+  createdAt?: string
 }
