@@ -47,13 +47,64 @@
           <BaseInput :model-value="authStore.user?.username || ''" label="Tên đăng nhập" disabled />
           <BaseInput v-model="profileForm.email" label="Email" type="email" required />
           <BaseInput v-model="profileForm.phoneNumber" label="Số điện thoại" />
+          <BaseInput v-model="profileForm.citizenId" label="Số CCCD" inputmode="numeric" maxlength="12" @update:model-value="handleCitizenInput" />
+          <BaseInput v-model="profileForm.dateOfBirth" label="Ngày sinh" type="date" />
+          <label class="block">
+            <span class="mb-2 block text-sm font-medium text-slate-700">Giới tính</span>
+            <select
+              v-model="profileForm.gender"
+              class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
+            >
+              <option value="">Chưa chọn</option>
+              <option value="Nam">Nam</option>
+              <option value="Nữ">Nữ</option>
+              <option value="Khác">Khác</option>
+            </select>
+          </label>
+          <label class="block">
+            <span class="mb-2 block text-sm font-medium text-slate-700">Nhóm máu</span>
+            <select
+              v-model="profileForm.bloodType"
+              class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
+            >
+              <option value="">Chưa rõ</option>
+              <option v-for="type in bloodTypes" :key="type" :value="type">{{ type }}</option>
+            </select>
+          </label>
+          <label class="block sm:col-span-2">
+            <span class="mb-2 block text-sm font-medium text-slate-700">Địa chỉ</span>
+            <textarea
+              v-model="profileForm.address"
+              rows="3"
+              class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
+              placeholder="Nhập địa chỉ hiện tại"
+            ></textarea>
+          </label>
+          <label class="block sm:col-span-2">
+            <span class="mb-2 block text-sm font-medium text-slate-700">Dị ứng</span>
+            <textarea
+              v-model="profileForm.allergyNote"
+              rows="2"
+              class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
+              placeholder="VD: Không có, dị ứng penicillin..."
+            ></textarea>
+          </label>
+          <label class="block sm:col-span-2">
+            <span class="mb-2 block text-sm font-medium text-slate-700">Tiền sử bệnh</span>
+            <textarea
+              v-model="profileForm.medicalHistory"
+              rows="3"
+              class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
+              placeholder="VD: Tăng huyết áp, tiểu đường, phẫu thuật trước đây..."
+            ></textarea>
+          </label>
           <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
             <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Patient ID</p>
             <p class="mt-2 break-words font-semibold text-slate-900">{{ displayPatientCode }}</p>
           </div>
           <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Tiền sử bệnh</p>
-            <p class="mt-2 break-words font-semibold text-slate-900">{{ currentPatient?.medicalHistory || 'Chưa ghi nhận' }}</p>
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Cập nhật gần nhất</p>
+            <p class="mt-2 break-words font-semibold text-slate-900">{{ formatDate(currentPatient?.updatedAt || currentPatient?.createdAt) }}</p>
           </div>
           <div class="sm:col-span-2">
             <BaseButton type="submit" :loading="profileSaving">
@@ -260,7 +311,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { CalendarClock, ChevronLeft, ChevronRight, Copy, CreditCard, FileHeart, Pill, RefreshCw, Save, Search, SearchX, ShieldCheck, UserRound, X } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -296,10 +347,18 @@ const detailRow = ref<Row | null>(null)
 const paymentOpen = ref(false)
 const paymentRow = ref<Row | null>(null)
 const profileSaving = ref(false)
+const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const profileForm = reactive({
   fullName: '',
   email: '',
   phoneNumber: '',
+  citizenId: '',
+  dateOfBirth: '',
+  gender: '',
+  address: '',
+  bloodType: '',
+  allergyNote: '',
+  medicalHistory: '',
 })
 
 const resource = computed<Resource>(() => isResource(route.meta.patientResource) ? route.meta.patientResource : 'appointments')
@@ -403,6 +462,14 @@ watch(resource, () => {
   void loadData()
 }, { immediate: true })
 
+onMounted(() => {
+  window.addEventListener('patient-profile-updated', handlePatientProfileUpdated)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('patient-profile-updated', handlePatientProfileUpdated)
+})
+
 async function loadData() {
   loading.value = resource.value !== 'profile'
   error.value = ''
@@ -484,10 +551,25 @@ async function resolvePatient() {
   return currentPatient.value
 }
 
+function handlePatientProfileUpdated(event: Event) {
+  const patient = (event as CustomEvent<Patient>).detail
+  if (!patient) return
+  currentPatient.value = patient
+  history.value = null
+  syncProfileForm()
+}
+
 function syncProfileForm() {
   profileForm.fullName = currentPatient.value?.fullName || authStore.user?.fullName || ''
   profileForm.email = currentPatient.value?.email || authStore.user?.email || ''
   profileForm.phoneNumber = currentPatient.value?.phoneNumber || currentPatient.value?.phone || authStore.user?.phoneNumber || ''
+  profileForm.citizenId = currentPatient.value?.citizenId || ''
+  profileForm.dateOfBirth = normalizeDate(currentPatient.value?.dateOfBirth)
+  profileForm.gender = currentPatient.value?.gender || ''
+  profileForm.address = currentPatient.value?.address || ''
+  profileForm.bloodType = currentPatient.value?.bloodType || ''
+  profileForm.allergyNote = currentPatient.value?.allergyNote || currentPatient.value?.allergies || ''
+  profileForm.medicalHistory = currentPatient.value?.medicalHistory || ''
 }
 
 async function syncPatientFromUser() {
@@ -520,6 +602,7 @@ async function saveProfile() {
   const fullName = profileForm.fullName.trim()
   const email = profileForm.email.trim()
   const phoneNumber = profileForm.phoneNumber.trim()
+  const citizenId = profileForm.citizenId.trim()
   if (!fullName) {
     showToast('Thiếu họ và tên', 'Vui lòng nhập họ và tên trước khi lưu hồ sơ.', 'error')
     return
@@ -528,18 +611,41 @@ async function saveProfile() {
     showToast('Thiếu email', 'Vui lòng nhập email trước khi lưu hồ sơ.', 'error')
     return
   }
+  if (citizenId && !/^\d{12}$/.test(citizenId)) {
+    showToast('CCCD chưa hợp lệ', 'Số CCCD phải gồm đúng 12 chữ số.', 'error')
+    return
+  }
 
   profileSaving.value = true
   error.value = ''
   try {
     await authStore.updateProfile({ fullName: capitalizeWords(fullName), email, phoneNumber: phoneNumber || undefined })
     const id = toNumber(currentPatient.value?.id, currentPatient.value?.patientId, authStore.user?.patientId)
+    const payload = patientPayload({
+      fullName: capitalizeWords(fullName),
+      email,
+      phoneNumber,
+      citizenId: citizenId || undefined,
+      dateOfBirth: profileForm.dateOfBirth || undefined,
+      gender: profileForm.gender || undefined,
+      address: profileForm.address.trim() || undefined,
+      bloodType: profileForm.bloodType || undefined,
+      allergyNote: profileForm.allergyNote.trim() || null,
+      medicalHistory: profileForm.medicalHistory.trim() || null,
+    })
     if (id) {
-      currentPatient.value = await medicalRecordApi.updatePatient(id, patientPayload({ fullName: capitalizeWords(fullName), email, phoneNumber }))
+      currentPatient.value = await medicalRecordApi.updatePatient(id, payload)
+    } else {
+      const savedPatient = await medicalRecordApi.createPatient(payload)
+      const savedId = toNumber(savedPatient.id, savedPatient.patientId)
+      currentPatient.value = savedId
+        ? await medicalRecordApi.getPatient(savedId).catch(() => savedPatient)
+        : savedPatient
+      if (authStore.user) authStore.user.patientId = currentPatient.value.id || currentPatient.value.patientId
     }
     history.value = null
     syncProfileForm()
-    showToast('Đã lưu hồ sơ', 'Họ tên, email và số điện thoại đã được cập nhật vào cơ sở dữ liệu.', 'success')
+    showToast('Đã lưu hồ sơ', 'Thông tin hành chính và y tế đã được cập nhật vào cơ sở dữ liệu.', 'success')
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError)
     showToast('Chưa lưu được hồ sơ', error.value, 'error')
@@ -554,13 +660,13 @@ function patientPayload(overrides: Partial<Patient>): Partial<Patient> {
     fullName: overrides.fullName || patient?.fullName || authStore.user?.fullName || 'Bệnh nhân',
     email: overrides.email ?? patient?.email ?? authStore.user?.email,
     phoneNumber: overrides.phoneNumber ?? patient?.phoneNumber ?? patient?.phone ?? authStore.user?.phoneNumber,
-    dateOfBirth: patient?.dateOfBirth,
-    gender: patient?.gender,
-    address: patient?.address,
-    citizenId: patient?.citizenId,
-    bloodType: patient?.bloodType,
-    allergyNote: patient?.allergyNote,
-    medicalHistory: patient?.medicalHistory,
+    dateOfBirth: overrides.dateOfBirth ?? patient?.dateOfBirth,
+    gender: overrides.gender ?? patient?.gender,
+    address: overrides.address ?? patient?.address,
+    citizenId: overrides.citizenId ?? patient?.citizenId,
+    bloodType: overrides.bloodType ?? patient?.bloodType,
+    allergyNote: Object.prototype.hasOwnProperty.call(overrides, 'allergyNote') ? overrides.allergyNote : patient?.allergyNote,
+    medicalHistory: Object.prototype.hasOwnProperty.call(overrides, 'medicalHistory') ? overrides.medicalHistory : patient?.medicalHistory,
     status: patient?.status,
   }
 }
@@ -729,6 +835,14 @@ function uniqueRows(items: Row[]) {
 
 function normalizeText(value: unknown) {
   return String(value ?? '').trim().toLowerCase()
+}
+
+function normalizeDate(value: unknown) {
+  return String(value ?? '').trim().slice(0, 10)
+}
+
+function handleCitizenInput(value: string) {
+  profileForm.citizenId = value.replace(/\D/g, '').slice(0, 12)
 }
 
 function capitalizeWords(str: string): string {
