@@ -14,7 +14,7 @@ export const medicineApi = {
     return readApiResponse<Medicine>(response.data)
   },
 
-  async createMedicine(payload: Omit<Medicine, 'medicineId'>) {
+  async createMedicine(payload: Partial<Medicine>) {
     const response = await client.post('/api/medicines', payload)
     return readApiResponse<Medicine>(response.data)
   },

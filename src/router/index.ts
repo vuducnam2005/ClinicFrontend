@@ -48,6 +48,7 @@ export default function router() {
           { path: 'patients', name: 'nurse-patients', component: () => import('@/pages/nurse/NurseResourcePage.vue'), meta: { nurseResource: 'patients' } },
           { path: 'queue', name: 'nurse-queue', component: () => import('@/pages/nurse/NurseResourcePage.vue'), meta: { nurseResource: 'queue' } },
           { path: 'bills', name: 'nurse-bills', component: () => import('@/pages/nurse/NurseResourcePage.vue'), meta: { nurseResource: 'bills' } },
+          { path: 'medicines', name: 'nurse-medicines', component: () => import('@/pages/nurse/NurseMedicinesPage.vue') },
           { path: 'prescriptions', name: 'nurse-prescriptions', component: () => import('@/pages/nurse/NurseResourcePage.vue'), meta: { nurseResource: 'prescriptions' } },
         ],
       },
