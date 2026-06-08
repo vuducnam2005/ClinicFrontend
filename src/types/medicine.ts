@@ -1,18 +1,18 @@
 export interface Medicine {
   medicineId: number
   medicineName: string
-  activeIngredient?: string
   medicineType?: string
+  activeIngredient?: string
   unit?: string
+  dosageForm?: string
   price?: number
+  unitPrice?: number
   stockQuantity: number
   minStockLevel?: number
   expiryDate?: string
-  status?: 'Active' | 'Inactive' | string
+  status?: 'Active' | 'Inactive' | 'OutOfStock' | string
   createdAt?: string
   updatedAt?: string | null
-  dosageForm?: string
-  unitPrice?: number
   description?: string
   isActive?: boolean
 }

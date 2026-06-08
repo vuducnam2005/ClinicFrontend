@@ -3,6 +3,8 @@ import type { Medicine } from '@/types/medicine'
 
 const client = createServiceClient('billing') // N3 manages medicines and billing
 
+export type MedicinePayload = Partial<Omit<Medicine, 'medicineId' | 'createdAt' | 'updatedAt'>>
+
 export const medicineApi = {
   async getMedicines(params?: { name?: string; activeIngredient?: string; medicineType?: string; status?: string; page?: number; pageSize?: number }) {
     const response = await client.get('/api/medicines', { params })
@@ -14,12 +16,12 @@ export const medicineApi = {
     return readApiResponse<Medicine>(response.data)
   },
 
-  async createMedicine(payload: Partial<Medicine>) {
+  async createMedicine(payload: MedicinePayload) {
     const response = await client.post('/api/medicines', payload)
     return readApiResponse<Medicine>(response.data)
   },
 
-  async updateMedicine(medicineId: number, payload: Partial<Medicine>) {
+  async updateMedicine(medicineId: number, payload: MedicinePayload) {
     const response = await client.put(`/api/medicines/${medicineId}`, payload)
     return readApiResponse<Medicine>(response.data)
   },
