@@ -1019,6 +1019,12 @@ const toast = reactive({
   message: '',
   type: 'success' as 'success' | 'error',
 })
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(() => toast.show, (visible) => {
+  if (toastTimer) clearTimeout(toastTimer)
+  if (visible) toastTimer = setTimeout(() => { toast.show = false }, 3000)
+})
 
 const stats = computed(() => {
   const total = medicalRecords.value.length
@@ -1132,64 +1138,6 @@ const associatedDoctorName = computed(() => {
 
 onMounted(loadData)
 
-function addKey(keys: Set<string>, value: unknown) {
-  const textValue = String(value ?? '').trim()
-  if (textValue && textValue !== '0') keys.add(textValue)
-}
-
-function normalizeText(value: unknown) {
-  return String(value ?? '').trim().toLowerCase()
-}
-
-function normalizePhone(value: unknown) {
-  return String(value ?? '').replace(/\D/g, '')
-}
-
-function addPatientKeys(keys: Set<string>, patient?: Partial<Patient> | null) {
-  if (!patient) return
-  addKey(keys, patient.id)
-  addKey(keys, patient.patientId)
-  addKey(keys, patient.patientCode)
-  addKey(keys, patient.patientIdCode)
-}
-
-function addAppointmentKeys(keys: Set<string>, appointment?: Partial<Appointment> | null) {
-  if (!appointment) return
-  addKey(keys, appointment.patientId)
-}
-
-function isCompletedAppointment(appointment: Appointment) {
-  const status = normalizeText(appointment.status)
-  return status.includes('completed') || status.includes('done') || status.includes('hoàn tất')
-}
-
-function profileMatchesPatient(patient: Patient) {
-  const user = authStore.user
-  const userPhone = normalizePhone(user?.phoneNumber)
-  const userEmail = normalizeText(user?.email)
-  const userName = normalizeText(user?.fullName)
-  const patientPhones = [patient.phone, patient.phoneNumber].map(normalizePhone).filter(Boolean)
-  const patientEmail = normalizeText(patient.email)
-  const patientName = normalizeText(patient.fullName)
-  const phoneMatches = Boolean(userPhone && patientPhones.includes(userPhone))
-
-  if (userPhone && patientPhones.length) return phoneMatches
-  if (userEmail && patientEmail) return userEmail === patientEmail
-  return Boolean(userName && patientName && userName === patientName)
-}
-
-function appointmentMatchesProfile(appointment: Appointment) {
-  const user = authStore.user
-  const userPhone = normalizePhone(user?.phoneNumber)
-  const userName = normalizeText(user?.fullName)
-  const appointmentPhone = normalizePhone(appointment.patientPhone)
-  const appointmentName = normalizeText(appointment.patientName)
-  const phoneMatches = Boolean(userPhone && appointmentPhone && userPhone === appointmentPhone)
-
-  if (userPhone && appointmentPhone) return phoneMatches
-  return Boolean(userName && appointmentName && userName === appointmentName)
-}
-
 function uniqueAppointments(list: Appointment[]) {
   const seen = new Set<string>()
   return list.filter((appointment) => {
@@ -1214,108 +1162,53 @@ function recordIdentity(record: MedicalRecord) {
 async function loadData() {
   loading.value = true
   error.value = ''
-
-  resolvedN2Id.value = Number(authStore.user?.patientId || 0)
-
-  const keys = new Set<string>()
-  addKey(keys, authStore.user?.patientId)
-  addKey(keys, authStore.user?.id)
+  medicalRecords.value = []
+  appointments.value = []
+  resolvedN2Id.value = null
+  resolvedPatientKeys.value = []
 
   try {
-    // 0. Load doctors list
-    try {
-      doctorsList.value = await appointmentApi.getDoctors().catch(() => [])
-    } catch (docErr) {
-      console.error('Failed to load doctors list', docErr)
-    }
-
-    // 1. Resolve Patient ID from JWT/profile, then match N2 patient by profile data.
-    try {
-      const patientsResponse = await medicalRecordApi.getPatients({ pageSize: 100 })
-      const matchedPatients = patientsResponse.filter(profileMatchesPatient)
-      const match = matchedPatients[0]
-      if (match) {
-        const numericId = Number(match.id || match.patientId)
-        resolvedN2Id.value = Number.isFinite(numericId) && numericId > 0 ? numericId : null
-        patientDetail.value = match
-        matchedPatients.forEach((patient) => addPatientKeys(keys, patient))
-        if (authStore.user) {
-          authStore.user.patientId = String(match.id || match.patientId || match.patientCode || '')
+    const [patient, timeline, doctors] = await Promise.all([
+      medicalRecordApi.getCurrentPatient(),
+      medicalRecordApi.getCurrentPatientClinicalTimeline().catch((err) => {
+        if ((err as any)?.response?.status === 404) {
+          return { visits: [], medicalRecords: [], prescriptions: [] }
         }
-      }
-    } catch (e) {
-      console.error('Failed to resolve N2 Patient ID', e)
+        throw err
+      }),
+      appointmentApi.getDoctors().catch(() => []),
+    ])
+
+    patientDetail.value = patient
+    doctorsList.value = doctors
+
+    const patientNumericId = Number(patient.id || patient.patientId)
+    if (Number.isFinite(patientNumericId) && patientNumericId > 0) {
+      resolvedN2Id.value = patientNumericId
+      resolvedPatientKeys.value = [patientNumericId]
+      if (authStore.user) authStore.user.patientId = String(patientNumericId)
+      appointments.value = uniqueAppointments(
+        await appointmentApi.getAppointmentsByPatient(patientNumericId).catch(() => [] as Appointment[]),
+      )
     }
 
-    // 2. Load real appointments for this patient and enrich patient keys from N1/N2 linkage.
-    const appointmentSeedKeys = Array.from(keys).filter(k => /^\d+$/.test(k))
-    const appointmentResults = await Promise.allSettled(
-      appointmentSeedKeys.map(key => appointmentApi.getAppointmentsByPatient(key).catch(() => [] as Appointment[])),
-    )
-    let matchedAppointments = appointmentResults.flatMap(result => result.status === 'fulfilled' ? result.value : [])
-
-    if (!matchedAppointments.length) {
-      const allAppointments = await appointmentApi.getAppointments().catch(() => [] as Appointment[])
-      matchedAppointments = allAppointments.filter(appointmentMatchesProfile)
-    } else {
-      matchedAppointments = matchedAppointments.filter((appointment) => appointmentMatchesProfile(appointment) || appointmentSeedKeys.includes(String(appointment.patientId)))
-    }
-
-    appointments.value = uniqueAppointments(matchedAppointments)
-    appointments.value.forEach((appointment) => addAppointmentKeys(keys, appointment))
-
-    // Store resolved keys
-    resolvedPatientKeys.value = Array.from(keys).filter(Boolean).filter(k => /^\d+$/.test(k)).map(Number)
-
-    // 3. Fetch specific patient detail from N2
-    if (resolvedN2Id.value) {
-      try {
-        patientDetail.value = await medicalRecordApi.getPatient(String(resolvedN2Id.value))
-      } catch (e) {
-        console.error('Failed to load patient detail', e)
-      }
-    }
-
-    // 4. Fetch all medical records for all resolved patient keys
-    const resolvedKeysList = Array.from(keys).filter(Boolean)
-    const recordsPromises = resolvedKeysList.map(key => medicalRecordApi.getMedicalRecords(String(key)).catch(() => [] as MedicalRecord[]))
-    const visitRecordPromises = appointments.value
-      .filter(isCompletedAppointment)
-      .filter(appointment => appointment.appointmentId)
-      .map(async (appointment) => {
-        const visit = await medicalRecordApi.getVisitByAppointment(appointment.appointmentId).catch(() => null)
-        if (!visit?.visitId) return null
-        return medicalRecordApi.getMedicalRecordByVisit(visit.visitId).catch(() => null)
-      })
-    const results = await Promise.allSettled(recordsPromises)
-    const visitRecordResults = await Promise.allSettled(visitRecordPromises)
-
-    const combined: MedicalRecord[] = []
-    for (const r of results) {
-      if (r.status === 'fulfilled') {
-        combined.push(...r.value)
-      }
-    }
-    for (const r of visitRecordResults) {
-      if (r.status === 'fulfilled' && r.value) {
-        combined.push(r.value)
-        addKey(keys, r.value.patientId)
-        addKey(keys, r.value.patientCode)
-        addKey(keys, r.value.patientIdCode)
-      }
-    }
-
-    // Merge and deduplicate
     const seen = new Set<string>()
-    medicalRecords.value = combined.filter(r => {
-      const rid = recordIdentity(r)
+    medicalRecords.value = timeline.medicalRecords.filter((record) => {
+      const rid = recordIdentity(record)
       if (seen.has(rid)) return false
       seen.add(rid)
       return true
     })
-    resolvedPatientKeys.value = Array.from(keys).filter(Boolean).filter(k => /^\d+$/.test(k)).map(Number)
   } catch (err) {
-    error.value = getApiErrorMessage(err)
+    const status = (err as any)?.response?.status
+    if (status === 403) {
+      error.value = 'Bạn không có quyền xem hồ sơ bệnh án này. Vui lòng đăng xuất rồi đăng nhập lại nếu vừa đổi tài khoản.'
+    } else if (status === 404) {
+      error.value = ''
+      medicalRecords.value = []
+    } else {
+      error.value = getApiErrorMessage(err)
+    }
   } finally {
     loading.value = false
   }
@@ -1327,6 +1220,22 @@ function openDetails(record: MedicalRecord) {
   activePrescription.value = null
   activeInvoice.value = null
   drawerOpen.value = true
+
+  const recordId = record.medicalRecordId || record.recordId || record.id
+  if (recordId) {
+    medicalRecordApi.getCompleteMedicalRecord(recordId)
+      .then((completeRecord) => {
+        selectedRecord.value = { ...record, ...(completeRecord as Record<string, any>) }
+      })
+      .catch((err) => {
+        if ((err as any)?.response?.status === 403) {
+          toast.title = 'Không có quyền truy cập'
+          toast.message = 'Bạn không có quyền xem bệnh án này.'
+          toast.type = 'error'
+          toast.show = true
+        }
+      })
+  }
 
   // Proactively pre-load Prescription and Billing data for this record
   void loadPrescriptionData(record)
@@ -1342,15 +1251,18 @@ async function loadPrescriptionData(record: MedicalRecord) {
   prescriptionLoading.value = true
   activePrescription.value = null
   try {
-    const keys = resolvedPatientKeys.value.length ? resolvedPatientKeys.value : (resolvedN2Id.value ? [resolvedN2Id.value] : [])
-    // Fetch prescriptions list from both N3 Pharmacy and N2 Patient History (source of truth) for all keys
-    const [n3ListResults, historyResults] = await Promise.all([
-      Promise.all(keys.map(k => billingApi.getPrescriptions(k).catch(() => [] as Prescription[]))),
-      Promise.all(keys.map(k => medicalRecordApi.getPatientHistory(k).catch(() => null)))
+    const [timeline, n3List] = await Promise.all([
+      medicalRecordApi.getCurrentPatientClinicalTimeline().catch((err) => {
+        if ((err as any)?.response?.status === 404) return { visits: [], medicalRecords: [], prescriptions: [] }
+        throw err
+      }),
+      billingApi.getPrescriptions().catch((err) => {
+        if ((err as any)?.response?.status === 404) return [] as Prescription[]
+        throw err
+      }),
     ])
-    
-    const n3List = n3ListResults.flat()
-    const n2List = historyResults.flatMap(h => h?.prescriptions || [])
+
+    const n2List = timeline.prescriptions || []
     const combined = [...n2List, ...n3List]
     
     // Find matching prescription
@@ -1377,10 +1289,10 @@ async function loadBillingData(record: MedicalRecord) {
   billingLoading.value = true
   activeInvoice.value = null
   try {
-    const keys = resolvedPatientKeys.value.length ? resolvedPatientKeys.value : (resolvedN2Id.value ? [resolvedN2Id.value] : [])
-    // Fetch invoices list in N3 Billing for all resolved keys
-    const results = await Promise.all(keys.map(k => billingApi.getInvoices(k).catch(() => [] as Invoice[])))
-    const list = results.flat()
+    const list = await billingApi.getInvoices().catch((err) => {
+      if ((err as any)?.response?.status === 404) return [] as Invoice[]
+      throw err
+    })
     
     // Match by appointmentId
     const appointmentId = Number(record.appointmentId || appointmentForRecord(record)?.appointmentId || 0)
@@ -1443,12 +1355,39 @@ function prescriptionItems(prescription?: Prescription | null) {
 }
 
 async function printMedicalRecord(record: MedicalRecord) {
+  const recordId = record.medicalRecordId || record.recordId || record.id
   recordToPrint.value = record
   prescriptionToPrint.value = null
   toast.title = 'In hồ sơ bệnh án'
   toast.message = 'Đang chuẩn bị bản in...'
   toast.type = 'success'
   toast.show = true
+  if (recordId) {
+    try {
+      const html = await medicalRecordApi.exportMedicalRecordHtml(recordId)
+      if (html.trim()) {
+        const printWindow = window.open('', '_blank')
+        if (printWindow) {
+          printWindow.document.open()
+          printWindow.document.write(html)
+          printWindow.document.close()
+          printWindow.focus()
+          setTimeout(() => printWindow.print(), 300)
+          return
+        }
+      }
+    } catch (err) {
+      const status = (err as any)?.response?.status
+      if (status === 403) {
+        toast.title = 'Không có quyền truy cập'
+        toast.message = 'Bạn không có quyền in hồ sơ bệnh án này.'
+        toast.type = 'error'
+        toast.show = true
+        return
+      }
+      if (status !== 404) console.error('Failed to export medical record HTML', err)
+    }
+  }
   await Promise.all([
     loadPrescriptionData(record),
     loadBillingData(record),

@@ -259,7 +259,7 @@ import { medicalRecordApi } from '@/services/medicalRecordApi'
 import { getApiErrorMessage } from '@/services/apiClient'
 import type { Appointment } from '@/types/appointment'
 import type { Invoice } from '@/types/billing'
-import type { MedicalRecord, Patient } from '@/types/medicalRecord'
+import type { MedicalRecord } from '@/types/medicalRecord'
 
 const authStore = useAuthStore()
 const loading = ref(true)
@@ -291,100 +291,58 @@ onMounted(loadData)
 async function loadData() {
   loading.value = true
   error.value = ''
-  
-  try {
-    const keys = await resolvePatientKeys()
-    const appointmentKeys = keys.filter((key) => /^\d+$/.test(key))
-    const fetchPromises = [
-      Promise.all(appointmentKeys.map((key) => appointmentApi.getAppointmentsByPatient(key).catch(() => [] as Appointment[]))).then((items) => items.flat()),
-      Promise.all(keys.map((key) => medicalRecordApi.getMedicalRecords(key).catch(() => [] as MedicalRecord[]))).then((items) => items.flat()),
-      Promise.all(keys.map((key) => billingApi.getInvoices(key).catch(() => [] as Invoice[]))).then((items) => items.flat()),
-    ]
 
-    const results = (await Promise.allSettled(fetchPromises)) as unknown as [
-      PromiseSettledResult<Appointment[]>,
-      PromiseSettledResult<MedicalRecord[]>,
-      PromiseSettledResult<Invoice[]>,
-    ]
-    
-    // Process Appointments
-    const appts1 = readList(results[0])
-    const combinedAppts = [...appts1]
+  try {
+    const patient = await medicalRecordApi.getCurrentPatient()
+    const patientId = Number(patient.id || patient.patientId)
+    if (Number.isFinite(patientId) && patientId > 0 && authStore.user) {
+      authStore.user.patientId = patientId
+    }
+
+    const [appts, timeline, invs] = await Promise.all([
+      Number.isFinite(patientId) && patientId > 0
+        ? appointmentApi.getAppointmentsByPatient(patientId).catch(() => [] as Appointment[])
+        : Promise.resolve([] as Appointment[]),
+      medicalRecordApi.getCurrentPatientClinicalTimeline().catch((err) => {
+        if ((err as any)?.response?.status === 404) return { visits: [], medicalRecords: [], prescriptions: [] }
+        throw err
+      }),
+      billingApi.getInvoices().catch((err) => {
+        if ((err as any)?.response?.status === 404) return [] as Invoice[]
+        throw err
+      }),
+    ])
+
     const seenAppts = new Set()
-    appointments.value = combinedAppts.filter(a => {
-      if (seenAppts.has(a.appointmentId)) return false
-      seenAppts.add(a.appointmentId)
+    appointments.value = appts.filter((appointment) => {
+      if (seenAppts.has(appointment.appointmentId)) return false
+      seenAppts.add(appointment.appointmentId)
       return true
     })
 
-    // Process Medical Records
-    const recs1 = readList(results[1])
     const seenRecs = new Set()
-    records.value = recs1.filter(r => {
-      const rid = medicalRecordDisplayCode(r)
+    records.value = timeline.medicalRecords.filter((record) => {
+      const rid = medicalRecordDisplayCode(record)
       if (seenRecs.has(rid)) return false
       seenRecs.add(rid)
       return true
     })
 
-    // Process Invoices
-    const invs1 = readList(results[2])
     const seenInvs = new Set()
-    invoices.value = invs1.filter(i => {
-      const iid = invoiceDisplayCode(i)
+    invoices.value = invs.filter((invoice) => {
+      const iid = invoiceDisplayCode(invoice)
       if (seenInvs.has(iid)) return false
       seenInvs.add(iid)
       return true
     })
-
-    const firstError = results.find((item) => item.status === 'rejected') as PromiseRejectedResult | undefined
-    if (firstError) {
-      error.value = `Một số API chưa phản hồi: ${getApiErrorMessage(firstError.reason)}. Giao diện vẫn hiển thị fallback khi có thể.`
-    }
   } catch (err) {
-    error.value = getApiErrorMessage(err)
+    const status = (err as any)?.response?.status
+    error.value = status === 403
+      ? 'Bạn không có quyền xem dữ liệu bệnh nhân này. Vui lòng đăng xuất rồi đăng nhập lại.'
+      : getApiErrorMessage(err)
   } finally {
     loading.value = false
   }
-}
-
-function readList<T>(result: PromiseSettledResult<T[]>, fallback: T[] = []) {
-  return result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : fallback
-}
-
-async function resolvePatientKeys() {
-  const user = authStore.user
-  const keys = new Set<string>()
-  addKey(keys, user?.patientId)
-  addKey(keys, user?.id)
-
-  const phones = new Set([user?.phoneNumber].map(normalizeText).filter(Boolean))
-  const names = new Set([user?.fullName].map(normalizeText).filter(Boolean))
-  const patients = await medicalRecordApi.getPatients({ pageSize: 100 }).catch(() => [] as Patient[])
-  const match = patients.find((patient) => {
-    const patientPhones = [patient.phone, patient.phoneNumber].map(normalizeText).filter(Boolean)
-    const patientName = normalizeText(patient.fullName)
-    return patientPhones.some((phone) => phones.has(phone)) || Boolean(patientName && names.has(patientName))
-  })
-
-  if (match) {
-    addKey(keys, match.patientId)
-    addKey(keys, match.patientIdCode)
-    addKey(keys, match.patientCode)
-    addKey(keys, match.id)
-    if (authStore.user) authStore.user.patientId = String(match.patientId || match.patientCode || match.id || '')
-  }
-
-  return Array.from(keys).filter(Boolean)
-}
-
-function addKey(keys: Set<string>, value: unknown) {
-  const text = String(value ?? '').trim()
-  if (text && text !== '0' && text.toLowerCase() !== 'nan') keys.add(text)
-}
-
-function normalizeText(value: unknown) {
-  return String(value ?? '').trim().toLowerCase()
 }
 
 function medicalRecordDisplayCode(record: MedicalRecord & Record<string, any>) {

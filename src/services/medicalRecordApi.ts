@@ -52,6 +52,14 @@ export interface ClinicalOrderPayload {
   reason?: string
 }
 
+export interface ClinicalOrderResultPayload {
+  resultText: string
+  resultValue?: string
+  resultUnit?: string
+  conclusion?: string
+  resultedBy?: string
+}
+
 export interface PrescriptionItemPayload {
   medicineId: number
   medicineNameSnapshot: string
@@ -170,11 +178,15 @@ function normalizeHistory(payload: unknown): PatientMedicalHistory {
   const data = readApiResponse<any>(payload as any)
   const patient = data?.patient ?? data?.Patient
   const fallbackPatientId = String(patient?.patientId ?? patient?.PatientId ?? patient?.id ?? patient?.Id ?? patient?.patientCode ?? patient?.PatientCode ?? patient?.patientIdCode ?? patient?.PatientIdCode ?? '')
+  const visits = arrayValue(data?.visits, data?.Visits).map(normalizeVisit)
+  const visitPrescriptions = arrayValue(data?.visits, data?.Visits).flatMap((visit: any) =>
+    arrayValue(visit?.prescriptions, visit?.Prescriptions, visit?.prescription, visit?.Prescription),
+  )
   return {
     patient: patient ? normalizePatient(patient) : undefined,
-    visits: arrayValue(data?.visits, data?.Visits).map(normalizeVisit),
+    visits,
     medicalRecords: normalizeRecords(data, fallbackPatientId),
-    prescriptions: arrayValue(data?.prescriptions, data?.Prescriptions),
+    prescriptions: [...arrayValue(data?.prescriptions, data?.Prescriptions), ...visitPrescriptions],
   }
 }
 
@@ -293,6 +305,10 @@ export const medicalRecordApi = {
     const response = await client.get(`/api/v1/medical/patients/${id}`)
     return normalizePatient(readApiResponse<any>(response.data))
   },
+  async getCurrentPatient() {
+    const response = await client.get('/api/v1/medical/patients/me')
+    return normalizePatient(readApiResponse<any>(response.data))
+  },
   async createPatient(payload: Partial<Patient>) {
     const response = await client.post('/api/v1/medical/patients', payload)
     return normalizePatient(readApiResponse<any>(response.data))
@@ -305,6 +321,14 @@ export const medicalRecordApi = {
     const key = String(patientId || '').trim()
     if (!key) return emptyHistory()
     const response = await client.get(`/api/v1/medical/patients/${encodeURIComponent(key)}/history`)
+    return normalizeHistory(response.data)
+  },
+  async getCurrentPatientHistory(): Promise<PatientMedicalHistory> {
+    const response = await client.get('/api/v1/medical/patients/me/history')
+    return normalizeHistory(response.data)
+  },
+  async getCurrentPatientClinicalTimeline(): Promise<PatientMedicalHistory> {
+    const response = await client.get('/api/v1/medical/patients/me/clinical-timeline')
     return normalizeHistory(response.data)
   },
   async getMedicalRecords(patientId?: string | number): Promise<MedicalRecord[]> {
@@ -351,6 +375,17 @@ export const medicalRecordApi = {
     const response = await client.get(`/api/v1/medical/records/by-visit/${visitId}`)
     return normalizeRecord(readApiResponse<Record<string, any>>(response.data))
   },
+  async getCompleteMedicalRecord(id: string | number) {
+    const response = await client.get(`/api/v1/medical/records/${id}/complete`)
+    return readApiResponse<Record<string, any>>(response.data)
+  },
+  async exportMedicalRecordHtml(id: string | number) {
+    const response = await client.get(`/api/v1/medical/records/${id}/export/html`, {
+      responseType: 'text',
+      headers: { Accept: 'text/html' },
+    })
+    return String(response.data || '')
+  },
   async createMedicalRecord(payload: Partial<MedicalRecord> & Record<string, any>) {
     const response = await client.post('/api/v1/medical/records', toMedicalRecordPayload(payload))
     return normalizeRecord(readApiResponse<Record<string, any>>(response.data))
@@ -371,6 +406,11 @@ export const medicalRecordApi = {
     if (!toPositiveNumber(payload.medicalRecordId)) throw new Error('Cần lưu bệnh án trước khi tạo chỉ định lâm sàng.')
     if (!text(payload.orderType) || !text(payload.orderName)) throw new Error('Vui lòng nhập loại và tên chỉ định.')
     const response = await client.post('/api/v1/medical/clinical-orders', payload)
+    return readApiResponse(response.data)
+  },
+  async updateClinicalOrderResult(id: string | number, payload: ClinicalOrderResultPayload) {
+    if (!text(payload.resultText)) throw new Error('Vui lòng nhập kết quả cận lâm sàng.')
+    const response = await client.put(`/api/v1/medical/clinical-orders/${id}/result`, payload)
     return readApiResponse(response.data)
   },
   async getMedicines(params?: { name?: string; activeIngredient?: string; status?: string }) {
@@ -394,6 +434,22 @@ export const medicalRecordApi = {
   async getPrescription(id: string | number) {
     const response = await client.get(`/api/v1/medical/prescriptions/${id}`)
     return readApiResponse<Prescription>(response.data)
+  },
+  async getInboxEvents() {
+    const response = await client.get('/api/v1/medical/events/inbox')
+    return readApiResponse<Array<Record<string, any>>>(response.data)
+  },
+  async getOutboxEvents(params?: { status?: string; eventType?: string }) {
+    const response = await client.get('/api/v1/medical/events/outbox', { params })
+    return readApiResponse<Array<Record<string, any>>>(response.data)
+  },
+  async retryOutboxEvent(id: string | number) {
+    const response = await client.put(`/api/v1/medical/events/outbox/${id}/retry`)
+    return readApiResponse(response.data)
+  },
+  async failOutboxEvent(id: string | number) {
+    const response = await client.put(`/api/v1/medical/events/outbox/${id}/fail`)
+    return readApiResponse(response.data)
   },
   async syncAppointmentConfirmed(payload: Record<string, any>) {
     const appointmentId = Number(payload.appointmentId || payload.id)

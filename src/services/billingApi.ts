@@ -81,7 +81,7 @@ export const billingApi = {
       const data = await tryGet<unknown>(paths)
       return normalizeList<Invoice>(data)
     } catch (error: any) {
-      if (error?.response?.status === 404 || error?.response?.status === 403) return []
+      if (error?.response?.status === 404) return []
       throw error
     }
   },
@@ -93,7 +93,7 @@ export const billingApi = {
       const data = await tryGet<unknown>(paths)
       return normalizeList<Prescription>(data)
     } catch (error: any) {
-      if (error?.response?.status === 404 || error?.response?.status === 403) return []
+      if (error?.response?.status === 404) return []
       throw error
     }
   },

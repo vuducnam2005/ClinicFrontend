@@ -106,8 +106,7 @@ export const useAuthStore = defineStore('auth', {
       if (!this.user || this.user.roleId !== RoleId.Patient) return
       try {
         const user = this.user
-        const patient = await findPatientForUser(user)
-        if (!patient) return
+        const patient = await medicalRecordApi.getCurrentPatient()
 
         const patientId = Number(patient.id || patient.patientId)
         this.user = {
@@ -117,67 +116,18 @@ export const useAuthStore = defineStore('auth', {
           email: patient.email || user.email,
           phoneNumber: patient.phoneNumber || patient.phone || user.phoneNumber,
         }
-
-        const authFullName = user.fullName?.trim()
-        const authEmail = user.email?.trim()
-        const authPhoneNumber = user.phoneNumber?.trim()
-        const nextFullName = patient.fullName || authFullName
-        const nextEmail = patient.email || authEmail
-        const nextPhoneNumber = patient.phoneNumber || patient.phone || authPhoneNumber
-        const shouldSync =
-          Boolean(!patient.fullName && authFullName) ||
-          Boolean(!patient.email && authEmail) ||
-          Boolean(!patient.phoneNumber && !patient.phone && authPhoneNumber)
-
-        if (shouldSync && Number.isFinite(patientId) && patientId > 0) {
-          await medicalRecordApi.updatePatient(patientId, {
-            fullName: nextFullName || patient.fullName,
-            email: nextEmail || patient.email,
-            phoneNumber: nextPhoneNumber || patient.phoneNumber,
-            dateOfBirth: patient.dateOfBirth,
-            gender: patient.gender,
-            address: patient.address,
-            citizenId: patient.citizenId,
-            bloodType: patient.bloodType,
-            allergyNote: patient.allergyNote,
-            medicalHistory: patient.medicalHistory,
-            status: patient.status,
-          })
-        }
       } catch (error) {
+        const status = (error as any)?.response?.status
+        if (status === 401 || status === 403) {
+          console.warn('Patient profile is not accessible with current token. Please logout/login again.', error)
+          return
+        }
         console.warn('Failed to resolve patient profile', error)
       }
     },
   },
 })
 
-function normalizeText(value: unknown) {
-  return String(value ?? '').trim().toLowerCase()
-}
-
 function isUnsupportedProfileUpdate(error: unknown) {
   return (error as any)?.response?.status === 404 || (error as any)?.response?.status === 405
-}
-
-async function findPatientForUser(user: User) {
-  const directId = String(user.patientId || '').trim()
-  if (directId) {
-    const patient = await medicalRecordApi.getPatient(directId).catch(() => null)
-    if (patient) return patient
-  }
-
-  const keyword = user.phoneNumber || user.email || user.fullName
-  const patients = await medicalRecordApi.getPatients({ keyword, pageSize: 100 }).catch(() => [])
-  const phone = normalizeText(user.phoneNumber)
-  const email = normalizeText(user.email)
-  const name = normalizeText(user.fullName)
-
-  const match = patients.find((patient) => {
-    return Boolean(phone && normalizeText(patient.phoneNumber || patient.phone) === phone) ||
-      Boolean(email && normalizeText(patient.email) === email) ||
-      Boolean(name && normalizeText(patient.fullName) === name)
-  }) || null
-
-  if (!match) return null
-  return medicalRecordApi.getPatient(match.id || match.patientId).catch(() => match)
 }

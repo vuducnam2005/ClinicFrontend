@@ -730,6 +730,12 @@ const toast = reactive({
   message: '',
   type: 'success' as 'success' | 'error',
 })
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(() => toast.show, (visible) => {
+  if (toastTimer) clearTimeout(toastTimer)
+  if (visible) toastTimer = setTimeout(() => { toast.show = false }, 3000)
+})
 
 // Statistics computation
 const stats = computed(() => {
@@ -824,80 +830,35 @@ const paginatedPrescriptions = computed(() => {
 
 onMounted(loadData)
 
-function addKey(keys: Set<string>, value: unknown) {
-  const textValue = String(value ?? '').trim()
-  if (textValue && textValue !== '0') keys.add(textValue)
-}
-
-function normalizeText(value: unknown) {
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '')
-}
-
 async function loadData() {
   loading.value = true
   error.value = ''
   prescriptions.value = []
-  
-  let patientIdVal = Number(authStore.user?.patientId || 0)
-
-  const n2Keys = new Set<string>()
-  const billingKeys = new Set<string>()
-  addKey(n2Keys, authStore.user?.patientId)
-  addKey(billingKeys, authStore.user?.patientId)
 
   try {
-    // 1. Load doctors list
-    try {
-      doctorsList.value = await appointmentApi.getDoctors().catch(() => [])
-    } catch (docErr) {
-      console.error('Failed to load doctors list', docErr)
-    }
-
-    // 2. Resolve Patient ID from JWT/profile, then match N2 patient by profile data.
-    try {
-      const phone = authStore.user?.phoneNumber
-      const patientsResponse = await medicalRecordApi.getPatients().catch(() => [])
-      const match = patientsResponse.find(p => (phone && (p.phoneNumber === phone || p.phone === phone)) || p.fullName === authStore.user?.fullName)
-      if (match) {
-        patientIdVal = Number(match.id || match.patientId)
-        addKey(n2Keys, match.id)
-        addKey(n2Keys, match.patientId)
-        addKey(billingKeys, match.id)
-        addKey(billingKeys, match.patientId)
-        addKey(billingKeys, match.patientCode)
-        if (authStore.user) {
-          authStore.user.patientId = patientIdVal
+    const [patient, timeline, n3Prescriptions, doctors] = await Promise.all([
+      medicalRecordApi.getCurrentPatient(),
+      medicalRecordApi.getCurrentPatientClinicalTimeline().catch((err) => {
+        if ((err as any)?.response?.status === 404) {
+          return { visits: [], medicalRecords: [], prescriptions: [] }
         }
-      }
-    } catch (e) {
-      console.error('Failed to resolve N2 Patient ID', e)
-    }
-
-    // Load Patient detail
-    if (patientIdVal) {
-      try {
-        currentPatient.value = await medicalRecordApi.getPatient(String(patientIdVal))
-      } catch (e) {
-        console.error('Failed to load patient detail', e)
-      }
-    }
-
-    // 3. Fetch patient history and prescriptions from both N2 and N3 Billing/Pharmacy
-    const n2NumericKeys = Array.from(n2Keys).filter(k => /^\d+$/.test(k))
-    const billingNumericKeys = Array.from(billingKeys).filter(k => /^\d+$/.test(k))
-
-    const [historyResults, billingResults] = await Promise.all([
-      Promise.all(n2NumericKeys.map(k => medicalRecordApi.getPatientHistory(k).catch(() => null))),
-      Promise.all(billingNumericKeys.map(k => billingApi.getPrescriptions(k).catch(() => [] as Prescription[])))
+        throw err
+      }),
+      billingApi.getPrescriptions().catch((err) => {
+        if ((err as any)?.response?.status === 404) return [] as Prescription[]
+        throw err
+      }),
+      appointmentApi.getDoctors().catch(() => []),
     ])
 
-    const n2Prescriptions = historyResults.flatMap(h => h?.prescriptions || [])
-    const n3Prescriptions = billingResults.flat()
+    currentPatient.value = patient
+    doctorsList.value = doctors
+    const patientIdVal = Number(patient.id || patient.patientId)
+    if (Number.isFinite(patientIdVal) && patientIdVal > 0 && authStore.user) {
+      authStore.user.patientId = patientIdVal
+    }
 
-    prescriptions.value = mergePrescriptions(n2Prescriptions, n3Prescriptions)
+    prescriptions.value = mergePrescriptions(timeline.prescriptions || [], n3Prescriptions)
   } catch (err) {
     error.value = getApiErrorMessage(err)
     showToast('Lỗi tải đơn thuốc', error.value, 'error')

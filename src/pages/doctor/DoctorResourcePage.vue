@@ -107,6 +107,7 @@
         @save-vitals="saveVitals"
         @save-record="saveMedicalRecord"
         @add-order="addClinicalOrder"
+        @save-order-result="saveClinicalOrderResult"
         @add-prescription-row="addPrescriptionRow"
         @select-prescription-medicine="selectPrescriptionMedicine"
         @toggle-medicine="toggleMedicine"
@@ -167,6 +168,7 @@
         @save-vitals="saveVitals"
         @save-record="saveMedicalRecord"
         @add-order="addClinicalOrder"
+        @save-order-result="saveClinicalOrderResult"
         @add-prescription-row="addPrescriptionRow"
         @select-prescription-medicine="selectPrescriptionMedicine"
         @toggle-medicine="toggleMedicine"
@@ -686,13 +688,10 @@ async function checkInAndOpenExam(row: Row) {
   const appointmentId = Number(row.appointmentId || row.id)
   if (!appointmentId) return showToast('Thiếu lịch hẹn', 'Không xác định được mã lịch hẹn để check-in.', 'error')
   try {
-    await appointmentApi.ensureAppointmentInProgress(appointmentId, row.date).catch((apiError: any) => {
-      const message = normalize(getApiErrorMessage(apiError))
-      if (!message.includes('only confirmed') && !message.includes('queue') && !message.includes('already') && !message.includes('progress')) throw apiError
-    })
-    await medicalRecordApi.syncAppointmentConfirmed(row).catch(() => undefined)
-    await medicalRecordApi.syncPatientCheckedIn({ ...row, status: 'InProgress' })
-    const visit = await medicalRecordApi.getVisitByAppointment(appointmentId)
+    const visit = await medicalRecordApi.getVisitByAppointment(appointmentId).catch(() => null)
+    if (!visit?.visitId && !visit?.id) {
+      throw new Error('Lịch hẹn chưa được check-in hoặc N2 chưa tạo lượt khám. Vui lòng chuyển bệnh nhân qua y tá tiếp nhận trước.')
+    }
     showToast('Đã tạo lượt khám', 'Bệnh nhân đã được check-in và có thể khám trong màn Khám & kê đơn.', 'success')
     await router.push({
       path: '/doctor/examine',
@@ -833,6 +832,29 @@ async function addClinicalOrder() {
     showToast('Đã tạo chỉ định', 'Chỉ định đã lưu vào N2.', 'success')
   } catch (apiError) {
     showToast('Tạo chỉ định thất bại', businessError(apiError), 'error')
+  } finally {
+    savingExam.value = false
+  }
+}
+
+async function saveClinicalOrderResult(order: Record<string, any>) {
+  const orderId = order.clinicalOrderId || order.ClinicalOrderId || order.orderId || order.OrderId || order.id || order.Id
+  if (!orderId) return showToast('Thiếu chỉ định', 'Không xác định được mã chỉ định cận lâm sàng.', 'error')
+  const resultText = window.prompt('Nhập kết quả cận lâm sàng', order.resultText || order.ResultText || '')
+  if (resultText === null) return
+  if (!resultText.trim()) return showToast('Thiếu kết quả', 'Vui lòng nhập nội dung kết quả cận lâm sàng.', 'error')
+  const conclusion = window.prompt('Kết luận', order.conclusion || order.Conclusion || 'Bình thường') || undefined
+  savingExam.value = true
+  try {
+    await medicalRecordApi.updateClinicalOrderResult(orderId, {
+      resultText: resultText.trim(),
+      conclusion: conclusion?.trim() || undefined,
+      resultedBy: doctorName.value,
+    })
+    await loadClinicalOrders()
+    showToast('Đã lưu kết quả', 'Kết quả cận lâm sàng đã được cập nhật vào N2.', 'success')
+  } catch (apiError) {
+    showToast('Lưu kết quả thất bại', businessError(apiError), 'error')
   } finally {
     savingExam.value = false
   }
@@ -1610,7 +1632,7 @@ const ExaminationWorkspace = defineComponent({
     clinicalChecklist: { type: Object as PropType<typeof clinicalChecklist>, required: true },
     prescriptionItems: { type: Array as PropType<PrescriptionItemPayload[]>, required: true },
   },
-  emits: ['start', 'save-draft', 'save-vitals', 'save-record', 'add-order', 'add-prescription-row', 'select-prescription-medicine', 'toggle-medicine', 'remove-medicine', 'submit'],
+  emits: ['start', 'save-draft', 'save-vitals', 'save-record', 'add-order', 'save-order-result', 'add-prescription-row', 'select-prescription-medicine', 'toggle-medicine', 'remove-medicine', 'submit'],
   setup(props, { emit }) {
     return () => h('div', { class: 'min-w-0' }, [
       props.row
@@ -1818,9 +1840,22 @@ function renderClinicalOrdersCard(props: any, emit: any) {
       h(BaseButton, { type: 'button', variant: 'outline', loading: props.saving, onClick: () => emit('add-order') }, () => [h(Plus, { class: 'h-4 w-4' }), 'Thêm chỉ định']),
     ]),
     props.clinicalOrders.length
-      ? h('div', { class: 'mt-4 flex flex-wrap gap-2' }, props.clinicalOrders.map((order: any) =>
-          h('span', { class: 'rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 ring-1 ring-blue-100' }, `${order.orderType || order.OrderType || 'Chỉ định'} - ${order.orderName || order.OrderName || 'Chưa có'}`),
-        ))
+      ? h('div', { class: 'mt-4 space-y-2' }, props.clinicalOrders.map((order: any) => {
+          const hasResult = Boolean(order.resultText || order.ResultText || order.conclusion || order.Conclusion)
+          return h('div', { class: 'rounded-xl border border-blue-100 bg-blue-50 p-3' }, [
+            h('div', { class: 'flex items-start justify-between gap-3' }, [
+              h('div', { class: 'min-w-0' }, [
+                h('p', { class: 'font-bold text-blue-800' }, `${order.orderType || order.OrderType || 'Chỉ định'} - ${order.orderName || order.OrderName || 'Chưa có'}`),
+                h('p', { class: 'mt-1 text-xs text-slate-600' }, hasResult ? `Kết quả: ${order.resultText || order.ResultText || order.conclusion || order.Conclusion}` : 'Chưa nhập kết quả'),
+              ]),
+              h('button', {
+                type: 'button',
+                class: 'shrink-0 rounded-lg bg-white px-3 py-2 text-xs font-bold text-blue-700 ring-1 ring-blue-100 hover:bg-blue-100',
+                onClick: () => emit('save-order-result', order),
+              }, hasResult ? 'Cập nhật' : 'Nhập kết quả'),
+            ]),
+          ])
+        }))
       : h('p', { class: 'mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-500' }, 'Chưa có chỉ định cận lâm sàng.'),
   ])
 }
