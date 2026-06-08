@@ -836,24 +836,27 @@ async function loadData() {
   prescriptions.value = []
 
   try {
-    const [patient, timeline, n3Prescriptions, doctors] = await Promise.all([
-      medicalRecordApi.getCurrentPatient(),
+    const patient = await medicalRecordApi.getCurrentPatient()
+    const patientIdVal = Number(patient.id || patient.patientId)
+
+    const [timeline, n3Prescriptions, doctors] = await Promise.all([
       medicalRecordApi.getCurrentPatientClinicalTimeline().catch((err) => {
         if ((err as any)?.response?.status === 404) {
           return { visits: [], medicalRecords: [], prescriptions: [] }
         }
         throw err
       }),
-      billingApi.getPrescriptions().catch((err) => {
-        if ((err as any)?.response?.status === 404) return [] as Prescription[]
-        throw err
-      }),
+      Number.isFinite(patientIdVal) && patientIdVal > 0
+        ? billingApi.getPrescriptions(patientIdVal).catch((err) => {
+          if ((err as any)?.response?.status === 404) return [] as Prescription[]
+          throw err
+        })
+        : Promise.resolve([] as Prescription[]),
       appointmentApi.getDoctors().catch(() => []),
     ])
 
     currentPatient.value = patient
     doctorsList.value = doctors
-    const patientIdVal = Number(patient.id || patient.patientId)
     if (Number.isFinite(patientIdVal) && patientIdVal > 0 && authStore.user) {
       authStore.user.patientId = patientIdVal
     }

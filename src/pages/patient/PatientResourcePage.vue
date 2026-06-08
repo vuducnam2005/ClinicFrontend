@@ -499,10 +499,12 @@ async function loadData() {
     if (resource.value === 'prescriptions') {
       const [n2Prescriptions, n3Prescriptions] = await Promise.all([
         getHistory().then((data) => data.prescriptions || []),
-        billingApi.getPrescriptions().catch((err) => {
+        patientId.value
+          ? billingApi.getPrescriptions(patientId.value).catch((err) => {
           if ((err as any)?.response?.status === 404) return [] as Prescription[]
           throw err
-        }),
+        })
+          : Promise.resolve([] as Prescription[]),
       ])
       const combined = [...n2Prescriptions, ...n3Prescriptions]
       const seen = new Set<string>()
@@ -517,7 +519,9 @@ async function loadData() {
       showLoadToast('Đơn thuốc', rows.value.length, 'Đơn thuốc sẽ xuất hiện sau khi bác sĩ chốt đơn qua N2.')
     }
     if (resource.value === 'bills') {
-      rows.value = uniqueRows((await billingApi.getInvoices()).map(mapInvoice))
+      rows.value = patientId.value
+        ? uniqueRows((await billingApi.getInvoices(patientId.value)).map(mapInvoice))
+        : []
       note.value = rows.value.length ? 'Đã tải viện phí từ N3.' : 'Database chưa có viện phí cho bệnh nhân này.'
       showLoadToast('Viện phí', rows.value.length, 'Nếu đã khám xong, liên hệ quầy thu ngân hoặc kiểm tra lại sau.')
     }

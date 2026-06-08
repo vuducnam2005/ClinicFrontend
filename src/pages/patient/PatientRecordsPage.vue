@@ -1251,15 +1251,18 @@ async function loadPrescriptionData(record: MedicalRecord) {
   prescriptionLoading.value = true
   activePrescription.value = null
   try {
+    const patientId = Number(patientDetail.value?.id || patientDetail.value?.patientId || authStore.user?.patientId)
     const [timeline, n3List] = await Promise.all([
       medicalRecordApi.getCurrentPatientClinicalTimeline().catch((err) => {
         if ((err as any)?.response?.status === 404) return { visits: [], medicalRecords: [], prescriptions: [] }
         throw err
       }),
-      billingApi.getPrescriptions().catch((err) => {
-        if ((err as any)?.response?.status === 404) return [] as Prescription[]
-        throw err
-      }),
+      Number.isFinite(patientId) && patientId > 0
+        ? billingApi.getPrescriptions(patientId).catch((err) => {
+          if ((err as any)?.response?.status === 404) return [] as Prescription[]
+          throw err
+        })
+        : Promise.resolve([] as Prescription[]),
     ])
 
     const n2List = timeline.prescriptions || []
@@ -1289,10 +1292,13 @@ async function loadBillingData(record: MedicalRecord) {
   billingLoading.value = true
   activeInvoice.value = null
   try {
-    const list = await billingApi.getInvoices().catch((err) => {
-      if ((err as any)?.response?.status === 404) return [] as Invoice[]
-      throw err
-    })
+    const patientId = Number(patientDetail.value?.id || patientDetail.value?.patientId || authStore.user?.patientId)
+    const list = Number.isFinite(patientId) && patientId > 0
+      ? await billingApi.getInvoices(patientId).catch((err) => {
+        if ((err as any)?.response?.status === 404) return [] as Invoice[]
+        throw err
+      })
+      : []
     
     // Match by appointmentId
     const appointmentId = Number(record.appointmentId || appointmentForRecord(record)?.appointmentId || 0)

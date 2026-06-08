@@ -307,10 +307,12 @@ async function loadData() {
         if ((err as any)?.response?.status === 404) return { visits: [], medicalRecords: [], prescriptions: [] }
         throw err
       }),
-      billingApi.getInvoices().catch((err) => {
+      Number.isFinite(patientId) && patientId > 0
+        ? billingApi.getInvoices(patientId).catch((err) => {
         if ((err as any)?.response?.status === 404) return [] as Invoice[]
         throw err
-      }),
+      })
+        : Promise.resolve([] as Invoice[]),
     ])
 
     const seenAppts = new Set()
