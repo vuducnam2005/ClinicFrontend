@@ -282,11 +282,13 @@ import { getApiErrorMessage } from '@/services/apiClient'
 import { appointmentApi } from '@/services/appointmentApi'
 import { medicineApi } from '@/services/medicineApi'
 import { medicalRecordApi, type MedicalVisit, type PrescriptionItemPayload } from '@/services/medicalRecordApi'
+import { fallbackSpecialties } from '@/services/fallbackData'
 import { currentDoctorId, filterAppointmentsForDoctor, filterQueueForDoctor, filterRecordsForDoctor, filterSchedulesForDoctor } from '@/utils/doctorScope'
 import type { Appointment, WaitingQueueItem } from '@/types/appointment'
 import type { DoctorSchedule } from '@/types/doctor'
 import type { MedicalRecord, Patient } from '@/types/medicalRecord'
 import type { Medicine } from '@/types/medicine'
+import type { Specialty } from '@/types/specialty'
 import { displayText } from '@/utils/displayText'
 
 type Resource = 'appointments' | 'queue' | 'examine' | 'records' | 'schedule'
@@ -348,6 +350,7 @@ const activeRecord = ref<MedicalRecord | null>(null)
 const activePatient = ref<Patient | null>(null)
 const clinicalOrders = ref<Record<string, any>[]>([])
 const medicines = ref<(Medicine & Record<string, any>)[]>([])
+const prescriptionSpecialties = ref<Specialty[]>([])
 const medicineLoading = ref(false)
 const savingExam = ref(false)
 const recordDrawerOpen = ref(false)
@@ -734,7 +737,7 @@ async function selectVisit(row: Row) {
     await hydrateSelectedRowFromAppointment(visit.appointmentId || row.appointmentId)
     examForm.chiefComplaint = meaningful(visit.chiefComplaint) || meaningful(selectedRow.value?.reason) || meaningful(row.reason)
     hydrateVitalsFromVisit(visit)
-    await Promise.all([loadActivePatient(), loadExistingRecord(), loadMedicines()])
+    await Promise.all([loadActivePatient(), loadExistingRecord(), loadMedicines(), loadPrescriptionSpecialties()])
     applyDefaultPrescriptionFilter()
     return true
   } catch (apiError) {
@@ -1054,14 +1057,33 @@ async function loadMedicines() {
   if (medicines.value.length) return
   medicineLoading.value = true
   try {
-    const n2Medicines = await medicalRecordApi.getMedicines({ status: 'Active' }).catch(() => [] as Medicine[])
-    medicines.value = (n2Medicines.length ? n2Medicines : await medicineApi.getMedicines({ status: 'Active', pageSize: 500 }).catch(() => [])) as any
+    const [n2Medicines, n3Medicines] = await Promise.all([
+      medicalRecordApi.getMedicines({ status: 'Active' }).catch(() => [] as Medicine[]),
+      medicineApi.getMedicines({ status: 'Active', pageSize: 1000 }).catch(() => [] as Medicine[]),
+    ])
+    medicines.value = uniqueMedicinesById([...n3Medicines, ...n2Medicines]) as any
     if (!medicines.value.length) {
       showToast('Chưa có thuốc', 'Không tải được danh mục thuốc từ N2/N3. Kiểm tra Kho thuốc hoặc thử tải lại.', 'error')
     }
   } finally {
     medicineLoading.value = false
   }
+}
+
+async function loadPrescriptionSpecialties() {
+  if (prescriptionSpecialties.value.length) return
+  const data = await appointmentApi.getSpecialties().catch(() => fallbackSpecialties)
+  prescriptionSpecialties.value = data.length ? data : fallbackSpecialties
+}
+
+function uniqueMedicinesById(medicineList: Array<Medicine & Record<string, any>>) {
+  const map = new Map<number | string, Medicine & Record<string, any>>()
+  for (const medicine of medicineList) {
+    const id = medicineId(medicine)
+    const key = id || normalizeSearchText(medicineName(medicine))
+    if (key && !map.has(key)) map.set(key, medicine)
+  }
+  return Array.from(map.values()).sort((a, b) => medicineName(a).localeCompare(medicineName(b), 'vi'))
 }
 
 function toggleMedicine(medicine: Medicine & Record<string, any>) {
@@ -1348,6 +1370,10 @@ function medicineType(medicine: Medicine & Record<string, any>) {
   return String(medicine.medicineType ?? medicine.MedicineType ?? medicine.type ?? medicine.Type ?? 'Khác').trim() || 'Khác'
 }
 
+function specialtyName(specialty: Specialty & Record<string, any>) {
+  return String(specialty.specialtyName ?? specialty.SpecialtyName ?? specialty.name ?? '').trim()
+}
+
 function prescriptionSpecialty(row?: Row | null) {
   return meaningful(
     row?.raw?.specialtyName
@@ -1360,13 +1386,16 @@ function prescriptionSpecialty(row?: Row | null) {
 }
 
 function medicineTypeOptions(medicineList: Array<Medicine & Record<string, any>>, row?: Row | null) {
-  return Array.from(new Set([prescriptionSpecialty(row), ...medicineList.map(medicineType)].filter(Boolean))).sort((a, b) => a.localeCompare(b, 'vi'))
+  const currentSpecialty = prescriptionSpecialty(row)
+  const specialtyOptions = prescriptionSpecialties.value.map(specialtyName).filter(Boolean)
+  const medicineTypes = medicineList.map(medicineType).filter(Boolean)
+  return Array.from(new Set([currentSpecialty, ...specialtyOptions, ...medicineTypes].filter(Boolean))).sort((a, b) => a.localeCompare(b, 'vi'))
 }
 
 function medicineMatchesFilter(medicine: Medicine & Record<string, any>, filterValue: string) {
   const selectedType = normalizeSearchText(filterValue)
   const currentType = normalizeSearchText(medicineType(medicine))
-  return !selectedType || currentType === selectedType || currentType.includes(selectedType) || selectedType.includes(currentType)
+  return !selectedType || currentType === selectedType
 }
 
 function filteredPrescriptionMedicines(medicineList: Array<Medicine & Record<string, any>>) {
