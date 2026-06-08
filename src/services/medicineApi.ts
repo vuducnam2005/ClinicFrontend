@@ -4,8 +4,8 @@ import type { Medicine } from '@/types/medicine'
 const client = createServiceClient('billing') // N3 manages medicines and billing
 
 export const medicineApi = {
-  async getMedicines() {
-    const response = await client.get('/api/medicines')
+  async getMedicines(params?: { name?: string; activeIngredient?: string; medicineType?: string; status?: string; page?: number; pageSize?: number }) {
+    const response = await client.get('/api/medicines', { params })
     return readApiResponse<Medicine[]>(response.data)
   },
 

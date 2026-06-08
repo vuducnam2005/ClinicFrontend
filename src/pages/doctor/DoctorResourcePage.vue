@@ -1052,7 +1052,7 @@ async function loadMedicines() {
   medicineLoading.value = true
   try {
     const n2Medicines = await medicalRecordApi.getMedicines({ status: 'Active' }).catch(() => [] as Medicine[])
-    medicines.value = (n2Medicines.length ? n2Medicines : await medicineApi.getMedicines().catch(() => [])) as any
+    medicines.value = (n2Medicines.length ? n2Medicines : await medicineApi.getMedicines({ status: 'Active', pageSize: 100 }).catch(() => [])) as any
     if (!medicines.value.length) {
       showToast('Chưa có thuốc', 'Không tải được danh mục thuốc từ N2/N3. Kiểm tra Kho thuốc hoặc thử tải lại.', 'error')
     }
@@ -1115,11 +1115,15 @@ function addPrescriptionRow() {
 }
 
 function selectPrescriptionMedicine(item: PrescriptionItemPayload, value: string | number) {
-  const id = Number(value)
-  const medicine = medicines.value.find((entry) => medicineId(entry) === id)
-  item.medicineId = Number.isFinite(id) ? id : 0
+  const textValue = String(value ?? '').trim()
+  const id = Number(textValue)
+  const normalized = normalizeSearchText(textValue)
+  const medicine = medicines.value.find((entry) =>
+    medicineId(entry) === id || normalizeSearchText(medicineName(entry)) === normalized)
   item.medicineNameSnapshot = medicine ? medicineName(medicine) : ''
+  item.medicineId = medicine ? medicineId(medicine) : 0
   item.unitSnapshot = medicine ? medicineUnit(medicine) : ''
+  if (!medicine) item.medicineNameSnapshot = textValue
 }
 
 function removeMedicine(medicineIdValue: number) {
@@ -1350,6 +1354,10 @@ function medicineId(medicine: Medicine & Record<string, any>) {
 
 function medicineName(medicine: Medicine & Record<string, any>) {
   return String(medicine.medicineName ?? medicine.MedicineName ?? medicine.name ?? `Thuốc #${medicineId(medicine)}`)
+}
+
+function normalizeSearchText(value: unknown) {
+  return String(value ?? '').trim().toLowerCase()
 }
 
 function medicineUnit(medicine: Medicine & Record<string, any>) {
@@ -1878,24 +1886,31 @@ function renderPrescriptionCard(props: any, emit: any) {
               h('tr', null, ['Thuốc', 'Liều dùng', 'Số lượng', 'Ghi chú', 'Thao tác'].map((label) => h('th', { class: 'px-4 py-3' }, label))),
             ]),
             h('tbody', { class: 'divide-y divide-slate-100 bg-white' }, props.prescriptionItems.length
-              ? props.prescriptionItems.map((item: PrescriptionItemPayload) =>
-                  h('tr', null, [
+              ? props.prescriptionItems.map((item: PrescriptionItemPayload, index: number) => {
+                  const listId = `medicine-suggestions-${index}`
+                  return h('tr', null, [
                     h('td', { class: 'px-4 py-3' }, [
-                      h('select', {
-                        value: item.medicineId || '',
-                        class: [formInputClass, 'min-w-[220px]'],
-                        onChange: (event: Event) => emit('select-prescription-medicine', item, (event.target as HTMLSelectElement).value),
-                      }, [
-                        h('option', { value: '' }, 'Chọn thuốc'),
-                        ...props.medicines.map((medicine: any) => h('option', { value: medicineId(medicine) }, `${medicineName(medicine)} - tồn ${medicineStock(medicine)}`)),
+                      h('input', {
+                        value: item.medicineNameSnapshot || '',
+                        list: listId,
+                        class: [formInputClass, 'min-w-[260px]'],
+                        placeholder: 'Nhập tên thuốc',
+                        onInput: (event: Event) => emit('select-prescription-medicine', item, (event.target as HTMLInputElement).value),
+                        onChange: (event: Event) => emit('select-prescription-medicine', item, (event.target as HTMLInputElement).value),
+                      }),
+                      h('datalist', { id: listId }, [
+                        ...props.medicines.map((medicine: any) => h('option', {
+                          value: medicineName(medicine),
+                          label: `${medicineName(medicine)} - tồn ${medicineStock(medicine)}`,
+                        })),
                       ]),
                     ]),
                     h('td', { class: 'px-4 py-3' }, h('input', { value: item.dosage, class: [formInputClass, 'min-w-[160px]'], placeholder: 'VD: 1 viên x 2 lần/ngày', onInput: (event: Event) => { item.dosage = (event.target as HTMLInputElement).value } })),
                     h('td', { class: 'px-4 py-3' }, h('input', { value: item.quantity, type: 'number', class: [formInputClass, 'min-w-[110px]'], onInput: (event: Event) => { item.quantity = Number((event.target as HTMLInputElement).value) } })),
                     h('td', { class: 'px-4 py-3' }, h('input', { value: item.note || item.usageInstruction || '', class: [formInputClass, 'min-w-[180px]'], placeholder: 'Sau ăn, khi đau...', onInput: (event: Event) => { item.note = (event.target as HTMLInputElement).value; item.usageInstruction = (event.target as HTMLInputElement).value } })),
                     h('td', { class: 'px-4 py-3 text-center' }, h('button', { type: 'button', class: 'inline-flex h-9 w-9 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50', onClick: () => emit('remove-medicine', item.medicineId) }, [h(Trash2, { class: 'h-4 w-4' })])),
-                  ]),
-                )
+                  ])
+                })
               : [h('tr', null, [h('td', { class: 'px-4 py-6 text-center text-slate-500', colspan: 5 }, 'Chưa có thuốc trong đơn.')])]),
           ]),
         ]),
