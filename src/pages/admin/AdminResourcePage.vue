@@ -31,7 +31,7 @@
           <input
             v-model="query"
             class="h-12 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
-            :placeholder="key === 'medicines' ? 'Nhập ký tự đầu tên thuốc...' : 'Tìm kiếm'"
+            :placeholder="key === 'medicines' ? 'Nhập tên thuốc...' : 'Tìm kiếm'"
           />
         </label>
         <select
