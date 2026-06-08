@@ -285,7 +285,7 @@ import { medicalRecordApi, type MedicalVisit, type PrescriptionItemPayload } fro
 import { fallbackSpecialties } from '@/services/fallbackData'
 import { currentDoctorId, filterAppointmentsForDoctor, filterQueueForDoctor, filterRecordsForDoctor, filterSchedulesForDoctor } from '@/utils/doctorScope'
 import type { Appointment, WaitingQueueItem } from '@/types/appointment'
-import type { DoctorSchedule } from '@/types/doctor'
+import type { Doctor, DoctorSchedule } from '@/types/doctor'
 import type { MedicalRecord, Patient } from '@/types/medicalRecord'
 import type { Medicine } from '@/types/medicine'
 import type { Specialty } from '@/types/specialty'
@@ -735,6 +735,7 @@ async function selectVisit(row: Row) {
     if (!visit?.visitId) throw new Error('Lịch hẹn chưa được check-in hoặc N2 chưa tạo lượt khám.')
     activeVisit.value = visit
     await hydrateSelectedRowFromAppointment(visit.appointmentId || row.appointmentId)
+    await hydrateSelectedRowFromDoctor(selectedRow.value?.doctorId || visit.doctorId || row.doctorId)
     examForm.chiefComplaint = meaningful(visit.chiefComplaint) || meaningful(selectedRow.value?.reason) || meaningful(row.reason)
     hydrateVitalsFromVisit(visit)
     await Promise.all([loadActivePatient(), loadExistingRecord(), loadMedicines(), loadPrescriptionSpecialties()])
@@ -762,7 +763,26 @@ async function hydrateSelectedRowFromAppointment(appointmentId?: number | string
     time: appointment.slotTime || selectedRow.value.time,
     timeLabel: `${formatDate(appointment.appointmentDate)} · ${appointment.slotTime || selectedRow.value.time || '--:--'}`,
     reason: appointment.reason || appointment.specialtyName || selectedRow.value.reason,
+    room: visitRoom({ raw: appointment } as Row) || selectedRow.value.room,
     raw: { ...(selectedRow.value.raw || {}), ...appointment },
+  }
+}
+
+async function hydrateSelectedRowFromDoctor(doctorIdValue?: number | string) {
+  if (!doctorIdValue || !selectedRow.value) return
+  const doctor = await appointmentApi.getDoctor(Number(doctorIdValue)).catch(() => null as Doctor | null)
+  if (!doctor) return
+  const room = doctorRoom(doctor) || selectedRow.value.room
+  selectedRow.value = {
+    ...selectedRow.value,
+    doctorName: displayText(doctor.doctorName || doctor.fullName) || selectedRow.value.doctorName,
+    room,
+    raw: {
+      ...(selectedRow.value.raw || {}),
+      doctorRoomNumber: doctor.roomNumber,
+      doctorRoom: room,
+      doctor,
+    },
   }
 }
 
@@ -1439,6 +1459,25 @@ function medicinePrice(medicineIdValue: number) {
   return Number(medicine?.unitPrice ?? medicine?.UnitPrice ?? medicine?.price ?? medicine?.Price ?? 0) || 0
 }
 
+function doctorRoom(doctor?: (Doctor & Record<string, any>) | null) {
+  return meaningful(doctor?.roomNumber || doctor?.RoomNumber || doctor?.roomName || doctor?.RoomName || doctor?.room || doctor?.Room)
+}
+
+function visitRoom(row?: Row | null) {
+  return meaningful(
+    row?.room
+    || row?.raw?.doctorRoom
+    || row?.raw?.doctorRoomNumber
+    || row?.raw?.roomNumber
+    || row?.raw?.RoomNumber
+    || row?.raw?.roomName
+    || row?.raw?.RoomName
+    || row?.raw?.room
+    || row?.raw?.Room
+    || doctorRoom(row?.raw?.doctor || row?.raw?.Doctor),
+  )
+}
+
 function prescriptionNote() {
   return prescriptionItems.value.map((item) => `${item.medicineNameSnapshot}: ${item.quantity} ${item.unitSnapshot || ''}; ${item.dosage}; ${item.frequency}; ${item.durationDays} ngày`).join('\n')
 }
@@ -1814,7 +1853,7 @@ function renderVisitInfoCard(props: any) {
     h('div', { class: 'space-y-3' }, [
       sideInfoItem('Bác sĩ khám', visit?.doctorName || row?.doctorName || doctorName.value),
       sideInfoItem('Khoa/Phòng', row?.raw?.specialtyName || row?.specialtyName || 'Chưa có'),
-      sideInfoItem('Phòng khám', row?.raw?.roomName || row?.raw?.room || 'Chưa có'),
+      sideInfoItem('Phòng khám', visitRoom(row) || 'Chưa có'),
       sideInfoItem('Loại khám', row?.raw?.type || row?.raw?.visitType || 'Khám thường'),
       sideInfoItem('Mã lịch hẹn', visit?.appointmentId || row?.appointmentId),
       sideInfoItem('Visit ID', visit?.visitCode || visit?.visitId || row?.visitId),
