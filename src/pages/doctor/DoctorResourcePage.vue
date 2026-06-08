@@ -409,6 +409,8 @@ const clinicalChecklist = reactive({
   ecg: false,
 })
 
+const prescriptionMedicineType = ref('')
+
 const formInputClass = 'h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500'
 const formTextareaClass = 'w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100'
 const compactOptionClass = 'flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold leading-5 transition'
@@ -1081,7 +1083,7 @@ function toggleMedicine(medicine: Medicine & Record<string, any>) {
 }
 
 function addPrescriptionRow() {
-  const available = medicines.value.find((medicine) => {
+  const available = filteredPrescriptionMedicines(medicines.value).find((medicine) => {
     const id = medicineId(medicine)
     return id && !prescriptionItems.value.some((item) => item.medicineId === id)
   })
@@ -1356,6 +1358,20 @@ function medicineName(medicine: Medicine & Record<string, any>) {
   return String(medicine.medicineName ?? medicine.MedicineName ?? medicine.name ?? `Thuốc #${medicineId(medicine)}`)
 }
 
+function medicineType(medicine: Medicine & Record<string, any>) {
+  return String(medicine.medicineType ?? medicine.MedicineType ?? medicine.type ?? medicine.Type ?? 'Khác').trim() || 'Khác'
+}
+
+function medicineTypeOptions(medicineList: Array<Medicine & Record<string, any>>) {
+  return Array.from(new Set(medicineList.map(medicineType).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'vi'))
+}
+
+function filteredPrescriptionMedicines(medicineList: Array<Medicine & Record<string, any>>) {
+  const selectedType = normalizeSearchText(prescriptionMedicineType.value)
+  if (!selectedType) return medicineList
+  return medicineList.filter((medicine) => normalizeSearchText(medicineType(medicine)) === selectedType)
+}
+
 function normalizeSearchText(value: unknown) {
   return String(value ?? '').trim().toLowerCase()
 }
@@ -1519,8 +1535,8 @@ function displayOrEmpty(value: unknown) {
   return textValue || 'Chưa có'
 }
 
-function patientInsurance(patient?: (Patient & Record<string, any>) | null) {
-  return patient?.healthInsuranceNumber || patient?.HealthInsuranceNumber || patient?.insuranceNumber || patient?.InsuranceNumber || ''
+function patientCitizenId(patient?: (Patient & Record<string, any>) | null) {
+  return patient?.citizenId || patient?.CitizenId || ''
 }
 
 function businessError(apiError: unknown) {
@@ -1732,7 +1748,7 @@ function renderPatientCard(props: any, emit: any) {
     h('div', { class: 'mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4' }, [
       infoItem('Mã bệnh nhân', patient?.patientCode || patient?.patientIdCode || visit?.patientCode || props.row?.patientId),
       infoItem('Số điện thoại', patient?.phoneNumber || patient?.phone || props.row?.patientPhone || props.row?.raw?.patientPhone || props.row?.raw?.PatientPhone),
-      infoItem('BHYT', patientInsurance(patient)),
+      infoItem('CCCD', patientCitizenId(patient)),
       infoItem('Mã lịch hẹn', visit?.appointmentId || props.row?.appointmentId),
       infoItem('Visit ID', visit?.visitCode || visit?.visitId || props.row?.visitId),
       infoItem('Ngày khám', props.row?.timeLabel || formatDate(visit?.visitDate || visit?.createdAt)),
@@ -1877,7 +1893,27 @@ function renderClinicalOrdersCard(props: any, emit: any) {
 }
 
 function renderPrescriptionCard(props: any, emit: any) {
+  const typeOptions = medicineTypeOptions(props.medicines)
+  const visibleMedicines = filteredPrescriptionMedicines(props.medicines)
   return medicalCard('Kê đơn thuốc', ClipboardCheck, [
+    props.medicineLoading
+      ? null
+      : h('div', { class: 'mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]' }, [
+          h('label', { class: 'block' }, [
+            h('span', { class: 'mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500' }, 'Bộ lọc thuốc theo chuyên khoa'),
+            h('select', {
+              value: prescriptionMedicineType.value,
+              class: formInputClass,
+              onChange: (event: Event) => { prescriptionMedicineType.value = (event.target as HTMLSelectElement).value },
+            }, [
+              h('option', { value: '' }, 'Tất cả nhóm thuốc'),
+              ...typeOptions.map((type) => h('option', { value: type }, type)),
+            ]),
+          ]),
+          h('div', { class: 'flex items-end' }, [
+            h('span', { class: 'inline-flex h-11 items-center rounded-xl bg-blue-50 px-4 text-sm font-bold text-blue-700' }, `${visibleMedicines.length} thuốc phù hợp`),
+          ]),
+        ]),
     props.medicineLoading
       ? h(LoadingSkeleton)
       : h('div', { class: 'overflow-x-auto rounded-xl border border-slate-200' }, [
@@ -1899,9 +1935,9 @@ function renderPrescriptionCard(props: any, emit: any) {
                         onChange: (event: Event) => emit('select-prescription-medicine', item, (event.target as HTMLInputElement).value),
                       }),
                       h('datalist', { id: listId }, [
-                        ...props.medicines.map((medicine: any) => h('option', {
+                        ...visibleMedicines.map((medicine: any) => h('option', {
                           value: medicineName(medicine),
-                          label: `${medicineName(medicine)} - tồn ${medicineStock(medicine)}`,
+                          label: `${medicineName(medicine)} - ${medicineType(medicine)} - tồn ${medicineStock(medicine)}`,
                         })),
                       ]),
                     ]),
