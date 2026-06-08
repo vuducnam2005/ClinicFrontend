@@ -198,6 +198,7 @@
                     <button type="button" class="inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-bold transition bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 focus:outline-none focus:ring-4 focus:ring-rose-100 disabled:opacity-50" :disabled="actingId === row.id" @click="confirmAction('cancel', row)">Hủy</button>
                   </template>
                   <template v-else-if="row.resolvedStatus === 'CheckedIn'">
+                    <span class="inline-flex h-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-700">Đã check-in N2</span>
                     <button type="button" class="inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-bold transition bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm focus:outline-none focus:ring-4 focus:ring-indigo-100 disabled:opacity-50" :disabled="actingId === row.id" @click="confirmAction('invoice', row)">Tạo hóa đơn</button>
                   </template>
                   <!-- Detail is always available -->
@@ -1528,6 +1529,9 @@ async function executeCheckInN2() {
     await medicalRecordApi.syncAppointmentConfirmed(row).catch(() => undefined)
     await medicalRecordApi.syncPatientCheckedIn({ ...row, status: 'CheckedIn' })
     await medicalRecordApi.getVisitByAppointment(appointmentId).catch(() => null)
+    row.status = 'CheckedIn'
+    row.resolvedStatus = 'CheckedIn'
+    row.checkedInAt = new Date().toISOString()
     showToast('Check-in thành công', 'N1 đã cập nhật hàng chờ và lượt khám đã được đồng bộ sang N2.', 'success')
     checkInConfirmOpen.value = false
     await loadData()
@@ -1698,6 +1702,9 @@ async function syncMedicalVisit(row: Row) {
   await medicalRecordApi.syncAppointmentConfirmed(row).catch(() => undefined)
   await medicalRecordApi.syncPatientCheckedIn({ ...row, status: 'CheckedIn' })
   await medicalRecordApi.getVisitByAppointment(appointmentId)
+  row.status = 'CheckedIn'
+  row.resolvedStatus = 'CheckedIn'
+  row.checkedInAt = new Date().toISOString()
   note.value = 'Đã check-in N1 và xác nhận N2 đã tạo lượt khám.'
   showToast('Check-in thành công', 'Tiếp theo sang Hàng chờ khám để cập nhật chỉ số sức khỏe trước khi bác sĩ khám.', 'success')
 }

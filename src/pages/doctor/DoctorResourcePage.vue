@@ -280,6 +280,7 @@ import Toast from '@/components/ui/Toast.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { getApiErrorMessage } from '@/services/apiClient'
 import { appointmentApi } from '@/services/appointmentApi'
+import { medicineApi } from '@/services/medicineApi'
 import { medicalRecordApi, type MedicalVisit, type PrescriptionItemPayload } from '@/services/medicalRecordApi'
 import { currentDoctorId, filterAppointmentsForDoctor, filterQueueForDoctor, filterRecordsForDoctor, filterSchedulesForDoctor } from '@/utils/doctorScope'
 import type { Appointment, WaitingQueueItem } from '@/types/appointment'
@@ -1050,7 +1051,11 @@ async function loadMedicines() {
   if (medicines.value.length) return
   medicineLoading.value = true
   try {
-    medicines.value = await medicalRecordApi.getMedicines({ status: 'Active' }) as any
+    const n2Medicines = await medicalRecordApi.getMedicines({ status: 'Active' }).catch(() => [] as Medicine[])
+    medicines.value = (n2Medicines.length ? n2Medicines : await medicineApi.getMedicines().catch(() => [])) as any
+    if (!medicines.value.length) {
+      showToast('Chưa có thuốc', 'Không tải được danh mục thuốc từ N2/N3. Kiểm tra Kho thuốc hoặc thử tải lại.', 'error')
+    }
   } finally {
     medicineLoading.value = false
   }
@@ -1817,6 +1822,9 @@ function renderMedicalRecordCard(props: any) {
             h('option', { value: 'I10 - Tăng huyết áp' }),
             h('option', { value: 'E11 - Đái tháo đường type 2' }),
           ]),
+          props.medicines.length
+            ? null
+            : h('p', { class: 'border-t border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800' }, 'Chưa tải được danh mục thuốc. Bấm Tải lại hoặc kiểm tra Kho thuốc N3.'),
         ]),
         inputField('Lý do khám', props.examForm.chiefComplaint, (value: string) => { props.examForm.chiefComplaint = value }, 'Chưa có'),
       ]),
