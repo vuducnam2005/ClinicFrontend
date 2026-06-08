@@ -732,9 +732,10 @@ async function selectVisit(row: Row) {
     if (!visit?.visitId) throw new Error('Lịch hẹn chưa được check-in hoặc N2 chưa tạo lượt khám.')
     activeVisit.value = visit
     await hydrateSelectedRowFromAppointment(visit.appointmentId || row.appointmentId)
-    examForm.chiefComplaint = meaningful(visit.chiefComplaint || row.reason)
+    examForm.chiefComplaint = meaningful(visit.chiefComplaint) || meaningful(selectedRow.value?.reason) || meaningful(row.reason)
     hydrateVitalsFromVisit(visit)
     await Promise.all([loadActivePatient(), loadExistingRecord(), loadMedicines()])
+    applyDefaultPrescriptionFilter()
     return true
   } catch (apiError) {
     showToast('Không mở được lượt khám', businessError(apiError), 'error')
@@ -1054,7 +1055,7 @@ async function loadMedicines() {
   medicineLoading.value = true
   try {
     const n2Medicines = await medicalRecordApi.getMedicines({ status: 'Active' }).catch(() => [] as Medicine[])
-    medicines.value = (n2Medicines.length ? n2Medicines : await medicineApi.getMedicines({ status: 'Active', pageSize: 100 }).catch(() => [])) as any
+    medicines.value = (n2Medicines.length ? n2Medicines : await medicineApi.getMedicines({ status: 'Active', pageSize: 500 }).catch(() => [])) as any
     if (!medicines.value.length) {
       showToast('Chưa có thuốc', 'Không tải được danh mục thuốc từ N2/N3. Kiểm tra Kho thuốc hoặc thử tải lại.', 'error')
     }
@@ -1083,26 +1084,6 @@ function toggleMedicine(medicine: Medicine & Record<string, any>) {
 }
 
 function addPrescriptionRow() {
-  const available = filteredPrescriptionMedicines(medicines.value).find((medicine) => {
-    const id = medicineId(medicine)
-    return id && !prescriptionItems.value.some((item) => item.medicineId === id)
-  })
-  if (available) {
-    const id = medicineId(available)
-    prescriptionItems.value.push({
-      medicineId: id,
-      medicineNameSnapshot: medicineName(available),
-      unitSnapshot: medicineUnit(available),
-      dosage: '',
-      frequency: 'Theo liều dùng',
-      durationDays: 1,
-      quantity: 1,
-      usageInstruction: '',
-      note: '',
-    })
-    return
-  }
-
   prescriptionItems.value.push({
     medicineId: 0,
     medicineNameSnapshot: '',
@@ -1128,8 +1109,13 @@ function selectPrescriptionMedicine(item: PrescriptionItemPayload, value: string
   if (!medicine) item.medicineNameSnapshot = textValue
 }
 
-function removeMedicine(medicineIdValue: number) {
-  prescriptionItems.value = prescriptionItems.value.filter((item) => item.medicineId !== medicineIdValue)
+function removeMedicine(target: number | PrescriptionItemPayload, index?: number) {
+  if (typeof target === 'object') {
+    const rowIndex = Number.isInteger(index) ? Number(index) : prescriptionItems.value.indexOf(target)
+    if (rowIndex >= 0) prescriptionItems.value.splice(rowIndex, 1)
+    return
+  }
+  prescriptionItems.value = prescriptionItems.value.filter((item) => item.medicineId !== target)
 }
 
 function validatePrescriptionItems() {
@@ -1325,7 +1311,7 @@ function normalize(value: unknown) {
 function meaningful(value: unknown) {
   const textValue = String(value || '').trim()
   const normalized = normalize(textValue)
-  if (!textValue || normalized.includes('chua ghi') || normalized.includes('chua cap')) return ''
+  if (!textValue || normalized.includes('chua ghi') || normalized.includes('chua cap') || normalized.includes('chua co') || normalized.includes('chua nhan')) return ''
   return textValue
 }
 
@@ -1362,18 +1348,52 @@ function medicineType(medicine: Medicine & Record<string, any>) {
   return String(medicine.medicineType ?? medicine.MedicineType ?? medicine.type ?? medicine.Type ?? 'Khác').trim() || 'Khác'
 }
 
-function medicineTypeOptions(medicineList: Array<Medicine & Record<string, any>>) {
-  return Array.from(new Set(medicineList.map(medicineType).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'vi'))
+function prescriptionSpecialty(row?: Row | null) {
+  return meaningful(
+    row?.raw?.specialtyName
+    || row?.raw?.SpecialtyName
+    || row?.raw?.specialtyNameSnapshot
+    || row?.raw?.SpecialtyNameSnapshot
+    || row?.specialtyName
+    || authStore.user?.specialtyName,
+  )
+}
+
+function medicineTypeOptions(medicineList: Array<Medicine & Record<string, any>>, row?: Row | null) {
+  return Array.from(new Set([prescriptionSpecialty(row), ...medicineList.map(medicineType)].filter(Boolean))).sort((a, b) => a.localeCompare(b, 'vi'))
+}
+
+function medicineMatchesFilter(medicine: Medicine & Record<string, any>, filterValue: string) {
+  const selectedType = normalizeSearchText(filterValue)
+  const currentType = normalizeSearchText(medicineType(medicine))
+  return !selectedType || currentType === selectedType || currentType.includes(selectedType) || selectedType.includes(currentType)
 }
 
 function filteredPrescriptionMedicines(medicineList: Array<Medicine & Record<string, any>>) {
   const selectedType = normalizeSearchText(prescriptionMedicineType.value)
   if (!selectedType) return medicineList
-  return medicineList.filter((medicine) => normalizeSearchText(medicineType(medicine)) === selectedType)
+  return medicineList.filter((medicine) => medicineMatchesFilter(medicine, prescriptionMedicineType.value))
+}
+
+function medicineSearchSuggestions(item: PrescriptionItemPayload, medicineList: Array<Medicine & Record<string, any>>) {
+  const query = normalizeSearchText(item.medicineNameSnapshot)
+  if (!query) return []
+  return medicineList
+    .filter((medicine) => {
+      const id = medicineId(medicine)
+      const name = normalizeSearchText(medicineName(medicine))
+      return id && name.startsWith(query) && id !== item.medicineId
+    })
+    .slice(0, 8)
+}
+
+function applyDefaultPrescriptionFilter() {
+  const specialty = prescriptionSpecialty(selectedRow.value)
+  prescriptionMedicineType.value = specialty && medicines.value.some((medicine) => medicineMatchesFilter(medicine, specialty)) ? specialty : ''
 }
 
 function normalizeSearchText(value: unknown) {
-  return String(value ?? '').trim().toLowerCase()
+  return normalize(value)
 }
 
 function medicineUnit(medicine: Medicine & Record<string, any>) {
@@ -1893,7 +1913,7 @@ function renderClinicalOrdersCard(props: any, emit: any) {
 }
 
 function renderPrescriptionCard(props: any, emit: any) {
-  const typeOptions = medicineTypeOptions(props.medicines)
+  const typeOptions = medicineTypeOptions(props.medicines, props.row)
   const visibleMedicines = filteredPrescriptionMedicines(props.medicines)
   return medicalCard('Kê đơn thuốc', ClipboardCheck, [
     props.medicineLoading
@@ -1906,7 +1926,7 @@ function renderPrescriptionCard(props: any, emit: any) {
               class: formInputClass,
               onChange: (event: Event) => { prescriptionMedicineType.value = (event.target as HTMLSelectElement).value },
             }, [
-              h('option', { value: '' }, 'Tất cả nhóm thuốc'),
+              h('option', { value: '' }, 'Tất cả chuyên khoa/nhóm thuốc'),
               ...typeOptions.map((type) => h('option', { value: type }, type)),
             ]),
           ]),
@@ -1924,16 +1944,32 @@ function renderPrescriptionCard(props: any, emit: any) {
             h('tbody', { class: 'divide-y divide-slate-100 bg-white' }, props.prescriptionItems.length
               ? props.prescriptionItems.map((item: PrescriptionItemPayload, index: number) => {
                   const listId = `medicine-suggestions-${index}`
+                  const suggestions = medicineSearchSuggestions(item, visibleMedicines)
                   return h('tr', null, [
                     h('td', { class: 'px-4 py-3' }, [
-                      h('input', {
-                        value: item.medicineNameSnapshot || '',
-                        list: listId,
-                        class: [formInputClass, 'min-w-[260px]'],
-                        placeholder: 'Nhập tên thuốc',
-                        onInput: (event: Event) => emit('select-prescription-medicine', item, (event.target as HTMLInputElement).value),
-                        onChange: (event: Event) => emit('select-prescription-medicine', item, (event.target as HTMLInputElement).value),
-                      }),
+                      h('div', { class: 'min-w-[280px]' }, [
+                        h('input', {
+                          value: item.medicineNameSnapshot || '',
+                          list: listId,
+                          class: [formInputClass, 'w-full'],
+                          placeholder: 'Nhập tên thuốc',
+                          autocomplete: 'off',
+                          onInput: (event: Event) => emit('select-prescription-medicine', item, (event.target as HTMLInputElement).value),
+                          onChange: (event: Event) => emit('select-prescription-medicine', item, (event.target as HTMLInputElement).value),
+                        }),
+                        suggestions.length
+                          ? h('div', { class: 'mt-2 max-h-48 overflow-y-auto rounded-xl border border-blue-100 bg-white shadow-sm' }, suggestions.map((medicine: any) =>
+                              h('button', {
+                                type: 'button',
+                                class: 'block w-full px-3 py-2 text-left text-sm transition hover:bg-blue-50',
+                                onClick: () => emit('select-prescription-medicine', item, medicineName(medicine)),
+                              }, [
+                                h('span', { class: 'block font-semibold text-slate-900' }, medicineName(medicine)),
+                                h('span', { class: 'mt-0.5 block text-xs text-slate-500' }, `${medicineType(medicine)} - tồn ${medicineStock(medicine)} ${medicineUnit(medicine)}`),
+                              ]),
+                            ))
+                          : null,
+                      ]),
                       h('datalist', { id: listId }, [
                         ...visibleMedicines.map((medicine: any) => h('option', {
                           value: medicineName(medicine),
@@ -1944,7 +1980,7 @@ function renderPrescriptionCard(props: any, emit: any) {
                     h('td', { class: 'px-4 py-3' }, h('input', { value: item.dosage, class: [formInputClass, 'min-w-[160px]'], placeholder: 'VD: 1 viên x 2 lần/ngày', onInput: (event: Event) => { item.dosage = (event.target as HTMLInputElement).value } })),
                     h('td', { class: 'px-4 py-3' }, h('input', { value: item.quantity, type: 'number', class: [formInputClass, 'min-w-[110px]'], onInput: (event: Event) => { item.quantity = Number((event.target as HTMLInputElement).value) } })),
                     h('td', { class: 'px-4 py-3' }, h('input', { value: item.note || item.usageInstruction || '', class: [formInputClass, 'min-w-[180px]'], placeholder: 'Sau ăn, khi đau...', onInput: (event: Event) => { item.note = (event.target as HTMLInputElement).value; item.usageInstruction = (event.target as HTMLInputElement).value } })),
-                    h('td', { class: 'px-4 py-3 text-center' }, h('button', { type: 'button', class: 'inline-flex h-9 w-9 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50', onClick: () => emit('remove-medicine', item.medicineId) }, [h(Trash2, { class: 'h-4 w-4' })])),
+                    h('td', { class: 'px-4 py-3 text-center' }, h('button', { type: 'button', class: 'inline-flex h-9 w-9 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50', onClick: () => emit('remove-medicine', item, index) }, [h(Trash2, { class: 'h-4 w-4' })])),
                   ])
                 })
               : [h('tr', null, [h('td', { class: 'px-4 py-6 text-center text-slate-500', colspan: 5 }, 'Chưa có thuốc trong đơn.')])]),
