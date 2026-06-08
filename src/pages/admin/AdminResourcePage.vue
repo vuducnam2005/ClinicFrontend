@@ -45,9 +45,35 @@
         <span class="inline-flex h-12 items-center justify-center rounded-xl bg-teal-50 px-4 text-sm font-bold text-teal-700">{{ filteredRows.length }} dòng</span>
       </div>
       <div v-if="filteredRows.length" class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-100 text-sm">
-          <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"><tr><th v-for="col in config.columns" :key="col.key" :class="['px-5 py-3', col.right ? 'text-right' : 'text-left']">{{ col.label }}</th><th v-if="hasActions" class="px-5 py-3 text-right">Thao tác</th></tr></thead>
-          <tbody class="divide-y divide-slate-100"><tr v-for="row in paginatedRows" :key="String(row.id)" class="hover:bg-slate-50"><td v-for="col in config.columns" :key="col.key" :class="['px-5 py-4 align-top', col.right ? 'text-right' : 'text-left']"><span v-if="col.badge" :class="['inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold', statusClass(row[col.key])]">{{ value(row[col.key]) }}</span><span v-else :class="col.strong ? 'font-semibold text-slate-950' : 'text-slate-700'">{{ value(row[col.key]) }}</span></td><td v-if="hasActions" class="px-5 py-4 text-right"><div class="flex flex-wrap justify-end gap-2"><button v-for="action in actions(row)" :key="action.key" type="button" :disabled="actingId === row.id || action.key === 'noop'" :class="['rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:opacity-100', action.className]" @click="runAction(action.key, row)">{{ action.label }}</button></div></td></tr></tbody>
+        <table :class="['min-w-full divide-y divide-slate-100 text-sm', key === 'medicines' ? 'min-w-[1420px] table-fixed' : '']">
+          <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <tr>
+              <th v-for="col in config.columns" :key="col.key" :class="columnHeaderClass(col)">{{ col.label }}</th>
+              <th v-if="hasActions" :class="actionHeaderClass">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="row in paginatedRows" :key="String(row.id)" class="hover:bg-slate-50">
+              <td v-for="col in config.columns" :key="col.key" :class="columnCellClass(col)">
+                <span v-if="col.badge" :class="['inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold', statusClass(row[col.key])]">{{ value(row[col.key]) }}</span>
+                <span v-else :class="[col.strong ? 'font-semibold text-slate-950' : 'text-slate-700', compactTextClass(col)]">{{ value(row[col.key]) }}</span>
+              </td>
+              <td v-if="hasActions" :class="actionCellClass">
+                <div class="flex items-center justify-end gap-2 whitespace-nowrap">
+                  <button
+                    v-for="action in actions(row)"
+                    :key="action.key"
+                    type="button"
+                    :disabled="actingId === row.id || action.key === 'noop'"
+                    :class="['inline-flex h-9 min-w-14 items-center justify-center whitespace-nowrap rounded-lg px-3 text-xs font-semibold transition disabled:opacity-100', action.className]"
+                    @click="runAction(action.key, row)"
+                  >
+                    {{ action.label }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
         </table>
 
         <!-- Pagination Footer -->
@@ -301,6 +327,28 @@ function mapInvoice(x: Invoice & Record<string, any>): Row { const amount = invo
 function mapUser(x: User): Row { return { id: x.id, fullName: displayText(x.fullName), username: x.username, email: x.email || 'Chưa cập nhật', roleName: x.roleName, raw: x } }
 function cfg(title: string, service: string, description: string, endpoint: string, icon: Component, columns: Column[]): Config { return { title, service, description, endpoint, icon, columns } }
 function cols(...xs: [string, string, boolean?, boolean?, boolean?][]): Column[] { return xs.map(([key,label,right,badge,strong]) => ({ key, label, right, badge, strong })) }
+function columnHeaderClass(col: Column) { return ['px-4 py-3 align-middle', col.right ? 'text-right' : 'text-left', columnWidthClass(col), compactColumnClass(col)] }
+function columnCellClass(col: Column) { return ['px-4 py-4 align-middle', col.right ? 'text-right' : 'text-left', columnWidthClass(col), compactColumnClass(col)] }
+function columnWidthClass(col: Column) {
+  if (key.value !== 'medicines') return ''
+  const widths: Record<string, string> = {
+    id: 'w-16',
+    name: 'w-64',
+    activeIngredient: 'w-52',
+    medicineType: 'w-44',
+    unit: 'w-24',
+    price: 'w-32',
+    stock: 'w-20',
+    minStockLevel: 'w-24',
+    expiryDate: 'w-32',
+    stockStatus: 'w-36',
+  }
+  return widths[col.key] || ''
+}
+function compactColumnClass(col: Column) { return key.value === 'medicines' && ['id', 'unit', 'price', 'stock', 'minStockLevel', 'expiryDate', 'stockStatus'].includes(col.key) ? 'whitespace-nowrap' : '' }
+function compactTextClass(col: Column) { return key.value === 'medicines' && ['medicineType', 'activeIngredient'].includes(col.key) ? 'break-words leading-6' : '' }
+const actionHeaderClass = computed(() => ['px-4 py-3 text-right align-middle', key.value === 'medicines' ? 'sticky right-0 z-20 w-36 bg-slate-50 shadow-[-12px_0_18px_-18px_rgba(15,23,42,0.6)]' : ''])
+const actionCellClass = computed(() => ['px-4 py-4 text-right align-middle', key.value === 'medicines' ? 'sticky right-0 z-10 w-36 bg-white shadow-[-12px_0_18px_-18px_rgba(15,23,42,0.6)]' : ''])
 function value(v: unknown) { return v === undefined || v === null || v === '' ? 'Chưa cập nhật' : String(v) }
 function toNumber(...values: unknown[]) { for (const value of values) { const numberValue = Number(value); if (Number.isFinite(numberValue) && numberValue > 0) return numberValue } return 0 }
 function toNumberAllowZero(...values: unknown[]) { for (const value of values) { const numberValue = Number(value); if (Number.isFinite(numberValue) && numberValue >= 0) return numberValue } return 0 }
