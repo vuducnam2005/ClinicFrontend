@@ -312,6 +312,7 @@ interface Row {
   reason?: string
   diagnosis?: string
   diagnosisCode?: string
+  diagnosisSpecialty?: string
   note?: string
   status?: string
   room?: string
@@ -320,6 +321,7 @@ interface Row {
 }
 
 interface Column { key: string; label: string; strong?: boolean }
+interface IcdCodeOption { code: string; name: string; specialty: string }
 interface Config {
   kicker: string
   title: string
@@ -372,6 +374,7 @@ const examForm = reactive({
   symptoms: '',
   clinicalExam: '',
   diagnosisCode: '',
+  diagnosisSpecialty: '',
   diagnosis: '',
   doctorNote: '',
   treatmentPlan: '',
@@ -419,6 +422,97 @@ const formTextareaClass = 'w-full resize-none rounded-xl border border-slate-200
 const compactOptionClass = 'flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold leading-5 transition'
 
 const prescriptionItems = ref<PrescriptionItemPayload[]>([])
+
+const icdCodes: IcdCodeOption[] = [
+  { specialty: 'Tim mạch', code: 'I10', name: 'Tăng huyết áp' },
+  { specialty: 'Tim mạch', code: 'I21.0', name: 'Nhồi máu cơ tim cấp' },
+  { specialty: 'Tim mạch', code: 'I20.0', name: 'Đau thắt ngực không ổn định' },
+  { specialty: 'Tim mạch', code: 'I25.1', name: 'Bệnh tim thiếu máu cục bộ' },
+  { specialty: 'Tim mạch', code: 'I48', name: 'Rung nhĩ' },
+  { specialty: 'Tim mạch', code: 'I50', name: 'Suy tim' },
+  { specialty: 'Tim mạch', code: 'I70', name: 'Xơ vữa động mạch' },
+  { specialty: 'Nhi khoa', code: 'A09', name: 'Tiêu chảy cấp' },
+  { specialty: 'Nhi khoa', code: 'B08.5', name: 'Tay chân miệng' },
+  { specialty: 'Nhi khoa', code: 'J03.9', name: 'Viêm amidan cấp' },
+  { specialty: 'Nhi khoa', code: 'J06.9', name: 'Nhiễm trùng đường hô hấp trên cấp' },
+  { specialty: 'Nhi khoa', code: 'J11.1', name: 'Cúm có triệu chứng hô hấp' },
+  { specialty: 'Nhi khoa', code: 'P07.3', name: 'Nhẹ cân sơ sinh' },
+  { specialty: 'Nhi khoa', code: 'R50.9', name: 'Sốt không rõ nguyên nhân' },
+  { specialty: 'Da liễu', code: 'L20', name: 'Viêm da cơ địa (chàm thể tạng)' },
+  { specialty: 'Da liễu', code: 'L21', name: 'Viêm da tiết bã' },
+  { specialty: 'Da liễu', code: 'L30', name: 'Viêm da khác' },
+  { specialty: 'Da liễu', code: 'L40', name: 'Bệnh vảy nến' },
+  { specialty: 'Da liễu', code: 'L50', name: 'Mề đay (nổi mề đay)' },
+  { specialty: 'Da liễu', code: 'B02', name: 'Zona (giời leo)' },
+  { specialty: 'Tai mũi họng', code: 'J00', name: 'Viêm mũi họng cấp' },
+  { specialty: 'Tai mũi họng', code: 'J01', name: 'Viêm xoang cấp' },
+  { specialty: 'Tai mũi họng', code: 'J03.9', name: 'Viêm amidan cấp' },
+  { specialty: 'Tai mũi họng', code: 'J30.1', name: 'Viêm mũi dị ứng' },
+  { specialty: 'Tai mũi họng', code: 'H65', name: 'Viêm tai giữa' },
+  { specialty: 'Tai mũi họng', code: 'R04.0', name: 'Chảy máu cam' },
+  { specialty: 'Cơ xương khớp', code: 'M15', name: 'Thoái hóa khớp (đa khớp)' },
+  { specialty: 'Cơ xương khớp', code: 'M17', name: 'Thoái hóa khớp gối' },
+  { specialty: 'Cơ xương khớp', code: 'M25.5', name: 'Đau khớp (không rõ nguyên nhân)' },
+  { specialty: 'Cơ xương khớp', code: 'M54.4', name: 'Đau thắt lưng' },
+  { specialty: 'Cơ xương khớp', code: 'M54.5', name: 'Đau lưng dưới' },
+  { specialty: 'Cơ xương khớp', code: 'M79.1', name: 'Đau cơ' },
+  { specialty: 'Cơ xương khớp', code: 'M80', name: 'Loãng xương' },
+  { specialty: 'Nội tổng quát', code: 'E11', name: 'Đái tháo đường type 2 (tiểu đường)' },
+  { specialty: 'Nội tổng quát', code: 'E10', name: 'Đái tháo đường type 1' },
+  { specialty: 'Nội tổng quát', code: 'E78', name: 'Rối loạn lipid máu (mỡ máu cao)' },
+  { specialty: 'Nội tổng quát', code: 'K29', name: 'Viêm dạ dày' },
+  { specialty: 'Nội tổng quát', code: 'K30', name: 'Khó tiêu' },
+  { specialty: 'Nội tổng quát', code: 'N18', name: 'Suy thận mạn' },
+  { specialty: 'Nội tổng quát', code: 'R53', name: 'Mệt mỏi, suy nhược' },
+  { specialty: 'Sản phụ khoa', code: 'N70', name: 'Viêm vòi trứng' },
+  { specialty: 'Sản phụ khoa', code: 'N71', name: 'Viêm tử cung' },
+  { specialty: 'Sản phụ khoa', code: 'N72', name: 'Viêm cổ tử cung' },
+  { specialty: 'Sản phụ khoa', code: 'N94.3', name: 'Hội chứng tiền kinh nguyệt' },
+  { specialty: 'Sản phụ khoa', code: 'N95', name: 'Rối loạn mãn kinh' },
+  { specialty: 'Sản phụ khoa', code: 'O80', name: 'Sinh thường' },
+  { specialty: 'Sản phụ khoa', code: 'Z34', name: 'Thai kỳ bình thường (khám thai)' },
+  { specialty: 'Mắt', code: 'H25', name: 'Đục thủy tinh thể' },
+  { specialty: 'Mắt', code: 'H40', name: 'Glôcôm (thiên đầu thống)' },
+  { specialty: 'Mắt', code: 'H52', name: 'Tật khúc xạ (cận/viễn/loạn thị)' },
+  { specialty: 'Mắt', code: 'H53', name: 'Rối loạn thị giác' },
+  { specialty: 'Mắt', code: 'B30', name: 'Viêm kết mạc do virus' },
+  { specialty: 'Mắt', code: 'H10', name: 'Viêm kết mạc' },
+]
+
+const icdSpecialtyOptions = computed(() => [
+  { label: 'Tất cả chuyên khoa', value: '' },
+  ...Array.from(new Set(icdCodes.map((item) => item.specialty))).map((specialty) => ({ label: specialty, value: specialty })),
+])
+
+const filteredIcdCodes = computed(() => {
+  const list = examForm.diagnosisSpecialty
+    ? icdCodes.filter((item) => item.specialty === examForm.diagnosisSpecialty)
+    : icdCodes
+  const seen = new Set<string>()
+  return list.filter((item) => {
+    const key = `${item.code}-${item.name}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+})
+
+function updateDiagnosisCode(value: string, form: typeof examForm) {
+  form.diagnosisCode = value
+  const normalizedValue = value.trim().toLowerCase()
+  const matched = filteredIcdCodes.value.find((item) =>
+    normalizedValue === item.code.toLowerCase()
+    || normalizedValue === icdOptionValue(item).toLowerCase()
+  ) || icdCodes.find((item) =>
+    normalizedValue === item.code.toLowerCase()
+    || normalizedValue === icdOptionValue(item).toLowerCase()
+  )
+  if (matched) form.diagnosisSpecialty = matched.specialty
+}
+
+function icdOptionValue(item: IcdCodeOption) {
+  return `${item.code} - ${item.name}`
+}
 
 const configs: Record<Resource, Config> = {
   appointments: {
@@ -471,7 +565,7 @@ const configs: Record<Resource, Config> = {
     emptyTitle: 'Chưa có bệnh án phù hợp',
     emptyText: 'Không tìm thấy bệnh án của bác sĩ này trong bộ lọc hiện tại.',
     detailTitle: 'Chi tiết bệnh án',
-    columns: cols(['id', 'Mã bệnh án'], ['patientName', 'Bệnh nhân', true], ['diagnosis', 'Chẩn đoán'], ['diagnosisCode', 'Mã ICD'], ['timeLabel', 'Ngày tạo'], ['status', 'Trạng thái']),
+    columns: cols(['id', 'Mã bệnh án'], ['patientName', 'Bệnh nhân', true], ['diagnosis', 'Chẩn đoán'], ['diagnosisCode', 'Mã ICD'], ['diagnosisSpecialty', 'Chuyên khoa'], ['timeLabel', 'Ngày tạo'], ['status', 'Trạng thái']),
   },
   schedule: {
     kicker: 'N1 Doctor Schedule',
@@ -511,7 +605,7 @@ const filteredRows = computed(() => {
         ? (!filters.fromDate || rowDate >= filters.fromDate) && (!filters.toDate || rowDate <= filters.toDate)
         : !filters.date || rowDate === filters.date
       const byStatus = !filters.status || statusBucket(row.status) === filters.status
-      const haystack = normalize([row.id, row.patientName, row.doctorName, row.reason, row.diagnosis, row.diagnosisCode, row.status, row.room].join(' '))
+      const haystack = normalize([row.id, row.patientName, row.doctorName, row.reason, row.diagnosis, row.diagnosisCode, row.diagnosisSpecialty, row.status, row.room].join(' '))
       return byDate && byStatus && (!keyword || haystack.includes(keyword))
     })
     .sort(sortRows)
@@ -817,6 +911,7 @@ async function saveMedicalRecord() {
     const payload = {
       visitId: activeVisit.value.visitId,
       diagnosisCode: examForm.diagnosisCode.trim() || undefined,
+      diagnosisSpecialty: examForm.diagnosisSpecialty.trim() || undefined,
       diagnosisText: examForm.diagnosis.trim(),
       doctorNote: clinicalDoctorNote(),
       treatmentPlan: clinicalTreatmentPlan(),
@@ -978,6 +1073,7 @@ async function loadExistingRecord() {
     activeRecord.value = await medicalRecordApi.getMedicalRecordByVisit(activeVisit.value.visitId)
     examForm.diagnosis = activeRecord.value.diagnosisText || activeRecord.value.diagnosis || ''
     examForm.diagnosisCode = activeRecord.value.diagnosisCode || ''
+    examForm.diagnosisSpecialty = activeRecord.value.diagnosisSpecialty || ''
     examForm.doctorNote = activeRecord.value.doctorNote || activeRecord.value.doctorNotes || ''
     examForm.treatmentPlan = activeRecord.value.treatmentPlan || ''
     examForm.followUpDate = String(activeRecord.value.followUpDate || '').slice(0, 10)
@@ -1185,7 +1281,7 @@ function clearExamOnly() {
   activePatient.value = null
   clinicalOrders.value = []
   prescriptionItems.value = []
-  Object.assign(examForm, { chiefComplaint: '', symptoms: '', clinicalExam: '', diagnosisCode: '', diagnosis: '', doctorNote: '', treatmentPlan: '', followUpDate: '', conclusionStatus: 'Hoàn thành' })
+  Object.assign(examForm, { chiefComplaint: '', symptoms: '', clinicalExam: '', diagnosisCode: '', diagnosisSpecialty: '', diagnosis: '', doctorNote: '', treatmentPlan: '', followUpDate: '', conclusionStatus: 'Hoàn thành' })
   Object.assign(vitalsForm, { bloodPressure: '', heartRate: '', temperature: '', respiratoryRate: '', spo2: '', height: '', weight: '' })
   Object.assign(historyForm, { diabetes: false, hypertension: false, cardiovascular: false, asthma: false, other: '', allergies: '' })
   Object.assign(clinicalChecklist, { bloodTest: false, urineTest: false, ultrasound: false, xray: false, ecg: false })
@@ -1280,6 +1376,7 @@ function mapRecord(item: MedicalRecord): Row {
     timeLabel: formatDate(item.createdAt || item.examDate),
     diagnosis: item.diagnosisText || item.diagnosis || 'Chưa có chẩn đoán',
     diagnosisCode: item.diagnosisCode || '-',
+    diagnosisSpecialty: item.diagnosisSpecialty || '-',
     note: item.doctorNote || item.doctorNotes || item.treatmentPlan || 'Chưa ghi chú',
     status: item.status || 'Đã lưu',
     raw: item,
@@ -1719,6 +1816,7 @@ const RecordDrawer = defineComponent({
           ]),
           sectionBlock('Chẩn đoán', [
             ['Mã ICD', props.row?.diagnosisCode],
+            ['Chuyên khoa ICD', props.row?.diagnosisSpecialty],
             ['Chẩn đoán', props.row?.diagnosis],
             ['Ghi chú', props.row?.note],
           ]),
@@ -1819,7 +1917,6 @@ function renderPatientCard(props: any, emit: any) {
             h('span', { class: 'rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600' }, displayOrEmpty(patient?.gender)),
             h('span', { class: 'rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700' }, patientAge(patient) || 'Chưa có tuổi'),
           ]),
-          h('p', { class: 'mt-2 text-sm text-slate-500' }, displayOrEmpty(props.examForm.chiefComplaint || props.row?.reason)),
         ]),
       ]),
       h('div', { class: 'flex shrink-0 flex-wrap items-center gap-2' }, [
@@ -1837,10 +1934,7 @@ function renderPatientCard(props: any, emit: any) {
       infoItem('Mã bệnh nhân', patient?.patientCode || patient?.patientIdCode || visit?.patientCode || props.row?.patientId),
       infoItem('Số điện thoại', patient?.phoneNumber || patient?.phone || props.row?.patientPhone || props.row?.raw?.patientPhone || props.row?.raw?.PatientPhone),
       infoItem('CCCD', patientCitizenId(patient)),
-      infoItem('Mã lịch hẹn', visit?.appointmentId || props.row?.appointmentId),
-      infoItem('Visit ID', visit?.visitCode || visit?.visitId || props.row?.visitId),
       infoItem('Ngày khám', props.row?.timeLabel || formatDate(visit?.visitDate || visit?.createdAt)),
-      infoItem('Bác sĩ', visit?.doctorName || props.row?.doctorName || doctorName.value),
       infoItem('Bệnh án', props.activeRecord?.medicalRecordCode || props.activeRecord?.medicalRecordIdCode || props.activeRecord?.medicalRecordId),
     ]),
   ])
@@ -1856,7 +1950,6 @@ function renderVisitInfoCard(props: any) {
       sideInfoItem('Phòng khám', visitRoom(row) || 'Chưa có'),
       sideInfoItem('Loại khám', row?.raw?.type || row?.raw?.visitType || 'Khám thường'),
       sideInfoItem('Mã lịch hẹn', visit?.appointmentId || row?.appointmentId),
-      sideInfoItem('Visit ID', visit?.visitCode || visit?.visitId || row?.visitId),
     ]),
   ])
 }
@@ -1919,26 +2012,34 @@ function renderMedicalRecordCard(props: any) {
       textareaField('Triệu chứng', props.examForm.symptoms, (value: string) => { props.examForm.symptoms = value }, 'Chưa có'),
       textareaField('Khám lâm sàng', props.examForm.clinicalExam, (value: string) => { props.examForm.clinicalExam = value }, 'Chưa có'),
       textareaField('Chẩn đoán *', props.examForm.diagnosis, (value: string) => { props.examForm.diagnosis = value }, 'VD: Cảm lạnh thông thường', 'xl:col-span-2'),
-      h('div', { class: 'xl:col-span-2 grid gap-3 xl:grid-cols-[1fr_1fr]' }, [
+      h('div', { class: 'xl:col-span-2 grid gap-3 lg:grid-cols-[260px_minmax(0,1fr)]' }, [
+        h('label', { class: 'block' }, [
+          h('span', { class: 'mb-2 block text-sm font-semibold text-slate-700' }, 'Chuyên khoa ICD'),
+          h('select', {
+            value: props.examForm.diagnosisSpecialty,
+            class: formInputClass,
+            onChange: (event: Event) => { props.examForm.diagnosisSpecialty = (event.target as HTMLSelectElement).value },
+          }, icdSpecialtyOptions.value.map((option) =>
+            h('option', { value: option.value }, option.label),
+          )),
+        ]),
         h('label', { class: 'block' }, [
           h('span', { class: 'mb-2 block text-sm font-semibold text-slate-700' }, 'Mã ICD'),
           h('input', {
             value: props.examForm.diagnosisCode,
             list: 'icd-options',
             class: formInputClass,
-            placeholder: 'Search ICD',
-            onInput: (event: Event) => { props.examForm.diagnosisCode = (event.target as HTMLInputElement).value },
+            placeholder: 'Tìm mã ICD hoặc tên bệnh',
+            onInput: (event: Event) => updateDiagnosisCode((event.target as HTMLInputElement).value, props.examForm),
+            onChange: (event: Event) => updateDiagnosisCode((event.target as HTMLInputElement).value, props.examForm),
           }),
-          h('datalist', { id: 'icd-options' }, [
-            h('option', { value: 'J00 - Cảm lạnh thông thường' }),
-            h('option', { value: 'I10 - Tăng huyết áp' }),
-            h('option', { value: 'E11 - Đái tháo đường type 2' }),
-          ]),
+          h('datalist', { id: 'icd-options' }, filteredIcdCodes.value.map((item) =>
+            h('option', { value: icdOptionValue(item), label: item.specialty }),
+          )),
           props.medicines.length
             ? null
             : h('p', { class: 'border-t border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800' }, 'Chưa tải được danh mục thuốc. Bấm Tải lại hoặc kiểm tra Kho thuốc N3.'),
         ]),
-        inputField('Lý do khám', props.examForm.chiefComplaint, (value: string) => { props.examForm.chiefComplaint = value }, 'Chưa có'),
       ]),
     ]),
   ])
@@ -2197,7 +2298,7 @@ function sectionBlock(title: string, rows: [string, any][]) {
 }
 </script>
 
-<style scoped>
+<style scoped lang="postcss">
 .form-input {
   @apply h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100;
 }

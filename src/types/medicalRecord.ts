@@ -40,6 +40,7 @@ export interface MedicalRecord {
   vitalSignsJson?: string
   diagnosis?: string
   diagnosisCode?: string
+  diagnosisSpecialty?: string
   diagnosisText?: string
   doctorNotes?: string
   doctorNote?: string

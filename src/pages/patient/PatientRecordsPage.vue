@@ -706,11 +706,11 @@
         <div class="mb-5">
           <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Thông tin lượt khám</h2>
           <div class="grid grid-cols-2 gap-y-2 text-xs">
-            <div><span class="font-bold text-slate-500">Mã lịch hẹn:</span> <span class="font-semibold text-slate-800 font-mono">{{ appointmentForRecord(recordToPrint)?.appointmentId || recordToPrint.appointmentId || 'Chưa có thông tin' }}</span></div>
+            <div><span class="font-bold text-slate-500">Mã lịch hẹn:</span> <span class="font-semibold text-slate-800 font-mono">{{ printAppointmentId(recordToPrint) }}</span></div>
             <div><span class="font-bold text-slate-500">Ngày giờ khám:</span> <span class="font-semibold text-slate-800">{{ appointmentTimeLabel(recordToPrint) }}</span></div>
-            <div><span class="font-bold text-slate-500">Chuyên khoa:</span> <span class="font-semibold text-slate-800">{{ appointmentForRecord(recordToPrint)?.specialtyName || 'Chưa có thông tin' }}</span></div>
-            <div><span class="font-bold text-slate-500">Số thứ tự:</span> <span class="font-semibold text-slate-800">{{ appointmentForRecord(recordToPrint)?.queueNumber || 'Chưa có thông tin' }}</span></div>
-            <div class="col-span-2"><span class="font-bold text-slate-500">Lý do khám:</span> <span class="font-semibold text-slate-800">{{ appointmentForRecord(recordToPrint)?.reason || recordToPrint.chiefComplaint || 'Chưa ghi nhận' }}</span></div>
+            <div><span class="font-bold text-slate-500">Chuyên khoa:</span> <span class="font-semibold text-slate-800">{{ printAppointmentSpecialty(recordToPrint) }}</span></div>
+            <div><span class="font-bold text-slate-500">Số thứ tự:</span> <span class="font-semibold text-slate-800">{{ printQueueNumber(recordToPrint) }}</span></div>
+            <div class="col-span-2"><span class="font-bold text-slate-500">Lý do khám:</span> <span class="font-semibold text-slate-800">{{ printChiefComplaint(recordToPrint) }}</span></div>
           </div>
         </div>
 
@@ -724,7 +724,7 @@
             <div><span class="font-bold text-slate-500">Cập nhật lần cuối:</span> <span class="font-semibold text-slate-800">{{ formatDateTime(recordToPrint.updatedAt) }}</span></div>
             <div v-if="recordToPrint.completedAt"><span class="font-bold text-slate-500">Hoàn tất lúc:</span> <span class="font-semibold text-slate-800">{{ formatDateTime(recordToPrint.completedAt) }}</span></div>
             <div><span class="font-bold text-slate-500">Trạng thái:</span> <span class="font-semibold text-slate-800">{{ statusLabel(recordToPrint.status) }}</span></div>
-            <div class="col-span-2"><span class="font-bold text-slate-500">Triệu chứng:</span> <span class="font-semibold text-slate-800">{{ recordToPrint.symptoms || 'Chưa ghi nhận' }}</span></div>
+            <div class="col-span-2"><span class="font-bold text-slate-500">Triệu chứng:</span> <span class="font-semibold text-slate-800">{{ printSymptoms(recordToPrint) }}</span></div>
           </div>
         </div>
 
@@ -748,6 +748,7 @@
           <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Chẩn đoán</h2>
           <div class="space-y-2 text-xs">
             <div><span class="font-bold text-slate-500">Mã ICD:</span> <span class="font-mono bg-slate-50 px-1.5 py-0.5 rounded font-bold">{{ recordToPrint.diagnosisCode || 'Chưa có thông tin' }}</span></div>
+            <div><span class="font-bold text-slate-500">Chuyên khoa ICD:</span> <span class="font-semibold text-slate-800">{{ recordToPrint.diagnosisSpecialty || 'Chưa có thông tin' }}</span></div>
             <div><span class="font-bold text-slate-500">Chẩn đoán bệnh:</span> <span class="font-semibold text-slate-800 block mt-0.5 pl-3 border-l-2 border-slate-200">{{ recordToPrint.diagnosisText || recordToPrint.diagnosis || 'Chưa có thông tin' }}</span></div>
             <div><span class="font-bold text-slate-500">Ghi chú & Dặn dò:</span> <span class="font-semibold text-slate-700 block mt-0.5 pl-3 border-l-2 border-slate-200 whitespace-pre-line">{{ recordToPrint.doctorNote || recordToPrint.doctorNotes || 'Chưa có ghi chú' }}</span></div>
           </div>
@@ -1310,12 +1311,56 @@ function doctorNameForRecord(record?: MedicalRecord | null) {
   return record.doctorName || getDoctorName(record.doctorId) || appointmentForRecord(record)?.doctorName || ''
 }
 
+function objectValue(source: unknown, ...keys: string[]) {
+  const data = source as Record<string, any> | null | undefined
+  if (!data) return undefined
+  for (const key of keys) {
+    const value = data[key]
+    if (value !== undefined && value !== null && String(value).trim() !== '') return value
+  }
+  return undefined
+}
+
+function printAppointmentId(record?: MedicalRecord | null) {
+  return objectValue(appointmentForRecord(record), 'appointmentId', 'AppointmentId')
+    || objectValue(printVisit.value, 'appointmentId', 'AppointmentId')
+    || objectValue(record, 'appointmentId', 'AppointmentId')
+    || 'Chưa có thông tin'
+}
+
+function printAppointmentSpecialty(record?: MedicalRecord | null) {
+  return objectValue(appointmentForRecord(record), 'specialtyName', 'specialtyNameSnapshot', 'SpecialtyNameSnapshot')
+    || objectValue(record, 'specialtyName', 'specialtyNameSnapshot', 'SpecialtyNameSnapshot')
+    || 'Chưa có thông tin'
+}
+
+function printQueueNumber(record?: MedicalRecord | null) {
+  return objectValue(appointmentForRecord(record), 'queueNumber', 'QueueNumber')
+    || objectValue(record, 'queueNumber', 'QueueNumber')
+    || 'Chưa có thông tin'
+}
+
+function printChiefComplaint(record?: MedicalRecord | null) {
+  return objectValue(appointmentForRecord(record), 'reason', 'Reason')
+    || objectValue(printVisit.value, 'chiefComplaint', 'ChiefComplaint')
+    || objectValue(record, 'chiefComplaint', 'ChiefComplaint', 'reason', 'Reason')
+    || 'Chưa ghi nhận'
+}
+
+function printSymptoms(record?: MedicalRecord | null) {
+  return objectValue(record, 'symptoms', 'Symptoms')
+    || objectValue(printVisit.value, 'symptoms', 'Symptoms')
+    || 'Chưa ghi nhận'
+}
+
 function appointmentTimeLabel(record?: MedicalRecord | null) {
   const appointment = appointmentForRecord(record)
-  if (!appointment) return 'Chưa có thông tin'
-  const scheduledAt = (appointment as Record<string, any>).scheduledAt
+  const scheduledAt = objectValue(appointment, 'scheduledAt', 'ScheduledAt')
+    || objectValue(printVisit.value, 'visitDate', 'VisitDate', 'createdAt', 'CreatedAt')
+    || objectValue(record, 'examDate', 'createdAt', 'CreatedAt')
   if (scheduledAt) return formatDateTime(scheduledAt)
-  return `${formatDate(appointment.appointmentDate)} · ${appointment.slotTime || '--:--'}`
+  if (!appointment) return 'Chưa có thông tin'
+  return `${formatDate(objectValue(appointment, 'appointmentDate', 'AppointmentDate'))} · ${objectValue(appointment, 'slotTime', 'SlotTime') || '--:--'}`
 }
 
 function prescriptionItems(prescription?: Prescription | null) {
@@ -1365,14 +1410,26 @@ function applyCompleteRecordForPrint(baseRecord: MedicalRecord, complete: Record
   recordToPrint.value = {
     ...baseRecord,
     ...medicalRecord,
-    visitId: medicalRecord.visitId || visit.id || visit.visitId || baseRecord.visitId,
-    appointmentId: visit.appointmentId || appointment?.appointmentId || baseRecord.appointmentId,
-    doctorId: medicalRecord.doctorId || visit.doctorId || appointment?.doctorId || baseRecord.doctorId,
-    doctorName: visit.doctorName || appointment?.doctorNameSnapshot || baseRecord.doctorName,
-    chiefComplaint: visit.chiefComplaint || baseRecord.chiefComplaint,
-    symptoms: visit.symptoms || baseRecord.symptoms,
-    vitalSignsJson: visit.vitalSignsJson || baseRecord.vitalSignsJson,
-    completedAt: medicalRecord.completedAt || visit.completedAt || baseRecord.completedAt,
+    medicalRecordId: objectValue(medicalRecord, 'medicalRecordId', 'id', 'Id') || baseRecord.medicalRecordId,
+    medicalRecordCode: objectValue(medicalRecord, 'medicalRecordCode', 'MedicalRecordCode') || baseRecord.medicalRecordCode,
+    visitId: objectValue(medicalRecord, 'visitId', 'VisitId') || objectValue(visit, 'id', 'Id', 'visitId', 'VisitId') || baseRecord.visitId,
+    appointmentId: objectValue(visit, 'appointmentId', 'AppointmentId') || objectValue(appointment, 'appointmentId', 'AppointmentId') || baseRecord.appointmentId,
+    doctorId: objectValue(medicalRecord, 'doctorId', 'DoctorId') || objectValue(visit, 'doctorId', 'DoctorId') || objectValue(appointment, 'doctorId', 'DoctorId') || baseRecord.doctorId,
+    doctorName: objectValue(visit, 'doctorName', 'DoctorName') || objectValue(appointment, 'doctorNameSnapshot', 'DoctorNameSnapshot', 'doctorName', 'DoctorName') || baseRecord.doctorName,
+    chiefComplaint: objectValue(visit, 'chiefComplaint', 'ChiefComplaint') || objectValue(appointment, 'reason', 'Reason') || baseRecord.chiefComplaint,
+    symptoms: objectValue(visit, 'symptoms', 'Symptoms') || objectValue(medicalRecord, 'symptoms', 'Symptoms') || baseRecord.symptoms,
+    vitalSignsJson: objectValue(visit, 'vitalSignsJson', 'VitalSignsJson') || baseRecord.vitalSignsJson,
+    diagnosisCode: objectValue(medicalRecord, 'diagnosisCode', 'DiagnosisCode') || baseRecord.diagnosisCode,
+    diagnosisSpecialty: objectValue(medicalRecord, 'diagnosisSpecialty', 'DiagnosisSpecialty') || baseRecord.diagnosisSpecialty,
+    diagnosisText: objectValue(medicalRecord, 'diagnosisText', 'DiagnosisText') || baseRecord.diagnosisText,
+    doctorNote: objectValue(medicalRecord, 'doctorNote', 'DoctorNote') || baseRecord.doctorNote,
+    treatmentPlan: objectValue(medicalRecord, 'treatmentPlan', 'TreatmentPlan') || baseRecord.treatmentPlan,
+    followUpDate: objectValue(medicalRecord, 'followUpDate', 'FollowUpDate') || baseRecord.followUpDate,
+    createdAt: objectValue(medicalRecord, 'createdAt', 'CreatedAt') || baseRecord.createdAt,
+    updatedAt: objectValue(medicalRecord, 'updatedAt', 'UpdatedAt') || baseRecord.updatedAt,
+    completedAt: objectValue(medicalRecord, 'completedAt', 'CompletedAt') || objectValue(visit, 'completedAt', 'CompletedAt') || baseRecord.completedAt,
+    specialtyName: objectValue(appointment, 'specialtyName', 'specialtyNameSnapshot', 'SpecialtyNameSnapshot') || objectValue(baseRecord, 'specialtyName', 'specialtyNameSnapshot', 'SpecialtyNameSnapshot'),
+    queueNumber: objectValue(appointment, 'queueNumber', 'QueueNumber') || objectValue(baseRecord, 'queueNumber', 'QueueNumber'),
   }
 }
 

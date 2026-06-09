@@ -1627,7 +1627,9 @@ function rowActions(row: Row) {
   }
   if (resource.value === 'patients') actions.push({ key: 'editPatient', label: 'Cập nhật', className: 'bg-blue-50 text-blue-700 hover:bg-blue-100' })
   if (resource.value === 'bills' && canCollectInvoice(row)) actions.push({ key: 'pay', label: 'Thu tiền', className: 'bg-emerald-600 text-white hover:bg-emerald-700' })
-  if (resource.value === 'prescriptions') actions.push({ key: 'stockCheck', label: 'Xử lý', className: 'bg-blue-700 text-white hover:bg-blue-800' })
+  if (resource.value === 'prescriptions' && !['dispensed', 'cancelled'].includes(stockStatusBucket(row.status))) {
+    actions.push({ key: 'stockCheck', label: 'Xử lý', className: 'bg-blue-700 text-white hover:bg-blue-800' })
+  }
   return actions
 }
 
@@ -2459,6 +2461,12 @@ function isDoneStatus(status?: string | number) {
 
 function statusClass(status?: string | number) {
   const value = String(status || '').toLowerCase()
+  const stockBucket = stockStatusBucket(status)
+  if (stockBucket === 'dispensed') return 'bg-emerald-100 text-emerald-800'
+  if (stockBucket === 'ready') return 'bg-sky-100 text-sky-800'
+  if (stockBucket === 'cancelled') return 'bg-rose-100 text-rose-800'
+  if (value.includes('outofstock') || value.includes('out of stock') || value.includes('thiếu') || value.includes('thieu')) return 'bg-rose-100 text-rose-800'
+  if (stockBucket === 'pending' && (value.includes('pending') || value.includes('waiting') || value.includes('đang chờ') || value.includes('dang cho'))) return 'bg-amber-100 text-amber-800'
   if (value.includes('completed') || value.includes('done') || value.includes('confirmed') || value.includes('checked') || isPaidStatus(status)) return 'bg-emerald-100 text-emerald-700'
   if (value.includes('progress')) return 'bg-blue-100 text-blue-700'
   if (value.includes('waiting') || value.includes('pending') || value.includes('unpaid')) return 'bg-amber-100 text-amber-700'

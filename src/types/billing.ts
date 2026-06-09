@@ -4,6 +4,7 @@ export interface Invoice {
   invoiceCode?: string
   invoiceIdCode?: string
   appointmentId?: number
+  prescriptionId?: number
   patientId: number | string
   patientCode?: string
   patientIdCode?: string
@@ -13,6 +14,8 @@ export interface Invoice {
   examFee?: number
   medicineTotal?: number
   paidAmount?: number
+  refundedAmount?: number
+  balanceDue?: number
   paymentMethod?: string
   status: 'Unpaid' | 'Paid' | 'Cancelled' | string
   createdAt: string

@@ -111,6 +111,7 @@ function normalizeRecord(item: Record<string, any>, fallbackPatientId?: string):
     diagnosis: item.diagnosis ?? item.Diagnosis ?? item.diagnosisText ?? item.DiagnosisText,
     diagnosisText: item.diagnosisText ?? item.DiagnosisText ?? item.diagnosis ?? item.Diagnosis,
     diagnosisCode: item.diagnosisCode ?? item.DiagnosisCode,
+    diagnosisSpecialty: item.diagnosisSpecialty ?? item.DiagnosisSpecialty,
     doctorNotes: item.doctorNotes ?? item.DoctorNotes ?? item.doctorNote ?? item.DoctorNote,
     doctorNote: item.doctorNote ?? item.DoctorNote ?? item.doctorNotes ?? item.DoctorNotes,
     treatmentPlan: item.treatmentPlan ?? item.TreatmentPlan,
@@ -118,6 +119,7 @@ function normalizeRecord(item: Record<string, any>, fallbackPatientId?: string):
     status: item.status ?? item.Status,
     examDate: item.examDate ?? item.ExamDate ?? item.createdAt ?? item.CreatedAt,
     createdAt: item.createdAt ?? item.CreatedAt,
+    updatedAt: item.updatedAt ?? item.UpdatedAt,
     completedAt: item.completedAt ?? item.CompletedAt,
   }
 }
@@ -271,6 +273,7 @@ function toMedicalRecordPayload(payload: Partial<MedicalRecord> & Record<string,
   return {
     visitId,
     diagnosisCode: text(payload.diagnosisCode) || undefined,
+    diagnosisSpecialty: text(payload.diagnosisSpecialty) || undefined,
     diagnosisText,
     doctorNote: text(payload.doctorNote || payload.doctorNotes) || undefined,
     treatmentPlan: text(payload.treatmentPlan) || undefined,
@@ -283,6 +286,7 @@ function toMedicalRecordUpdatePayload(payload: Partial<MedicalRecord> & Record<s
   if (!diagnosisText) throw new Error('Vui lòng nhập chẩn đoán trước khi lưu bệnh án.')
   return {
     diagnosisCode: text(payload.diagnosisCode) || undefined,
+    diagnosisSpecialty: text(payload.diagnosisSpecialty) || undefined,
     diagnosisText,
     doctorNote: text(payload.doctorNote || payload.doctorNotes) || undefined,
     treatmentPlan: text(payload.treatmentPlan) || undefined,

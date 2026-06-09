@@ -21,19 +21,38 @@ function normalizeList<T>(payload: unknown): T[] {
 
 function normalizeBillingItem(item: Record<string, any>) {
   const invoiceCode = item.invoiceCode ?? item.InvoiceCode ?? item.invoiceIdCode ?? item.InvoiceIdCode
+  const invoiceId = item.invoiceId ?? item.InvoiceId ?? item.id ?? item.Id
   const prescriptionCode = item.prescriptionCode ?? item.PrescriptionCode ?? item.prescriptionIdCode ?? item.PrescriptionIdCode
   const medicalRecordCode = item.medicalRecordCode ?? item.MedicalRecordCode ?? item.medicalRecordIdCode ?? item.MedicalRecordIdCode
   const patientCode = item.patientCode ?? item.PatientCode ?? item.patientIdCode ?? item.PatientIdCode
+  const amount = amountValue(item)
   return {
     ...item,
+    id: item.id ?? item.Id ?? invoiceId ?? item.prescriptionId ?? item.PrescriptionId,
+    invoiceId,
     invoiceCode,
     invoiceIdCode: item.invoiceIdCode ?? item.InvoiceIdCode ?? invoiceCode,
+    appointmentId: item.appointmentId ?? item.AppointmentId,
+    prescriptionId: item.prescriptionId ?? item.PrescriptionId,
     prescriptionCode,
     prescriptionIdCode: item.prescriptionIdCode ?? item.PrescriptionIdCode ?? prescriptionCode,
     medicalRecordCode,
     medicalRecordIdCode: item.medicalRecordIdCode ?? item.MedicalRecordIdCode ?? medicalRecordCode,
+    patientId: item.patientId ?? item.PatientId,
     patientCode,
     patientIdCode: item.patientIdCode ?? item.PatientIdCode ?? patientCode,
+    amount,
+    totalAmount: Number(item.totalAmount ?? item.TotalAmount ?? amount),
+    examinationFee: Number(item.examinationFee ?? item.ExaminationFee ?? item.examFee ?? item.ExamFee ?? 0),
+    examFee: Number(item.examFee ?? item.ExamFee ?? item.examinationFee ?? item.ExaminationFee ?? 0),
+    medicineTotal: Number(item.medicineTotal ?? item.MedicineTotal ?? 0),
+    paidAmount: Number(item.paidAmount ?? item.PaidAmount ?? 0),
+    refundedAmount: Number(item.refundedAmount ?? item.RefundedAmount ?? 0),
+    balanceDue: Number(item.balanceDue ?? item.BalanceDue ?? 0),
+    status: item.status ?? item.Status,
+    createdAt: item.createdAt ?? item.CreatedAt,
+    paidAt: item.paidAt ?? item.PaidAt,
+    payments: item.payments ?? item.Payments,
   }
 }
 
