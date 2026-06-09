@@ -200,7 +200,7 @@
 
         <div class="border-t border-slate-100 px-6 py-5">
           <p v-if="!canDeleteSelectedAppointment" class="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
-            Chỉ xóa được lịch chưa xác nhận hoặc lịch đã khám xong. Lịch đã xác nhận nhưng chưa check-in không thể xóa.
+            Chỉ xóa được lịch chưa xác nhận, đã hủy hoặc đã khám xong. Lịch đã xác nhận nhưng chưa check-in không thể xóa.
           </p>
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
             <BaseButton type="button" variant="outline" @click="closeAppointmentDetails">Đóng</BaseButton>
@@ -393,9 +393,7 @@ async function deleteSelectedAppointment() {
       await appointmentApi.cancelAppointment(id, 'Admin xóa lịch hẹn chưa xác nhận')
     }
     rows.value = rows.value.filter((item) => Number(item.id) !== id)
-    note.value = statusBucket(row.status) === 'completed'
-      ? 'Đã xóa lịch đã khám xong khỏi danh sách quản trị.'
-      : 'Đã xóa lịch chưa xác nhận khỏi danh sách quản trị.'
+    note.value = deleteAppointmentMessage(row.status)
     closeAppointmentDetails()
   } catch (e) {
     error.value = getApiErrorMessage(e)
@@ -462,7 +460,13 @@ function appointmentDetails(row: Row) {
     checkedInAtLabel: checkedInAt ? dateTime(toOptionalString(checkedInAt)) : 'Chưa check-in',
   }
 }
-function canDeleteAppointment(row: Row) { const bucket = statusBucket(row.status); return bucket === 'pending' || bucket === 'completed' }
+function canDeleteAppointment(row: Row) { return ['pending', 'cancelled', 'completed'].includes(statusBucket(row.status)) }
+function deleteAppointmentMessage(status: unknown) {
+  const bucket = statusBucket(status)
+  if (bucket === 'completed') return 'Đã xóa lịch đã khám xong khỏi danh sách quản trị.'
+  if (bucket === 'cancelled') return 'Đã xóa lịch đã hủy khỏi danh sách quản trị.'
+  return 'Đã xóa lịch chưa xác nhận khỏi danh sách quản trị.'
+}
 function statusBucket(status: unknown) {
   const s = String(status || '').toLowerCase()
   if (s.includes('completed') || s.includes('hoàn tất') || s.includes('da kham') || s.includes('đã khám')) return 'completed'
