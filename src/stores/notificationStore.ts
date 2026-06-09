@@ -69,24 +69,44 @@ function normalizeNotification(item: Record<string, any>): NotificationItem {
 
 function normalizeNotificationList(payload: unknown): NotificationItem[] {
   const data = readApiResponse<any>(payload as any)
-  const items = Array.isArray(data)
-    ? data
-    : Array.isArray(data?.items)
-      ? data.items
-      : Array.isArray(data?.Items)
-        ? data.Items
-        : []
+  const items = extractItems(data)
   return items.map(normalizeNotification)
+}
+
+function extractItems(payload: any): any[] {
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload?.items)) return payload.items
+  if (Array.isArray(payload?.Items)) return payload.Items
+  if (Array.isArray(payload?.data)) return payload.data
+  if (Array.isArray(payload?.Data)) return payload.Data
+  return []
 }
 
 function normalizeRecipient(item: Record<string, any>): NotificationRecipient {
   return {
-    userId: Number(item.userId ?? item.UserId),
+    userId: Number(item.userId ?? item.UserId ?? item.id ?? item.Id),
     fullName: item.fullName ?? item.FullName ?? '',
     username: item.username ?? item.Username ?? '',
     email: item.email ?? item.Email ?? '',
-    role: item.role ?? item.Role ?? '',
+    role: item.role ?? item.Role ?? item.roleName ?? item.RoleName ?? '',
   }
+}
+
+function filterRecipients(items: NotificationRecipient[], search: string) {
+  const keyword = search.trim().toLowerCase()
+  const unique = new Map<number, NotificationRecipient>()
+  for (const item of items) {
+    if (!item.userId || unique.has(item.userId)) continue
+    unique.set(item.userId, item)
+  }
+
+  const recipients = Array.from(unique.values())
+  if (!keyword) return recipients
+
+  return recipients.filter((item) =>
+    [item.fullName, item.username, item.email, item.role, String(item.userId)]
+      .some((value) => value.toLowerCase().includes(keyword)),
+  )
 }
 
 export const useNotificationStore = defineStore('notifications', {
@@ -142,12 +162,32 @@ export const useNotificationStore = defineStore('notifications', {
       this.unreadCount = 0
     },
     async fetchAdminRecipients(search = '') {
-      const response = await client.get('/api/notifications/admin/recipients', {
-        params: search.trim() ? { search: search.trim() } : {},
-      })
-      const data = readApiResponse<any>(response.data)
-      const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []
-      this.recipients = items.map(normalizeRecipient)
+      try {
+        const response = await client.get('/api/notifications/admin/recipients', {
+          params: search.trim() ? { search: search.trim() } : {},
+        })
+        const data = readApiResponse<any>(response.data)
+        const items = extractItems(data)
+        this.recipients = filterRecipients(items.map(normalizeRecipient), search)
+      } catch (error: any) {
+        if (![404, 405].includes(Number(error?.response?.status))) throw error
+
+        const paths = [
+          '/api/auth/users',
+          '/api/auth/users/doctors',
+          '/api/auth/users/nurses',
+          '/api/auth/users/pharmacists',
+          '/api/auth/users/patients',
+          '/api/auth/users/admins',
+        ]
+        const responses = await Promise.allSettled(paths.map((path) => client.get(path)))
+        const items = responses.flatMap((result) => {
+          if (result.status !== 'fulfilled') return []
+          const data = readApiResponse<any>(result.value.data)
+          return extractItems(data)
+        })
+        this.recipients = filterRecipients(items.map(normalizeRecipient), search)
+      }
       return this.recipients
     },
     async sendManualNotification(payload: ManualNotificationPayload) {

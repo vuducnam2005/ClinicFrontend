@@ -20,7 +20,7 @@ import ClinicalPortalLayout from './ClinicalPortalLayout.vue'
 const menuGroups = [
  {
  title: '',
- items: [{ label: 'Dashboard', to: '/admin/dashboard', icon: LayoutDashboard }],
+    items: [{ label: 'Bảng điều khiển', to: '/admin/dashboard', icon: LayoutDashboard }],
  },
  {
  title: 'Quản lý phòng khám',

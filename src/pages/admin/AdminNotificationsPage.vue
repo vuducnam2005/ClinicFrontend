@@ -1,32 +1,53 @@
 <template>
   <section class="space-y-6">
-    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-card sm:p-7">
-      <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex gap-4">
-          <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-[#0F52BA]">
-            <BellRing class="h-6 w-6" />
-          </span>
-          <div>
-            <p class="text-sm font-semibold uppercase tracking-wide text-[#0F52BA]">N3 Notification</p>
-            <h1 class="mt-2 text-2xl font-bold text-slate-950 sm:text-3xl">Gửi thông báo</h1>
-            <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              Tạo thông báo hệ thống và gửi realtime đến toàn bộ người dùng, nhóm vai trò hoặc một cá nhân.
-            </p>
-            <p class="mt-4 rounded-lg bg-slate-50 px-3 py-2 font-mono text-xs font-semibold text-slate-500">
-              POST /pharmacy/api/notifications/admin/send
-            </p>
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+      <div class="border-b border-slate-100 bg-gradient-to-r from-blue-50 via-white to-teal-50 p-6 sm:p-7">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div class="flex gap-4">
+            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#0F52BA] shadow-sm ring-1 ring-blue-100">
+              <BellRing class="h-6 w-6" />
+            </span>
+            <div>
+              <h1 class="text-2xl font-bold text-slate-950 sm:text-3xl">Gửi thông báo</h1>
+              <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+                Soạn nội dung, chọn người nhận và gửi thông báo realtime đến đúng nhóm người dùng trong hệ thống.
+              </p>
+            </div>
           </div>
+
+          <BaseButton variant="outline" :disabled="loadingRecipients" @click="loadRecipients">
+            <template #icon><RefreshCw class="h-4 w-4" /></template>
+            Làm mới danh sách
+          </BaseButton>
         </div>
-        <BaseButton variant="outline" :disabled="loadingRecipients" @click="loadRecipients">
-          <template #icon><RefreshCw class="h-4 w-4" /></template>
-          Tải người nhận
-        </BaseButton>
+      </div>
+
+      <div class="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
+        <div class="rounded-xl bg-slate-50 px-4 py-3">
+          <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Chế độ gửi</p>
+          <p class="mt-1 text-sm font-semibold text-slate-800">{{ targetModeLabel }}</p>
+        </div>
+        <div class="rounded-xl bg-slate-50 px-4 py-3">
+          <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Người nhận đã tải</p>
+          <p class="mt-1 text-sm font-semibold text-slate-800">{{ notificationStore.recipients.length }} người dùng</p>
+        </div>
+        <div class="rounded-xl bg-slate-50 px-4 py-3">
+          <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Trạng thái</p>
+          <p class="mt-1 text-sm font-semibold" :class="loadingRecipients ? 'text-amber-600' : 'text-teal-700'">
+            {{ loadingRecipients ? 'Đang tải danh sách...' : 'Sẵn sàng gửi' }}
+          </p>
+        </div>
       </div>
     </div>
 
     <form class="rounded-2xl border border-slate-200 bg-white p-6 shadow-card sm:p-7" @submit.prevent="submitNotification">
-      <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div class="space-y-5">
+          <div>
+            <h2 class="text-lg font-bold text-slate-950">Nội dung thông báo</h2>
+            <p class="mt-1 text-sm text-slate-500">Nội dung này sẽ hiển thị trong chuông thông báo và thông báo nổi của người nhận.</p>
+          </div>
+
           <div class="grid gap-4 sm:grid-cols-2">
             <BaseInput v-model="form.title" label="Tiêu đề" required maxlength="200" />
             <BaseSelect v-model="form.type" label="Loại thông báo" :options="typeOptions" required />
@@ -41,18 +62,28 @@
               required
               rows="7"
               class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
+              placeholder="Nhập nội dung cần gửi cho người nhận..."
             ></textarea>
           </label>
 
           <div class="grid gap-4 sm:grid-cols-2">
-            <BaseInput v-model="form.navigateUrl" label="NavigateUrl" placeholder="/admin/dashboard" />
-            <BaseInput v-model="form.referenceId" label="ReferenceId" placeholder="Mã tham chiếu" />
+            <BaseInput v-model="form.navigateUrl" label="Đường dẫn điều hướng" placeholder="/admin/dashboard" />
+            <BaseInput v-model="form.referenceId" label="Mã tham chiếu" placeholder="Ví dụ: LH132, HD1001..." />
           </div>
         </div>
 
-        <div class="space-y-5 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+        <div class="space-y-5 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
           <div>
-            <p class="text-sm font-bold text-slate-950">Đối tượng nhận</p>
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="text-sm font-bold text-slate-950">Đối tượng nhận</p>
+                <p class="mt-1 text-xs text-slate-500">Chọn phạm vi gửi thông báo.</p>
+              </div>
+              <span class="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#0F52BA] ring-1 ring-blue-100">
+                {{ recipientSummary }}
+              </span>
+            </div>
+
             <div class="mt-3 grid gap-2">
               <label
                 v-for="mode in targetModeOptions"
@@ -82,8 +113,11 @@
           </div>
 
           <div v-if="form.targetMode === 'User'" class="space-y-3">
-            <BaseInput v-model="recipientSearch" label="Tìm người nhận" placeholder="Tên, username, email..." @blur="loadRecipients" />
+            <BaseInput v-model="recipientSearch" label="Tìm người nhận" placeholder="Tên, tài khoản, email..." @blur="loadRecipients" />
             <BaseSelect v-model="selectedUserId" label="Người nhận" :options="recipientOptions" required placeholder="Chọn người nhận" />
+            <p v-if="!loadingRecipients && !recipientOptions.length" class="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium leading-5 text-amber-700">
+              Chưa tìm thấy người nhận phù hợp. Hãy thử từ khóa khác hoặc bấm Làm mới danh sách.
+            </p>
           </div>
         </div>
       </div>
@@ -154,22 +188,29 @@ const typeOptions: SelectOption[] = [
 ]
 
 const roleOptions = [
-  { label: 'Patient', value: 'Patient' },
-  { label: 'Doctor', value: 'Doctor' },
-  { label: 'Nurse', value: 'Nurse' },
-  { label: 'Pharmacist', value: 'Pharmacist' },
-  { label: 'Admin', value: 'Admin' },
+  { label: 'Bệnh nhân', value: 'Patient' },
+  { label: 'Bác sĩ', value: 'Doctor' },
+  { label: 'Y tá', value: 'Nurse' },
+  { label: 'Dược sĩ', value: 'Pharmacist' },
+  { label: 'Quản trị viên', value: 'Admin' },
 ]
 
 const targetModeOptions = [
   { label: 'Tất cả người dùng', value: 'All' as TargetMode, icon: Users },
   { label: 'Theo nhóm vai trò', value: 'Roles' as TargetMode, icon: ShieldCheck },
-  { label: 'Cá nhân', value: 'User' as TargetMode, icon: UserRound },
+  { label: 'Một cá nhân', value: 'User' as TargetMode, icon: UserRound },
 ]
+
+const targetModeLabel = computed(() => targetModeOptions.find((mode) => mode.value === form.targetMode)?.label || 'Tất cả người dùng')
+const recipientSummary = computed(() => {
+  if (form.targetMode === 'All') return 'Tất cả'
+  if (form.targetMode === 'Roles') return `${selectedRoles.value.length} vai trò`
+  return selectedUserId.value ? '1 người' : 'Chưa chọn'
+})
 
 const recipientOptions = computed<SelectOption[]>(() =>
   notificationStore.recipients.map((user) => ({
-    label: `${user.fullName || user.username} · ${user.role} · #${user.userId}`,
+    label: `${user.fullName || user.username} · ${roleLabel(user.role)} · #${user.userId}`,
     value: user.userId,
   })),
 )
@@ -190,6 +231,9 @@ async function loadRecipients() {
   loadingRecipients.value = true
   try {
     await notificationStore.fetchAdminRecipients(recipientSearch.value)
+    if (!notificationStore.recipients.length && form.targetMode === 'User') {
+      showToast('Chưa có người nhận', 'Không tìm thấy người dùng phù hợp với từ khóa hiện tại.', 'error')
+    }
   } catch (apiError) {
     showToast('Không tải được người nhận', getApiErrorMessage(apiError), 'error')
   } finally {
@@ -254,5 +298,15 @@ function showToast(title: string, message: string, type: 'success' | 'error') {
   toast.message = message
   toast.type = type
   toast.show = true
+}
+
+function roleLabel(role: string) {
+  const value = role.toLowerCase()
+  if (value === 'admin') return 'Quản trị viên'
+  if (value === 'doctor') return 'Bác sĩ'
+  if (value === 'nurse' || value === 'receptionist') return 'Y tá'
+  if (value === 'pharmacist') return 'Dược sĩ'
+  if (value === 'patient') return 'Bệnh nhân'
+  return role || 'Người dùng'
 }
 </script>
