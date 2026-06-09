@@ -1,6 +1,7 @@
 <template>
   <ClinicalPortalLayout :menu-groups="menuGroups" />
   <PatientProfileCompletionModal />
+  <PatientAssistant />
 </template>
 
 <script setup lang="ts">
@@ -14,6 +15,7 @@ import {
 } from 'lucide-vue-next'
 import ClinicalPortalLayout from './ClinicalPortalLayout.vue'
 import PatientProfileCompletionModal from '@/components/patient/PatientProfileCompletionModal.vue'
+import PatientAssistant from '@/components/patient/PatientAssistant.vue'
 
 const menuGroups = [
   {
