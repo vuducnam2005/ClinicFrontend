@@ -53,7 +53,12 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="row in paginatedRows" :key="String(row.id)" class="hover:bg-slate-50">
+            <tr
+              v-for="row in paginatedRows"
+              :key="String(row.id)"
+              :class="['hover:bg-slate-50', key === 'appointments' ? 'cursor-pointer' : '']"
+              @click="openAppointmentDetails(row)"
+            >
               <td v-for="col in config.columns" :key="col.key" :class="columnCellClass(col)">
                 <span v-if="col.badge" :class="['inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold', statusClass(row[col.key])]">{{ value(row[col.key]) }}</span>
                 <span v-else :class="[col.strong ? 'font-semibold text-slate-950' : 'text-slate-700', compactTextClass(col)]">{{ value(row[col.key]) }}</span>
@@ -66,7 +71,7 @@
                     type="button"
                     :disabled="actingId === row.id || action.key === 'noop'"
                     :class="['inline-flex h-9 min-w-14 items-center justify-center whitespace-nowrap rounded-lg px-3 text-xs font-semibold transition disabled:opacity-100', action.className]"
-                    @click="runAction(action.key, row)"
+                    @click.stop="runAction(action.key, row)"
                   >
                     {{ action.label }}
                   </button>
@@ -156,11 +161,66 @@
         </form>
       </div>
     </div>
+
+    <div v-if="appointmentDetailOpen && selectedAppointment" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+      <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+          <div>
+            <p class="text-sm font-bold uppercase tracking-wide text-teal-700">Chi tiết lịch hẹn</p>
+            <h2 class="mt-2 text-2xl font-bold text-slate-950">{{ selectedAppointment.patientName || 'Chưa cập nhật' }}</h2>
+            <p class="mt-2 text-sm text-slate-500">Mã lịch hẹn #{{ selectedAppointment.id || '-' }}</p>
+          </div>
+          <button type="button" class="rounded-xl p-2 text-slate-500 hover:bg-slate-100" @click="closeAppointmentDetails">×</button>
+        </div>
+
+        <div class="space-y-5 px-6 py-5">
+          <div class="grid gap-3 sm:grid-cols-2">
+            <DetailItem label="Bệnh nhân" :value="selectedAppointment.patientName" />
+            <DetailItem label="Số điện thoại" :value="selectedAppointment.patientPhone" />
+            <DetailItem label="Mã bệnh nhân" :value="selectedAppointment.patientId" />
+            <DetailItem label="Trạng thái" :value="selectedAppointment.status" badge />
+          </div>
+
+          <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Lý do khám</p>
+            <p class="mt-2 text-sm font-semibold leading-6 text-slate-800">{{ selectedAppointment.reason || 'Chưa ghi lý do khám' }}</p>
+          </div>
+
+          <div class="grid gap-3 sm:grid-cols-2">
+            <DetailItem label="Bác sĩ" :value="selectedAppointment.doctorName" />
+            <DetailItem label="Chuyên khoa" :value="selectedAppointment.specialtyName" />
+            <DetailItem label="Mã bác sĩ" :value="selectedAppointment.doctorId" />
+            <DetailItem label="Phí khám" :value="selectedAppointment.examFeeLabel" />
+            <DetailItem label="Ngày khám" :value="selectedAppointment.appointmentDateLabel" />
+            <DetailItem label="Giờ khám" :value="selectedAppointment.slotTime" />
+            <DetailItem label="Số thứ tự" :value="selectedAppointment.queueNumber" />
+            <DetailItem label="Check-in lúc" :value="selectedAppointment.checkedInAtLabel" />
+          </div>
+        </div>
+
+        <div class="border-t border-slate-100 px-6 py-5">
+          <p v-if="!canDeleteSelectedAppointment" class="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+            Chỉ xóa được lịch chưa xác nhận hoặc lịch đã khám xong. Lịch đã xác nhận nhưng chưa check-in không thể xóa.
+          </p>
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <BaseButton type="button" variant="outline" @click="closeAppointmentDetails">Đóng</BaseButton>
+            <button
+              type="button"
+              :disabled="saving || !canDeleteSelectedAppointment"
+              class="inline-flex h-11 items-center justify-center rounded-xl bg-rose-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+              @click="deleteSelectedAppointment"
+            >
+              Xóa
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch, type Component } from 'vue'
+import { computed, h, reactive, ref, watch, type Component } from 'vue'
 import { useRoute } from 'vue-router'
 import { CalendarDays, ChevronLeft, ChevronRight, ClipboardList, CreditCard, FileHeart, Pill, Plus, RefreshCw, Search, SearchX, Settings, Stethoscope, UserCog, UserRound } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -207,6 +267,8 @@ const formOpen = ref(false)
 const editingRow = ref<Row | null>(null)
 const form = reactive<Record<string, string>>({})
 const medicineTypeFilter = ref('')
+const appointmentDetailOpen = ref(false)
+const selectedAppointmentRow = ref<Row | null>(null)
 
 const filteredRows = computed(() => {
   const q = query.value.trim().toLowerCase()
@@ -240,6 +302,8 @@ const paginatedRows = computed(() => {
 const canCreate = computed(() => ['doctors', 'specialties', 'schedules', 'patients', 'medicines', 'accounts'].includes(key.value))
 const hasActions = computed(() => ['doctors', 'specialties', 'schedules', 'appointments', 'medicines', 'bills'].includes(key.value))
 const fields = computed(() => buildFields(key.value))
+const selectedAppointment = computed(() => selectedAppointmentRow.value ? appointmentDetails(selectedAppointmentRow.value) : null)
+const canDeleteSelectedAppointment = computed(() => selectedAppointmentRow.value ? canDeleteAppointment(selectedAppointmentRow.value) : false)
 
 const fallbackSchedules: DoctorSchedule[] = fallbackDoctors.map((doctor, index) => ({ scheduleId: 900 + index, doctorId: doctor.doctorId, doctorName: doctor.doctorName, workDate: addDays(index).toISOString().slice(0, 10), startTime: index % 2 === 0 ? '08:00' : '13:00', endTime: index % 2 === 0 ? '16:00' : '17:00', slotDurationMinutes: 30, isAvailable: true }))
 const fallbackPatients: Patient[] = [{ patientId: 'BN001', fullName: 'Nguyễn Minh An', phone: '0901001001', gender: 'Male', medicalHistory: 'Tăng huyết áp' }]
@@ -316,6 +380,29 @@ function actions(row: Row) { const a: Array<{key: Action; label: string; classNa
 function btn(key: Action, label: string, className: string) { return { key, label, className } }
 async function runAction(action: Action, row: Row) { if (action === 'noop') return; if (action === 'edit') return openForm(row); actingId.value = row.id; error.value = ''; try { const id = Number(row.invoiceId || row.id); if (action === 'delete') await deleteRow(id); if (action === 'confirm') await appointmentApi.confirmAppointment(id); if (action === 'checkin') { await appointmentApi.checkInAppointment(id); row.status = 'CheckedIn'; if (row.raw) row.raw.status = 'CheckedIn' } if (action === 'start') await appointmentApi.ensureAppointmentInProgress(id, String(row.raw?.appointmentDate || row.appointmentDate || '')); if (action === 'cancel') await appointmentApi.cancelAppointment(id); if (action === 'complete') await appointmentApi.completeAppointmentSafely(id, String(row.raw?.appointmentDate || row.appointmentDate || '')); if (action === 'pay') { await billingApi.payInvoice(id, row.amountValue); note.value = 'Đã gửi yêu cầu thanh toán sang N3.' } await loadData() } catch(e) { error.value = getApiErrorMessage(e) } finally { actingId.value = null } }
 async function deleteRow(id: number) { if (key.value === 'doctors') await appointmentApi.deleteDoctor(id); if (key.value === 'specialties') await appointmentApi.deleteSpecialty(id); if (key.value === 'schedules') await appointmentApi.deleteDoctorSchedule(id); if (key.value === 'medicines') await medicineApi.deleteMedicine(id) }
+function openAppointmentDetails(row: Row) { if (key.value !== 'appointments') return; selectedAppointmentRow.value = row; appointmentDetailOpen.value = true }
+function closeAppointmentDetails() { appointmentDetailOpen.value = false; selectedAppointmentRow.value = null }
+async function deleteSelectedAppointment() {
+  const row = selectedAppointmentRow.value
+  if (!row || !canDeleteAppointment(row)) return
+  const id = Number(row.id)
+  saving.value = true
+  error.value = ''
+  try {
+    if (statusBucket(row.status) === 'pending') {
+      await appointmentApi.cancelAppointment(id, 'Admin xóa lịch hẹn chưa xác nhận')
+    }
+    rows.value = rows.value.filter((item) => Number(item.id) !== id)
+    note.value = statusBucket(row.status) === 'completed'
+      ? 'Đã xóa lịch đã khám xong khỏi danh sách quản trị.'
+      : 'Đã xóa lịch chưa xác nhận khỏi danh sách quản trị.'
+    closeAppointmentDetails()
+  } catch (e) {
+    error.value = getApiErrorMessage(e)
+  } finally {
+    saving.value = false
+  }
+}
 function mapDoctor(x: Doctor): Row { return { id: x.doctorId, name: displayText(x.doctorName), specialty: displayText(x.specialtyName), degree: x.degree || 'Chưa cập nhật', fee: money(x.examFee), feeValue: x.examFee, status: x.isActive === false ? 'Tạm ngưng' : 'Đang hoạt động', raw: x } }
 function mapSpecialty(x: Specialty): Row { return { id: x.specialtyId, name: displayText(x.specialtyName), specialtyName: x.specialtyName, status: 'Đang hoạt động', raw: x } }
 function mapSchedule(x: DoctorSchedule): Row { return { id: x.scheduleId, doctorName: displayText(x.doctorName), workDate: date(x.workDate), timeRange: `${x.startTime} - ${x.endTime}`, duration: `${x.slotDurationMinutes || 30} phút`, status: x.isAvailable === false ? 'Tạm ngưng' : 'Đang mở', raw: x } }
@@ -354,13 +441,66 @@ function toNumber(...values: unknown[]) { for (const value of values) { const nu
 function toNumberAllowZero(...values: unknown[]) { for (const value of values) { const numberValue = Number(value); if (Number.isFinite(numberValue) && numberValue >= 0) return numberValue } return 0 }
 function invoiceAmount(item: Record<string, any>) { return toNumber(item.amount, item.Amount, item.totalAmount, item.TotalAmount, item.examinationFee, item.ExaminationFee, item.examFee, item.ExamFee) }
 function uniqueRows(items: Row[]) { const seen = new Set<string>(); return items.filter((item, index) => { const rowKey = String(item.id || item.appointmentId || index); if (seen.has(rowKey)) return false; seen.add(rowKey); return true }) }
+function appointmentDetails(row: Row) {
+  const raw = row.raw || {}
+  const appointmentDate = getAny(row, raw, 'appointmentDate', 'AppointmentDate')
+  const checkedInAt = getAny(row, raw, 'checkedInAt', 'CheckedInAt')
+  return {
+    id: row.id,
+    patientId: getAny(row, raw, 'patientId', 'PatientId') || 'Chưa cập nhật',
+    patientName: displayText(getAny(row, raw, 'patientName', 'PatientName', 'patientNameSnapshot', 'PatientNameSnapshot')) || 'Chưa cập nhật',
+    patientPhone: getAny(row, raw, 'patientPhone', 'PatientPhone', 'patientPhoneSnapshot', 'PatientPhoneSnapshot') || 'Chưa cập nhật',
+    doctorId: getAny(row, raw, 'doctorId', 'DoctorId') || 'Chưa cập nhật',
+    doctorName: displayText(getAny(row, raw, 'doctorName', 'DoctorName')) || 'Chưa cập nhật',
+    specialtyName: displayText(getAny(row, raw, 'specialtyName', 'SpecialtyName')) || 'Chưa cập nhật',
+    reason: getAny(row, raw, 'reason', 'Reason') || '',
+    status: getAny(row, raw, 'status', 'Status') || row.status || 'Chưa cập nhật',
+    appointmentDateLabel: date(toOptionalString(appointmentDate)),
+    slotTime: getAny(row, raw, 'slotTime', 'SlotTime') || '-',
+    queueNumber: getAny(row, raw, 'queueNumber', 'QueueNumber') || '-',
+    examFeeLabel: money(toNumber(getAny(row, raw, 'feeValue', 'examFee', 'ExamFee', 'doctor.examFee', 'Doctor.ExamFee'))),
+    checkedInAtLabel: checkedInAt ? dateTime(toOptionalString(checkedInAt)) : 'Chưa check-in',
+  }
+}
+function canDeleteAppointment(row: Row) { const bucket = statusBucket(row.status); return bucket === 'pending' || bucket === 'completed' }
+function statusBucket(status: unknown) {
+  const s = String(status || '').toLowerCase()
+  if (s.includes('completed') || s.includes('hoàn tất') || s.includes('da kham') || s.includes('đã khám')) return 'completed'
+  if (s.includes('pending') || s.includes('chưa xác nhận') || s.includes('cho xac nhan') || s.includes('chờ xác nhận')) return 'pending'
+  if (s.includes('confirmed') || s.includes('xác nhận')) return 'confirmed'
+  if (s.includes('checked')) return 'checkedin'
+  if (s.includes('progress')) return 'inprogress'
+  if (s.includes('cancel')) return 'cancelled'
+  return 'other'
+}
+function getAny(...values: any[]) {
+  const sources = values.slice(0, 2)
+  const keys = values.slice(2)
+  for (const key of keys) {
+    for (const source of sources) {
+      const value = key.includes('.')
+        ? key.split('.').reduce((acc: any, part: string) => acc?.[part], source)
+        : source?.[key]
+      if (value !== undefined && value !== null && value !== '') return value
+    }
+  }
+  return undefined
+}
+function toOptionalString(value: unknown) { return value === undefined || value === null || value === '' ? undefined : String(value) }
 function statusClass(v: unknown) { const s = String(v || '').toLowerCase(); if (s.includes('đang') || s.includes('paid') || s.includes('confirmed') || s.includes('completed') || s.includes('đủ')) return 'bg-teal-100 text-teal-700'; if (s.includes('pending') || s.includes('unpaid') || s.includes('chờ') || s.includes('tồn thấp')) return 'bg-amber-100 text-amber-700'; if (s.includes('cancel') || s.includes('hết') || s.includes('tạm')) return 'bg-rose-100 text-rose-700'; return 'bg-slate-100 text-slate-700' }
 function money(v: number) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(v || 0)) }
 function date(v?: string) { if (!v) return 'Chưa cập nhật'; const d = new Date(v); return Number.isNaN(d.getTime()) ? v : new Intl.DateTimeFormat('vi-VN').format(d) }
+function dateTime(v?: string) { if (!v) return 'Chưa cập nhật'; const d = new Date(v); return Number.isNaN(d.getTime()) ? v : new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(d) }
 function dateOnly(v?: string) { if (!v) return 'Chưa cập nhật'; const d = new Date(v); return Number.isNaN(d.getTime()) ? v : d.toISOString().slice(0, 10) }
 function formValue(row: Row | undefined, key: string) { if (!row) return key === 'status' ? 'Active' : key === 'minStockLevel' ? '10' : ''; const raw = row.raw || {}; const value = raw[key] ?? raw[pascal(key)] ?? row[key] ?? ''; if (key === 'price') return String(row.priceValue ?? value ?? ''); if (key === 'expiryDate') return dateInputValue(value); return String(value ?? '') }
 function dateInputValue(v: unknown) { if (!v) return ''; const d = new Date(String(v)); return Number.isNaN(d.getTime()) ? String(v).slice(0, 10) : d.toISOString().slice(0, 10) }
 function medicineStatusLabel(status: string, stock: number, minStock: number) { const normalized = status.toLowerCase(); if (normalized === 'inactive') return 'Tạm ngưng'; if (normalized === 'outofstock' || stock <= 0) return 'Hết hàng'; if (stock <= minStock) return 'Tồn thấp'; return 'Đủ hàng' }
 function pascal(value: string) { return value ? value.charAt(0).toUpperCase() + value.slice(1) : value }
 function addDays(days: number) { const d = new Date(); d.setDate(d.getDate() + days); return d }
+const DetailItem = (props: { label: string; value: unknown; badge?: boolean }) => h('div', { class: 'rounded-xl border border-slate-200 bg-white px-4 py-3' }, [
+  h('p', { class: 'text-xs font-bold uppercase tracking-wide text-slate-500' }, props.label),
+  props.badge
+    ? h('span', { class: ['mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold', statusClass(props.value)] }, value(props.value))
+    : h('p', { class: 'mt-2 text-sm font-semibold leading-6 text-slate-800' }, value(props.value)),
+])
 </script>
