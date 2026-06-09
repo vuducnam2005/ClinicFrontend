@@ -1212,7 +1212,7 @@ function doctorPayload() {
     isActive: form.isActive !== 'false',
     experienceYears: form.experienceYears ? Number(form.experienceYears) : 0,
     gender: form.gender || '',
-    dateOfBirth: form.dateOfBirth || null,
+    dateOfBirth: form.dateOfBirth || undefined,
     description: form.description || '',
     avatarUrl: form.avatarUrl || '',
   }
