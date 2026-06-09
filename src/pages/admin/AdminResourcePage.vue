@@ -439,9 +439,10 @@ function toNumber(...values: unknown[]) { for (const value of values) { const nu
 function toNumberAllowZero(...values: unknown[]) { for (const value of values) { const numberValue = Number(value); if (Number.isFinite(numberValue) && numberValue >= 0) return numberValue } return 0 }
 function invoiceAmount(item: Record<string, any>) { return toNumber(item.amount, item.Amount, item.totalAmount, item.TotalAmount, item.examinationFee, item.ExaminationFee, item.examFee, item.ExamFee) }
 function uniqueRows(items: Row[]) { const seen = new Set<string>(); return items.filter((item, index) => { const rowKey = String(item.id || item.appointmentId || index); if (seen.has(rowKey)) return false; seen.add(rowKey); return true }) }
-function readHiddenAppointmentIds() {
+function readHiddenAppointmentIds(): Set<string> {
   try {
-    return new Set(JSON.parse(localStorage.getItem(hiddenAppointmentsStorageKey) || '[]').map(String))
+    const value = JSON.parse(localStorage.getItem(hiddenAppointmentsStorageKey) || '[]')
+    return new Set<string>(Array.isArray(value) ? value.map(String) : [])
   } catch {
     return new Set<string>()
   }
