@@ -10,7 +10,7 @@
         <div class="flex items-center justify-between bg-[#0F52BA] px-4 py-3.5 text-white">
           <div class="flex items-center gap-3">
             <div class="relative">
-              <img :src="assistantDogUrl" alt="Dr. Doggy" class="h-10 w-10 rounded-full border border-white/20 bg-white object-contain" />
+              <img :src="assistantDogPng" alt="Dr. Doggy" class="h-10 w-10 rounded-full border border-white/20 bg-white object-contain" />
               <span class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[#0F52BA] bg-emerald-500"></span>
             </div>
             <div>
@@ -29,7 +29,7 @@
             <!-- Avatar for bot -->
             <img
               v-if="msg.sender === 'bot'"
-              :src="assistantDogUrl"
+              :src="assistantDogPng"
               alt="Avatar"
               class="h-8 w-8 rounded-full border border-slate-200 bg-white object-contain"
             />
@@ -53,7 +53,7 @@
 
           <!-- Typing Indicator -->
           <div v-if="isTyping" class="flex items-start gap-2.5">
-            <img :src="assistantDogUrl" alt="Avatar" class="h-8 w-8 rounded-full border border-slate-200 bg-white object-contain" />
+            <img :src="assistantDogPng" alt="Avatar" class="h-8 w-8 rounded-full border border-slate-200 bg-white object-contain" />
             <div class="rounded-2xl bg-white border border-slate-100 px-4 py-3.5 shadow-sm rounded-tl-none flex gap-1.5 items-center">
               <span class="h-1.5 w-1.5 rounded-full bg-slate-400 animate-bounce" style="animation-delay: 0ms"></span>
               <span class="h-1.5 w-1.5 rounded-full bg-slate-400 animate-bounce" style="animation-delay: 150ms"></span>
@@ -100,7 +100,7 @@
       <transition name="bubble-fade">
         <div
           v-if="!chatOpen && showTooltip"
-          class="absolute bottom-24 right-2 z-10 w-44 rounded-2xl bg-white p-3 text-center text-xs font-semibold text-slate-800 shadow-lg border border-slate-100 select-none animate-float pointer-events-auto"
+          class="absolute bottom-28 right-2 z-10 w-44 rounded-2xl bg-white p-3 text-center text-xs font-semibold text-slate-800 shadow-lg border border-slate-100 select-none animate-float pointer-events-auto"
         >
           <button
             type="button"
@@ -115,17 +115,16 @@
         </div>
       </transition>
 
-      <!-- Dog Avatar Button -->
+      <!-- Dog Avatar Button (no border/bg, character stands directly on page) -->
       <button
         type="button"
-        class="group pointer-events-auto flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-lg border border-slate-200/80 transition-all duration-300 hover:scale-110 active:scale-95 focus:outline-none"
-        :class="chatOpen ? 'ring-4 ring-blue-100 border-[#0F52BA]' : 'animate-bounce-slow'"
+        class="group pointer-events-auto flex h-32 w-auto items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 focus:outline-none"
         @click="toggleChat"
       >
         <img
-          :src="assistantDogUrl"
+          :src="assistantDogWebp"
           alt="Dr. Doggy"
-          class="h-full w-full rounded-full object-contain p-1 transition duration-300 group-hover:rotate-6"
+          class="h-full w-auto object-contain transition duration-300 drop-shadow-md group-hover:rotate-3"
         />
       </button>
     </div>
@@ -135,7 +134,8 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
 import { Send, X, Minus } from 'lucide-vue-next'
-import assistantDogUrl from '@/assets/assistant-dog.png'
+import assistantDogPng from '@/assets/assistant-dog.png'
+import assistantDogWebp from '@/assets/assistant-dog.webp'
 
 interface Message {
   sender: 'bot' | 'patient'
@@ -245,19 +245,6 @@ function getBotReply(inputText: string): string {
 </script>
 
 <style scoped>
-/* Animated Bounce Slow */
-@keyframes bounce-slow {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
-}
-.animate-bounce-slow {
-  animation: bounce-slow 3s infinite ease-in-out;
-}
-
 /* Float animation for bubble */
 @keyframes float {
   0%, 100% {
