@@ -80,10 +80,7 @@
         </div>
 
         <div class="ml-auto flex items-center gap-4">
-          <button type="button" class="relative hidden h-10 w-10 items-center justify-center rounded-xl text-slate-700 transition hover:bg-slate-100 sm:inline-flex">
-            <Bell class="h-5 w-5" />
-            <span class="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white"></span>
-          </button>
+          <NotificationBell />
           <button type="button" class="hidden h-10 w-10 items-center justify-center rounded-xl text-slate-700 transition hover:bg-slate-100 sm:inline-flex">
             <MessageSquare class="h-5 w-5" />
           </button>
@@ -150,14 +147,21 @@
         </div>
       </main>
     </div>
+
+    <Toast
+      :show="notificationStore.toast.show"
+      :title="notificationStore.toast.title"
+      :message="notificationStore.toast.message"
+      :type="notificationStore.toast.type"
+      @close="notificationStore.hideToast"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onErrorCaptured, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onErrorCaptured, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  Bell,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -167,6 +171,9 @@ import {
   X,
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/authStore'
+import { useNotificationStore } from '@/stores/notificationStore'
+import NotificationBell from '@/components/layout/NotificationBell.vue'
+import Toast from '@/components/ui/Toast.vue'
 import logoUrl from '@/assets/logo.png'
 import relIconUrl from '@/assets/rel-icon.png'
 
@@ -184,6 +191,7 @@ defineProps<{
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const notificationStore = useNotificationStore()
 const mobileMenuOpen = ref(false)
 const sidebarCollapsed = ref(false)
 const mainRef = ref<HTMLElement | null>(null)
@@ -217,13 +225,27 @@ onErrorCaptured((error) => {
 onMounted(() => {
   if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual'
   scrollToTop()
+  initializeNotifications()
 })
+
+onBeforeUnmount(() => {
+  notificationStore.disconnectSignalR()
+})
+
+watch(
+  () => authStore.token,
+  (token) => {
+    if (token) initializeNotifications()
+    else notificationStore.disconnectSignalR()
+  },
+)
 
 function isActive(to: string) {
   return route.path === to || route.path.startsWith(`${to}/`)
 }
 
 function handleLogout() {
+  notificationStore.disconnectSignalR()
   authStore.logout()
   router.push('/login')
 }
@@ -238,5 +260,14 @@ function scrollToTop() {
 function reloadRoute() {
   layoutError.value = ''
   router.replace({ path: route.path, query: { ...route.query, _reload: Date.now().toString() } })
+}
+
+async function initializeNotifications() {
+  if (!authStore.token) return
+  await Promise.all([
+    notificationStore.fetchUnreadCount().catch(() => undefined),
+    notificationStore.fetchNotifications().catch(() => undefined),
+    notificationStore.initSignalR().catch(() => undefined),
+  ])
 }
 </script>
