@@ -1,6 +1,8 @@
 <template>
   <label class="block">
-    <span v-if="label" class="mb-2 block text-sm font-medium text-slate-700">{{ label }}</span>
+    <span v-if="label" class="mb-2 block text-sm font-medium text-slate-700">
+      {{ label }} <span v-if="required" class="text-rose-600" aria-hidden="true">*</span>
+    </span>
     <input
       v-bind="$attrs"
       :value="modelValue"

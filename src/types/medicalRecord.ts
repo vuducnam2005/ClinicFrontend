@@ -31,6 +31,7 @@ export interface MedicalRecord {
   patientId: string
   patientCode?: string
   patientIdCode?: string
+  patientName?: string
   appointmentId?: string
   doctorId?: string | number
   doctorName?: string

@@ -89,10 +89,7 @@ export function getApiErrorMessage(error: unknown): string {
     const data = axiosError.response?.data as any
     const validationErrors = data?.errors || data?.Errors
     if (validationErrors && typeof validationErrors === 'object') {
-      const messages = Object.values(validationErrors)
-        .flatMap((value) => (Array.isArray(value) ? value : [value]))
-        .map((value) => String(value || '').trim())
-        .filter(Boolean)
+      const messages = collectErrorMessages(validationErrors)
       if (messages.length) return messages.join('\n')
     }
     return data?.message || data?.Message || axiosError.message || 'Không thể kết nối API'
@@ -103,4 +100,20 @@ export function getApiErrorMessage(error: unknown): string {
   }
 
   return 'Đã có lỗi xảy ra'
+}
+
+function collectErrorMessages(value: unknown): string[] {
+  if (value === null || value === undefined) return []
+  if (typeof value === 'string' || typeof value === 'number') {
+    const message = String(value).trim()
+    return message ? [message] : []
+  }
+  if (Array.isArray(value)) return value.flatMap(collectErrorMessages)
+  if (typeof value === 'object') {
+    const data = value as Record<string, unknown>
+    const directMessage = data.message ?? data.Message ?? data.errorMessage ?? data.ErrorMessage
+    if (directMessage !== undefined) return collectErrorMessages(directMessage)
+    return Object.values(data).flatMap(collectErrorMessages)
+  }
+  return []
 }

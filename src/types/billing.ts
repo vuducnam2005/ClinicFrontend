@@ -81,6 +81,8 @@ export interface Prescription {
   patientIdCode?: string
   doctorId?: number
   appointmentId?: number
+  examDate?: string
+  visitDate?: string
   status?: string
   note?: string
   createdAt?: string

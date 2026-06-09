@@ -420,16 +420,16 @@
             <li>Nhịp tim: 1-250 lần/phút.</li>
             <li>Chiều cao: 1-300 cm.</li>
             <li>Cân nặng: 1-500 kg.</li>
-            <li>Có thể để trống chỉ số chưa đo.</li>
+            <li class="font-bold text-rose-700">Các trường có dấu * là bắt buộc.</li>
           </ul>
         </div>
         <form class="mt-5 space-y-4" @submit.prevent="submitVitals">
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <BaseInput v-model.number="vitalsForm.temperature" label="Nhiệt độ (°C)" type="number" min="30" max="45" step="0.1" />
-            <BaseInput v-model="vitalsForm.bloodPressure" label="Huyết áp" placeholder="120/80" maxlength="30" />
-            <BaseInput v-model.number="vitalsForm.heartRate" label="Nhịp tim" type="number" min="1" max="250" />
-            <BaseInput v-model.number="vitalsForm.height" label="Chiều cao (cm)" type="number" min="1" max="300" />
-            <BaseInput v-model.number="vitalsForm.weight" label="Cân nặng (kg)" type="number" min="1" max="500" />
+            <BaseInput v-model.number="vitalsForm.temperature" label="Nhiệt độ (°C)" type="number" min="30" max="45" step="0.1" required />
+            <BaseInput v-model="vitalsForm.bloodPressure" label="Huyết áp" placeholder="120/80" maxlength="30" required />
+            <BaseInput v-model.number="vitalsForm.heartRate" label="Nhịp tim" type="number" min="1" max="250" required />
+            <BaseInput v-model.number="vitalsForm.height" label="Chiều cao (cm)" type="number" min="1" max="300" required />
+            <BaseInput v-model.number="vitalsForm.weight" label="Cân nặng (kg)" type="number" min="1" max="500" required />
           </div>
           <label class="block">
             <span class="mb-2 block text-sm font-medium text-slate-700">Ghi chú điều dưỡng</span>
@@ -1155,7 +1155,7 @@ const configs: Record<Resource, { title: string; service: string; description: s
   patients: cfg('Hồ sơ bệnh nhân', 'N2 Patients', 'Tạo và cập nhật thông tin hồ sơ bệnh nhân khi tiếp nhận.', 'GET/POST/PUT /medical/api/v1/medical/patients', ['id', 'name', 'phone', 'email', 'gender', 'dateOfBirth', 'address', 'citizenId', 'bloodType', 'allergyNote', 'history', 'status'], 'Tìm mã bệnh nhân, họ tên, số điện thoại, CCCD...', 'N2 chưa có hồ sơ bệnh nhân.', cols(['id', 'Mã BN'], ['name', 'Bệnh nhân', false, true], ['phone', 'Số điện thoại'], ['email', 'Email'], ['dateOfBirth', 'Ngày sinh'], ['gender', 'Giới tính'], ['citizenId', 'CCCD'], ['bloodType', 'Nhóm máu'], ['address', 'Địa chỉ'], ['allergyNote', 'Dị ứng'], ['history', 'Tiền sử bệnh'], ['status', 'Trạng thái', true], ['createdAt', 'Ngày tạo'], ['updatedAt', 'Cập nhật'])),
   queue: cfg('Hàng chờ khám', 'N2 Visits', 'Theo dõi lượt khám đã check-in và cập nhật chỉ số sức khỏe trước khám.', 'GET /medical/api/v1/medical/visits/today', ['patientName', 'doctorName', 'status', 'reason'], 'Tìm bệnh nhân, bác sĩ, trạng thái...', 'N2 chưa có lượt khám hôm nay.', cols(['id', 'Visit'], ['patientName', 'Bệnh nhân', false, true], ['doctorName', 'Bác sĩ'], ['dateTime', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
   bills: cfg('Thu viện phí', 'N3 Billing', 'Theo dõi hóa đơn và thu tiền. Không thuộc nghiệp vụ N2 bệnh án.', 'GET /pharmacy/api/invoices', ['id', 'invoiceNo', 'patientName', 'patientCode', 'appointmentLabel', 'amount', 'status', 'description'], 'Tìm mã hóa đơn, bệnh nhân, mã BN, lịch hẹn...', 'N3 chưa có hóa đơn.', cols(['id', 'Mã HĐ'], ['patientId', 'Bệnh nhân'], ['appointmentId', 'Lịch hẹn'], ['amount', 'Số tiền'], ['status', 'Trạng thái', true])),
-  prescriptions: cfg('Xử lý đơn thuốc', 'N3 Pharmacy', 'Kiểm tồn kho, duyệt đơn và phát thuốc sau khi hóa đơn đã thanh toán.', 'GET /pharmacy/api/prescriptions/{id}/stock-check', ['id', 'patientName', 'patientCode', 'medicalRecordId', 'medicine', 'status'], 'Tìm đơn thuốc, bệnh nhân, mã BN, thuốc...', 'Chưa có đơn thuốc.', cols(['id', 'Mã đơn'], ['patientName', 'Bệnh nhân', false, true], ['patientCode', 'Mã BN'], ['medicalRecordId', 'Bệnh án'], ['medicine', 'Thuốc'], ['status', 'Trạng thái', true])),
+  prescriptions: cfg('Xử lý đơn thuốc', 'N3 Pharmacy', 'Kiểm tồn kho, duyệt đơn và phát thuốc sau khi hóa đơn đã thanh toán.', 'GET /pharmacy/api/prescriptions/{id}/stock-check', ['id', 'patientName', 'patientCode', 'medicalRecordId', 'examDate', 'medicine', 'status'], 'Tìm đơn thuốc, bệnh nhân, mã BN, ngày khám, thuốc...', 'Chưa có đơn thuốc.', cols(['id', 'Mã đơn'], ['patientName', 'Bệnh nhân', false, true], ['patientCode', 'Mã BN'], ['medicalRecordId', 'Bệnh án'], ['examDate', 'Ngày khám'], ['medicine', 'Thuốc'], ['status', 'Trạng thái', true])),
 }
 
 const filteredAppointments = computed(() => {
@@ -1246,6 +1246,10 @@ const filteredRows = computed(() => {
     return [...list].sort((a, b) => Number(isPaidStatus(a.status)) - Number(isPaidStatus(b.status)) || Number(b.id || 0) - Number(a.id || 0))
   }
 
+  if (resource.value === 'prescriptions') {
+    return [...list].sort((a, b) => dateTimestamp(b.examDateValue) - dateTimestamp(a.examDateValue) || Number(b.prescriptionId || b.id || 0) - Number(a.prescriptionId || a.id || 0))
+  }
+
   return list
 })
 
@@ -1331,11 +1335,12 @@ const stockItems = computed(() => extractStockItems(stockCheck.value))
 const stockCheckStatus = computed(() => stockCheck.value?.status || activePrescriptionRow.value?.status || '')
 const stockInvoiceStatus = computed(() => stockCheck.value?.invoiceStatus || getAny(stockCheck.value, 'InvoiceStatus') || '')
 const stockAllAvailable = computed(() => stockItems.value.length > 0 && stockItems.value.every(stockItemAvailable))
-const stockCanApprove = computed(() => booleanValue(stockCheck.value?.canApprove ?? getAny(stockCheck.value, 'CanApprove'), stockAllAvailable.value))
-const stockCanDispense = computed(() => booleanValue(stockCheck.value?.canDispense ?? getAny(stockCheck.value, 'CanDispense'), false))
 const stockInvoicePaid = computed(() => isPaidStatus(stockInvoiceStatus.value))
+const stockCanApprove = computed(() => booleanValue(stockCheck.value?.canApprove ?? getAny(stockCheck.value, 'CanApprove'), stockAllAvailable.value && stockStatusBucket(stockCheckStatus.value) === 'pending'))
+const stockCanDispense = computed(() => booleanValue(stockCheck.value?.canDispense ?? getAny(stockCheck.value, 'CanDispense'), stockAllAvailable.value && stockInvoicePaid.value && stockStatusBucket(stockCheckStatus.value) === 'ready'))
 const stockPrimaryAction = computed<'approve' | 'dispense' | 'blocked'>(() => {
   if (!stockCheck.value || !stockAllAvailable.value) return 'blocked'
+  if (stockStatusBucket(stockCheckStatus.value) === 'dispensed') return 'blocked'
   if (stockCanDispense.value && stockInvoicePaid.value) return 'dispense'
   if (stockCanApprove.value) return 'approve'
   return 'blocked'
@@ -1445,20 +1450,31 @@ async function loadReadonlyPrescriptions() {
     patient,
     history: await medicalRecordApi.getPatientHistory(patient.patientId),
   })))
+  const medicalRecordLookup = new Map<string, Record<string, any>>()
+  histories.forEach((result) => {
+    if (result.status !== 'fulfilled') return
+    ;(result.value.history.medicalRecords || []).forEach((record: any) => {
+      prescriptionRecordLookupKeys(record).forEach((key) => medicalRecordLookup.set(key, record))
+    })
+  })
   const n2Prescriptions = histories.flatMap((result) => {
     if (result.status !== 'fulfilled') return []
     const patient = result.value.patient
+    const records = result.value.history.medicalRecords || []
+    const visits = result.value.history.visits || []
     return result.value.history.prescriptions.map((prescription) => ({
       ...prescription,
       patientId: prescription.patientId ?? patient.patientId,
       patientCode: prescription.patientCode ?? patient.patientCode ?? patient.patientIdCode,
       patientIdCode: prescription.patientIdCode ?? patient.patientIdCode ?? patient.patientCode,
       patientName: (prescription as any).patientName ?? patient.fullName,
+      examDate: prescriptionExamDate(prescription as any, records, visits),
     }))
   })
+  const enrichedN3Prescriptions = n3Prescriptions.map((prescription) => enrichPrescriptionFromRecord(prescription as any, medicalRecordLookup))
 
   // Merge and deduplicate
-  const combined = [...n2Prescriptions, ...n3Prescriptions]
+  const combined = [...n2Prescriptions, ...enrichedN3Prescriptions]
   const seen = new Set<string>()
   const uniquePrescriptions: Prescription[] = []
 
@@ -1481,6 +1497,7 @@ async function loadReadonlyPrescriptions() {
         existing.note = p.note || (p as any).Note || existing.note
         existing.patientCode = existing.patientCode || p.patientCode || (p as any).PatientCode
         existing.patientIdCode = existing.patientIdCode || p.patientIdCode || (p as any).PatientIdCode
+        ;(existing as any).examDate = (existing as any).examDate || (p as any).examDate || (p as any).ExamDate || (p as any).visitDate || (p as any).VisitDate
         ;(existing as any).patientName = (existing as any).patientName || (p as any).patientName || (p as any).PatientName
         const pItems = p.items || p.prescriptionItems || []
         if ((!existing.items || !existing.items.length) && pItems.length) {
@@ -1494,13 +1511,62 @@ async function loadReadonlyPrescriptions() {
 }
 
 function prescriptionMergeKey(p: Prescription & Record<string, any>) {
-  return p.prescriptionCode || p.prescriptionIdCode || p.PrescriptionCode || p.PrescriptionIdCode || p.prescriptionId || p.id
+  const numericId = toNumber(p.prescriptionId, p.PrescriptionId, p.id, p.Id, prescriptionCodeNumber(p.prescriptionCode || p.prescriptionIdCode || p.PrescriptionCode || p.PrescriptionIdCode))
+  if (numericId) return `RX:${numericId}`
+
+  const code = String(p.prescriptionCode || p.prescriptionIdCode || p.PrescriptionCode || p.PrescriptionIdCode || '').trim().toUpperCase()
+  if (code) return `RX:${code}`
+
+  const recordId = getAny(p, 'medicalRecordCode', 'MedicalRecordCode', 'medicalRecordIdCode', 'MedicalRecordIdCode', 'medicalRecordId', 'MedicalRecordId')
+  const patientId = getAny(p, 'patientCode', 'PatientCode', 'patientIdCode', 'PatientIdCode', 'patientId', 'PatientId')
+  return recordId && patientId ? `MR:${patientId}:${recordId}` : ''
+}
+
+function prescriptionCodeNumber(value: unknown) {
+  const digits = String(value || '').match(/\d+/)?.[0]
+  return digits ? Number(digits) : 0
+}
+
+function prescriptionExamDate(prescription: Record<string, any>, records: Array<Record<string, any>>, visits: Array<Record<string, any>>) {
+  const recordKey = prescriptionRecordKey(prescription)
+  const record = recordKey ? records.find((item) => prescriptionRecordKey(item) === recordKey) : undefined
+  const visitId = prescription.visitId || prescription.VisitId || record?.visitId || record?.VisitId
+  const visit = visits.find((item) => String(item.visitId || item.VisitId || item.id || item.Id || '') === String(visitId || ''))
+  return getAny(prescription, 'examDate', 'ExamDate', 'visitDate', 'VisitDate')
+    || getAny(record, 'examDate', 'ExamDate', 'createdAt', 'CreatedAt')
+    || getAny(visit, 'visitDate', 'VisitDate', 'createdAt', 'CreatedAt')
+    || getAny(prescription, 'submittedAt', 'SubmittedAt', 'sentToPharmacyAt', 'SentToPharmacyAt', 'createdAt', 'CreatedAt')
+}
+
+function prescriptionRecordKey(source: Record<string, any>) {
+  return String(getAny(source, 'medicalRecordCode', 'MedicalRecordCode', 'medicalRecordIdCode', 'MedicalRecordIdCode', 'medicalRecordId', 'MedicalRecordId') || '')
+}
+
+function prescriptionRecordLookupKeys(source: Record<string, any>) {
+  return Array.from(new Set([
+    getAny(source, 'medicalRecordId', 'MedicalRecordId'),
+    getAny(source, 'id', 'Id'),
+    getAny(source, 'medicalRecordCode', 'MedicalRecordCode'),
+    getAny(source, 'medicalRecordIdCode', 'MedicalRecordIdCode'),
+    getAny(source, 'recordIdCode', 'RecordIdCode'),
+  ].map((value) => String(value || '').trim()).filter(Boolean)))
+}
+
+function enrichPrescriptionFromRecord(prescription: Record<string, any>, recordLookup: Map<string, Record<string, any>>) {
+  const record = prescriptionRecordLookupKeys(prescription).map((key) => recordLookup.get(key)).find(Boolean)
+  if (!record) return prescription
+  return {
+    ...prescription,
+    medicalRecordCode: getAny(prescription, 'medicalRecordCode', 'MedicalRecordCode') || getAny(record, 'medicalRecordCode', 'MedicalRecordCode', 'medicalRecordIdCode', 'MedicalRecordIdCode', 'recordIdCode', 'RecordIdCode'),
+    medicalRecordIdCode: getAny(prescription, 'medicalRecordIdCode', 'MedicalRecordIdCode') || getAny(record, 'medicalRecordIdCode', 'MedicalRecordIdCode', 'medicalRecordCode', 'MedicalRecordCode', 'recordIdCode', 'RecordIdCode'),
+    examDate: getAny(prescription, 'examDate', 'ExamDate', 'visitDate', 'VisitDate') || getAny(record, 'examDate', 'ExamDate', 'createdAt', 'CreatedAt', 'completedAt', 'CompletedAt'),
+  }
 }
 
 async function loadNurseQueue() {
   try {
     const visits = await medicalRecordApi.getVisitsToday()
-    return visits.map(mapVisit)
+    return uniqueVisitsByAppointment(visits).map(mapVisit)
   } catch (apiError) {
     const n1Queue = await appointmentApi.getWaitingQueue(today).catch(() => [] as WaitingQueueItem[])
     const rowsWithVisits = await Promise.all(n1Queue.map(async (item) => {
@@ -1521,6 +1587,31 @@ async function loadNurseQueue() {
     note.value = `N2 /visits/today đang lỗi (${getApiErrorMessage(apiError)}). Đang hiển thị hàng chờ từ N1; chỉ cập nhật chỉ số sức khỏe với dòng đã có Visit N2.`
     return rowsWithVisits
   }
+}
+
+function uniqueVisitsByAppointment(visits: MedicalVisit[]) {
+  const unique = new Map<string, MedicalVisit>()
+  for (const visit of visits) {
+    const appointmentId = Number(visit.appointmentId)
+    const visitId = Number(visit.visitId || visit.id)
+    const key = appointmentId > 0 ? `appointment:${appointmentId}` : `visit:${visitId}`
+    const current = unique.get(key)
+    if (!current || visitDataScore(visit) > visitDataScore(current)) {
+      unique.set(key, visit)
+    }
+  }
+  return [...unique.values()]
+}
+
+function visitDataScore(visit: MedicalVisit) {
+  return [
+    visit.medicalRecordId,
+    visit.vitalSignsJson,
+    visit.startedAt,
+    visit.completedAt,
+    visit.chiefComplaint,
+    visit.symptoms,
+  ].filter((value) => value !== undefined && value !== null && String(value).trim() !== '').length
 }
 
 function rowActions(row: Row) {
@@ -1894,13 +1985,24 @@ async function submitVitals() {
 }
 
 function validateVitals() {
-  if (vitalsForm.temperature !== undefined && (Number(vitalsForm.temperature) < 30 || Number(vitalsForm.temperature) > 45)) return 'Nhiệt độ phải nằm trong khoảng 30-45°C.'
-  if (vitalsForm.heartRate !== undefined && (Number(vitalsForm.heartRate) < 1 || Number(vitalsForm.heartRate) > 250)) return 'Nhịp tim phải nằm trong khoảng 1-250.'
-  if (vitalsForm.height !== undefined && (Number(vitalsForm.height) < 1 || Number(vitalsForm.height) > 300)) return 'Chiều cao phải nằm trong khoảng 1-300 cm.'
-  if (vitalsForm.weight !== undefined && (Number(vitalsForm.weight) < 1 || Number(vitalsForm.weight) > 500)) return 'Cân nặng phải nằm trong khoảng 1-500 kg.'
+  if (!isEnteredNumber(vitalsForm.temperature)) return 'Vui lòng nhập nhiệt độ.'
+  if (!vitalsForm.bloodPressure.trim()) return 'Vui lòng nhập huyết áp.'
+  if (!isEnteredNumber(vitalsForm.heartRate)) return 'Vui lòng nhập nhịp tim.'
+  if (!isEnteredNumber(vitalsForm.height)) return 'Vui lòng nhập chiều cao.'
+  if (!isEnteredNumber(vitalsForm.weight)) return 'Vui lòng nhập cân nặng.'
+  if (Number(vitalsForm.temperature) < 30 || Number(vitalsForm.temperature) > 45) return 'Nhiệt độ phải nằm trong khoảng 30-45°C.'
+  if (!/^\d{2,3}\s*\/\s*\d{2,3}$/.test(vitalsForm.bloodPressure.trim())) return 'Huyết áp phải có dạng tâm thu/tâm trương, ví dụ 120/80.'
+  if (Number(vitalsForm.heartRate) < 1 || Number(vitalsForm.heartRate) > 250) return 'Nhịp tim phải nằm trong khoảng 1-250.'
+  if (Number(vitalsForm.height) < 1 || Number(vitalsForm.height) > 300) return 'Chiều cao phải nằm trong khoảng 1-300 cm.'
+  if (Number(vitalsForm.weight) < 1 || Number(vitalsForm.weight) > 500) return 'Cân nặng phải nằm trong khoảng 1-500 kg.'
   if (vitalsForm.bloodPressure.length > 30) return 'Huyết áp tối đa 30 ký tự.'
   if (vitalsForm.note.length > 500) return 'Ghi chú tối đa 500 ký tự.'
   return ''
+}
+
+function isEnteredNumber(value: unknown) {
+  if (value === undefined || value === null || String(value).trim() === '') return false
+  return Number.isFinite(Number(value))
 }
 
 function openPatientModal(row?: Row) {
@@ -2113,6 +2215,7 @@ function mapInvoice(item: Invoice & Record<string, any>): Row {
 function mapPrescription(item: any): Row {
   const prescriptionId = toNumber(item.prescriptionId, item.PrescriptionId, item.id, item.Id)
   const patientCode = item.patientCode || item.patientIdCode || item.PatientCode || item.PatientIdCode || patientCodeFallback(item.patientId || item.PatientId)
+  const examDate = getAny(item, 'examDate', 'ExamDate', 'visitDate', 'VisitDate', 'submittedAt', 'SubmittedAt', 'sentToPharmacyAt', 'SentToPharmacyAt', 'createdAt', 'CreatedAt')
   return {
     id: item.prescriptionCode || item.prescriptionIdCode || item.PrescriptionCode || item.PrescriptionIdCode || item.prescriptionId || item.id || 'DT',
     prescriptionId,
@@ -2120,6 +2223,8 @@ function mapPrescription(item: any): Row {
     patientCode,
     patientName: displayText(item.patientName || item.PatientName || patientNameFallback(item.patientId || item.PatientId)),
     medicalRecordId: item.medicalRecordCode || item.medicalRecordIdCode || item.MedicalRecordCode || item.MedicalRecordIdCode || item.medicalRecordId || item.MedicalRecordId || 'Chưa cập nhật',
+    examDate: examDate ? formatDate(String(examDate)) : 'Chưa cập nhật',
+    examDateValue: examDate || '',
     medicine: summarizeMedicine(item),
     status: item.status || item.Status || 'Chưa cập nhật',
     raw: item,
@@ -2175,6 +2280,9 @@ function stockItemAvailable(item: PrescriptionStockItem) {
 
 function stockBlockMessage(action: 'approve' | 'dispense' | 'blocked') {
   if (!stockCheck.value) return 'Cần bấm Kiểm kho lại để lấy trạng thái mới nhất từ N3.'
+  const bucket = stockStatusBucket(stockCheckStatus.value)
+  if (bucket === 'dispensed') return 'Đơn thuốc đã phát xong, không còn bước xử lý tiếp theo.'
+  if (bucket === 'cancelled') return 'Đơn thuốc đã hủy hoặc không còn hiệu lực.'
   const missingItems = stockItems.value.filter((item) => !stockItemAvailable(item))
   if (missingItems.length) {
     const names = missingItems.slice(0, 3).map(stockMedicineName).join(', ')
@@ -2183,7 +2291,9 @@ function stockBlockMessage(action: 'approve' | 'dispense' | 'blocked') {
   if (action === 'approve') return 'Đơn đủ thuốc. Bước tiếp theo là duyệt đơn.'
   if (action === 'dispense') return 'Đơn đã duyệt, đủ thuốc và đã thanh toán. Bước tiếp theo là phát thuốc.'
   if (!stockInvoicePaid.value) {
-    return 'Đơn đủ thuốc. Nếu đã duyệt đơn rồi thì bước tiếp theo là thu viện phí trước khi phát thuốc.'
+    return bucket === 'ready'
+      ? 'Đơn đã sẵn sàng phát thuốc nhưng cần thu viện phí trước.'
+      : 'Đơn đủ thuốc. Bước tiếp theo là duyệt đơn, sau đó thu viện phí trước khi phát thuốc.'
   }
   return 'Đơn đủ thuốc và đã thanh toán, nhưng N3 chưa trả bước xử lý tiếp theo. Bấm Kiểm kho lại hoặc kiểm tra trạng thái đơn.'
 }
@@ -2197,13 +2307,11 @@ function canUpdateVitals(row: Row) {
 
 function hasVitalSigns(raw: Record<string, any>) {
   const vitals = parseVitalSigns(raw.vitalSignsJson ?? raw.VitalSignsJson)
-  return Boolean(raw.vitalSignsJson || raw.VitalSignsJson)
-    || [raw.temperature, raw.Temperature, vitals.temperature, vitals.Temperature,
+  return [raw.temperature, raw.Temperature, vitals.temperature, vitals.Temperature,
       raw.bloodPressure, raw.BloodPressure, vitals.bloodPressure, vitals.BloodPressure,
       raw.heartRate, raw.HeartRate, vitals.heartRate, vitals.HeartRate,
       raw.height, raw.Height, vitals.height, vitals.Height,
-      raw.weight, raw.Weight, vitals.weight, vitals.Weight,
-      raw.note, raw.Note, vitals.note, vitals.Note]
+      raw.weight, raw.Weight, vitals.weight, vitals.Weight]
       .some((value) => value !== undefined && value !== null && String(value).trim() !== '')
 }
 
@@ -2294,6 +2402,12 @@ function formatDate(value?: string) {
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('vi-VN').format(date)
 }
 
+function dateTimestamp(value?: string) {
+  if (!value) return 0
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime()
+}
+
 function meaningfulText(value: unknown) {
   const textValue = String(value || '').trim()
   const normalized = textValue.toLowerCase()
@@ -2309,6 +2423,10 @@ function genderLabel(value?: string) {
 function statusText(status?: string | number) {
   const value = String(status || '')
   const normalized = value.toLowerCase()
+  if (normalized.includes('readytodispense') || normalized.includes('ready to dispense')) return 'Sẵn sàng phát thuốc'
+  if (normalized.includes('senttopharmacy') || normalized.includes('sent to pharmacy') || normalized.includes('đã gửi nhà thuốc') || normalized.includes('da gui nha thuoc')) return 'Đã gửi nhà thuốc'
+  if (normalized.includes('dispensed') || normalized.includes('đã phát') || normalized.includes('da phat')) return 'Đã phát thuốc'
+  if (normalized.includes('approved') || normalized.includes('đã duyệt') || normalized.includes('da duyet')) return 'Đã duyệt'
   if (normalized.includes('checked')) return 'Đã check-in'
   if (normalized.includes('confirmed')) return 'Đã xác nhận'
   if (normalized.includes('progress')) return 'Đang khám'
@@ -2318,6 +2436,15 @@ function statusText(status?: string | number) {
   if (normalized.includes('cancel')) return 'Đã hủy'
   if (normalized.includes('waiting') || normalized.includes('pending')) return 'Đang chờ'
   return value || 'Chưa cập nhật'
+}
+
+function stockStatusBucket(status?: string | number) {
+  const normalized = String(status || '').trim().toLowerCase()
+  if (normalized.includes('cancel') || normalized.includes('void') || normalized.includes('hủy') || normalized.includes('huy')) return 'cancelled'
+  if (normalized.includes('dispensed') || normalized.includes('đã phát') || normalized.includes('da phat')) return 'dispensed'
+  if (normalized.includes('readytodispense') || normalized.includes('ready to dispense') || normalized.includes('senttopharmacy') || normalized.includes('sent to pharmacy') || normalized.includes('đã gửi nhà thuốc') || normalized.includes('da gui nha thuoc') || normalized.includes('approved') || normalized.includes('đã duyệt') || normalized.includes('da duyet')) return 'ready'
+  if (normalized.includes('pending') || normalized.includes('waiting') || normalized.includes('đang chờ') || normalized.includes('dang cho') || normalized.includes('draft') || normalized.includes('created')) return 'pending'
+  return 'pending'
 }
 
 function isActiveStatus(status?: string | number) {

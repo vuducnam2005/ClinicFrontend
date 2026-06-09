@@ -89,8 +89,9 @@ function text(value: unknown) {
 }
 
 function normalizeRecord(item: Record<string, any>, fallbackPatientId?: string): MedicalRecord {
+  const patient = item.patient ?? item.Patient
   const medicalRecordCode = item.medicalRecordCode ?? item.MedicalRecordCode ?? item.medicalRecordIdCode ?? item.MedicalRecordIdCode ?? item.recordCode ?? item.RecordCode ?? item.recordIdCode ?? item.RecordIdCode
-  const patientCode = item.patientCode ?? item.PatientCode ?? item.patientIdCode ?? item.PatientIdCode
+  const patientCode = item.patientCode ?? item.PatientCode ?? item.patientIdCode ?? item.PatientIdCode ?? patient?.patientCode ?? patient?.PatientCode ?? patient?.patientIdCode ?? patient?.PatientIdCode
   return {
     ...item,
     medicalRecordId: item.medicalRecordId ?? item.MedicalRecordId ?? item.id ?? item.Id,
@@ -99,9 +100,10 @@ function normalizeRecord(item: Record<string, any>, fallbackPatientId?: string):
     medicalRecordIdCode: item.medicalRecordIdCode ?? item.MedicalRecordIdCode ?? medicalRecordCode,
     recordIdCode: item.recordIdCode ?? item.RecordIdCode ?? medicalRecordCode,
     visitId: item.visitId ?? item.VisitId,
-    patientId: String(item.patientId ?? item.PatientId ?? patientCode ?? fallbackPatientId ?? ''),
+    patientId: String(item.patientId ?? item.PatientId ?? patient?.patientId ?? patient?.PatientId ?? patientCode ?? fallbackPatientId ?? ''),
     patientCode,
     patientIdCode: item.patientIdCode ?? item.PatientIdCode ?? patientCode,
+    patientName: item.patientName ?? item.PatientName ?? patient?.fullName ?? patient?.FullName ?? patient?.name ?? patient?.Name,
     appointmentId: item.appointmentId ?? item.AppointmentId ? String(item.appointmentId ?? item.AppointmentId) : undefined,
     doctorId: item.doctorId ?? item.DoctorId,
     doctorName: item.doctorName ?? item.DoctorName,
@@ -177,15 +179,16 @@ function normalizeVisits(payload: unknown): MedicalVisit[] {
 function normalizeHistory(payload: unknown): PatientMedicalHistory {
   const data = readApiResponse<any>(payload as any)
   const patient = data?.patient ?? data?.Patient
+  const normalizedPatient = patient ? normalizePatient(patient) : undefined
   const fallbackPatientId = String(patient?.patientId ?? patient?.PatientId ?? patient?.id ?? patient?.Id ?? patient?.patientCode ?? patient?.PatientCode ?? patient?.patientIdCode ?? patient?.PatientIdCode ?? '')
   const visits = arrayValue(data?.visits, data?.Visits).map(normalizeVisit)
   const visitPrescriptions = arrayValue(data?.visits, data?.Visits).flatMap((visit: any) =>
     arrayValue(visit?.prescriptions, visit?.Prescriptions, visit?.prescription, visit?.Prescription),
   )
   return {
-    patient: patient ? normalizePatient(patient) : undefined,
+    patient: normalizedPatient,
     visits,
-    medicalRecords: normalizeRecords(data, fallbackPatientId),
+    medicalRecords: normalizeRecords(data, fallbackPatientId).map((record) => enrichRecordPatient(record, normalizedPatient)),
     prescriptions: [...arrayValue(data?.prescriptions, data?.Prescriptions), ...visitPrescriptions],
   }
 }
@@ -225,6 +228,17 @@ function normalizePatients(payload: unknown): Patient[] {
   const data = readApiResponse<any>(payload as any)
   const patients = Array.isArray(data) ? data : data?.items || data?.Items || data?.data || data?.Data || data?.patients || data?.Patients || []
   return patients.map(normalizePatient)
+}
+
+function enrichRecordPatient(record: MedicalRecord, patient?: Patient): MedicalRecord {
+  if (!patient) return record
+  return {
+    ...record,
+    patientId: String(record.patientId || patient.patientId || patient.id || ''),
+    patientCode: record.patientCode || patient.patientCode || patient.patientIdCode,
+    patientIdCode: record.patientIdCode || patient.patientIdCode || patient.patientCode,
+    patientName: record.patientName || patient.fullName,
+  }
 }
 
 function patientKeys(patient: Partial<Patient> & Record<string, any>) {
@@ -344,7 +358,19 @@ export const medicalRecordApi = {
     const patients = await this.getPatients({ pageSize: 100 })
     const patientIds = Array.from(new Set(patients.flatMap(patientKeys).filter(Boolean)))
     const histories = await Promise.allSettled(patientIds.map((id) => this.getPatientHistory(id)))
-    return histories.flatMap((result) => (result.status === 'fulfilled' ? result.value.medicalRecords : []))
+    const patientByKey = new Map<string, Patient>()
+    patients.forEach((patient) => {
+      patientKeys(patient).forEach((key) => patientByKey.set(key, patient))
+      if (patient.patientCode) patientByKey.set(String(patient.patientCode), patient)
+      if (patient.patientIdCode) patientByKey.set(String(patient.patientIdCode), patient)
+    })
+    return histories.flatMap((result, index) => {
+      if (result.status !== 'fulfilled') return []
+      const sourcePatient = result.value.patient || patientByKey.get(patientIds[index]) || patients[index]
+      return result.value.medicalRecords.map((record) =>
+        enrichRecordPatient(record, sourcePatient || patientByKey.get(String(record.patientId || record.patientCode || record.patientIdCode || ''))),
+      )
+    })
   },
   async getVisitsToday(doctorId?: number) {
     const response = await client.get('/api/v1/medical/visits/today', { params: doctorId ? { doctorId } : undefined })
@@ -466,6 +492,7 @@ export const medicalRecordApi = {
         doctorName: payload.doctorName || null,
         specialtyId: payload.specialtyId ? Number(payload.specialtyId) : null,
         specialtyName: payload.specialtyName || null,
+        reason: payload.reason || null,
         scheduledAt: appointmentDateTime(payload),
         queueNumber: payload.queueNumber ? Number(payload.queueNumber) : null,
         status: 'Confirmed',
@@ -481,6 +508,7 @@ export const medicalRecordApi = {
         appointmentId,
         doctorId: Number(payload.doctorId || 0),
         queueNumber: payload.queueNumber ? Number(payload.queueNumber) : null,
+        reason: payload.reason || null,
         checkedInAt: new Date().toISOString(),
         status: payload.status || 'CheckedIn',
       },
