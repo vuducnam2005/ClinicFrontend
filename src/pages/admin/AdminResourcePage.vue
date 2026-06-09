@@ -256,6 +256,7 @@ const adminKeys: Key[] = ['doctors', 'specialties', 'schedules', 'patients', 'ap
 const route = useRoute()
 const key = computed<Key>(() => adminKeys.includes(route.meta.adminResource as Key) ? route.meta.adminResource as Key : 'doctors')
 const config = computed(() => configs[key.value] || configs.doctors)
+const hiddenAppointmentsStorageKey = 'admin.hiddenAppointmentIds'
 const rows = ref<Row[]>([])
 const loading = ref(false)
 const saving = ref(false)
@@ -269,6 +270,7 @@ const form = reactive<Record<string, string>>({})
 const medicineTypeFilter = ref('')
 const appointmentDetailOpen = ref(false)
 const selectedAppointmentRow = ref<Row | null>(null)
+const hiddenAppointmentIds = ref<Set<string>>(readHiddenAppointmentIds())
 
 const filteredRows = computed(() => {
   const q = query.value.trim().toLowerCase()
@@ -346,7 +348,7 @@ async function loadData() {
     if (key.value === 'specialties') rows.value = mapList(await appointmentApi.getSpecialties(), fallbackSpecialties, mapSpecialty)
     if (key.value === 'schedules') rows.value = mapList(await appointmentApi.getDoctorSchedules(), fallbackSchedules, mapSchedule)
     if (key.value === 'patients') rows.value = mapList(await medicalRecordApi.getPatients(), fallbackPatients, mapPatient)
-    if (key.value === 'appointments') rows.value = mapList(await appointmentApi.getAppointments(), fallbackAppointments, mapAppointment)
+    if (key.value === 'appointments') rows.value = visibleAppointmentRows(mapList(await appointmentApi.getAppointments(), fallbackAppointments, mapAppointment))
     if (key.value === 'medicines') rows.value = mapList(await medicineApi.getMedicines({ pageSize: 200 }), fallbackMedicines, mapMedicine)
     if (key.value === 'prescriptions') {
       const remoteRows = (await medicalRecordApi.getMedicalRecords().catch(() => [])).map(mapPrescription)
@@ -364,7 +366,7 @@ async function loadData() {
   } catch (e) { error.value = getApiErrorMessage(e); rows.value = fallbackRows(key.value) } finally { loading.value = false }
 }
 function mapList<T>(data: T[], fallback: T[], mapper: (item: T) => Row) { return (data.length ? data : fallback).map(mapper) }
-function fallbackRows(k: Key) { return ({ doctors: fallbackDoctors.map(mapDoctor), specialties: fallbackSpecialties.map(mapSpecialty), schedules: fallbackSchedules.map(mapSchedule), patients: fallbackPatients.map(mapPatient), appointments: fallbackAppointments.map(mapAppointment), medicines: fallbackMedicines.map(mapMedicine), prescriptions: fallbackRecords.map(mapPrescription), bills: fallbackInvoices.map(mapInvoice), accounts: fallbackAccounts.map(mapUser), reports: [] } as Record<Key, Row[]>)[k] }
+function fallbackRows(k: Key) { return ({ doctors: fallbackDoctors.map(mapDoctor), specialties: fallbackSpecialties.map(mapSpecialty), schedules: fallbackSchedules.map(mapSchedule), patients: fallbackPatients.map(mapPatient), appointments: visibleAppointmentRows(fallbackAppointments.map(mapAppointment)), medicines: fallbackMedicines.map(mapMedicine), prescriptions: fallbackRecords.map(mapPrescription), bills: fallbackInvoices.map(mapInvoice), accounts: fallbackAccounts.map(mapUser), reports: [] } as Record<Key, Row[]>)[k] }
 async function loadReports() { const [doctors, appointments, patients, invoices] = await Promise.all([appointmentApi.getDoctors().catch(() => fallbackDoctors), appointmentApi.getAppointments().catch(() => fallbackAppointments), medicalRecordApi.getPatients().catch(() => fallbackPatients), billingApi.getInvoices().catch(() => fallbackInvoices)]); return [{ id: 'R1', metric: 'Bác sĩ', value: doctors.length, source: 'N1', status: 'OK' }, { id: 'R2', metric: 'Lịch hẹn', value: appointments.length, source: 'N1', status: 'OK' }, { id: 'R3', metric: 'Bệnh nhân', value: patients.length, source: 'N2', status: 'OK' }, { id: 'R4', metric: 'Hóa đơn', value: invoices.length, source: 'N3', status: 'OK' }] }
 
 function buildFields(k: Key): Field[] { const sp = fallbackSpecialties.map((s) => ({ label: s.specialtyName, value: s.specialtyId })); const ds = fallbackDoctors.map((d) => ({ label: d.doctorName, value: d.doctorId })); if (k === 'doctors') return [field('doctorName','Tên bác sĩ','text',true), field('specialtyId','Chuyên khoa','select',true, sp), field('degree','Học vị'), field('examFee','Phí khám','number',true)]; if (k === 'specialties') return [field('specialtyName','Tên chuyên khoa','text',true)]; if (k === 'schedules') return [field('doctorId','Bác sĩ','select',true, ds), field('workDate','Ngày làm','date',true), field('startTime','Giờ bắt đầu','time',true), field('endTime','Giờ kết thúc','time',true), field('slotDurationMinutes','Phút/slot','number')]; if (k === 'patients') return [field('fullName','Họ tên','text',true), field('phone','Số điện thoại','text',true), field('gender','Giới tính','select',false,[{label:'Nam',value:'Male'},{label:'Nữ',value:'Female'}]), field('medicalHistory','Tiền sử bệnh')]; if (k === 'medicines') return [field('medicineName','Tên thuốc','text',true), field('activeIngredient','Hoạt chất'), field('medicineType','Chuyên khoa/nhóm thuốc','select',false, medicineTypeOptions.value), field('unit','Đơn vị tính','text',true), field('price','Đơn giá','number',true), field('stockQuantity','Tồn kho','number',true), field('minStockLevel','Ngưỡng cảnh báo','number',true), field('expiryDate','Hạn dùng','date'), field('status','Trạng thái','select',true,[{label:'Đang bán',value:'Active'},{label:'Tạm ngưng',value:'Inactive'},{label:'Hết hàng',value:'OutOfStock'}])]; if (k === 'accounts') return [field('username','Username','text',true), field('password','Mật khẩu','password',true), field('fullName','Họ tên','text',true), field('email','Email','email'), field('roleId','Vai trò','select',true,[{label:'Admin',value:RoleId.Admin},{label:'Bác sĩ',value:RoleId.Doctor},{label:'Tiếp tân',value:RoleId.Receptionist},{label:'Bệnh nhân',value:RoleId.Patient}])]; return [] }
@@ -389,10 +391,8 @@ async function deleteSelectedAppointment() {
   saving.value = true
   error.value = ''
   try {
-    if (statusBucket(row.status) === 'pending') {
-      await appointmentApi.cancelAppointment(id, 'Admin xóa lịch hẹn chưa xác nhận')
-    }
-    rows.value = rows.value.filter((item) => Number(item.id) !== id)
+    hideAppointmentId(id)
+    rows.value = visibleAppointmentRows(rows.value)
     note.value = deleteAppointmentMessage(row.status)
     closeAppointmentDetails()
   } catch (e) {
@@ -439,6 +439,23 @@ function toNumber(...values: unknown[]) { for (const value of values) { const nu
 function toNumberAllowZero(...values: unknown[]) { for (const value of values) { const numberValue = Number(value); if (Number.isFinite(numberValue) && numberValue >= 0) return numberValue } return 0 }
 function invoiceAmount(item: Record<string, any>) { return toNumber(item.amount, item.Amount, item.totalAmount, item.TotalAmount, item.examinationFee, item.ExaminationFee, item.examFee, item.ExamFee) }
 function uniqueRows(items: Row[]) { const seen = new Set<string>(); return items.filter((item, index) => { const rowKey = String(item.id || item.appointmentId || index); if (seen.has(rowKey)) return false; seen.add(rowKey); return true }) }
+function readHiddenAppointmentIds() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(hiddenAppointmentsStorageKey) || '[]').map(String))
+  } catch {
+    return new Set<string>()
+  }
+}
+function persistHiddenAppointmentIds() {
+  localStorage.setItem(hiddenAppointmentsStorageKey, JSON.stringify(Array.from(hiddenAppointmentIds.value)))
+}
+function hideAppointmentId(id: number | string) {
+  hiddenAppointmentIds.value.add(String(id))
+  persistHiddenAppointmentIds()
+}
+function visibleAppointmentRows(items: Row[]) {
+  return items.filter((item) => !hiddenAppointmentIds.value.has(String(item.id)))
+}
 function appointmentDetails(row: Row) {
   const raw = row.raw || {}
   const appointmentDate = getAny(row, raw, 'appointmentDate', 'AppointmentDate')
