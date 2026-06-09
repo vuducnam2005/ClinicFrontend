@@ -68,6 +68,7 @@ export default function router() {
           { path: 'medicines', name: 'admin-medicines', component: () => import('@/pages/admin/AdminResourcePage.vue'), meta: { adminResource: 'medicines' } },
           { path: 'prescriptions', name: 'admin-prescriptions', component: () => import('@/pages/admin/AdminResourcePage.vue'), meta: { adminResource: 'prescriptions' } },
           { path: 'bills', name: 'admin-bills', component: () => import('@/pages/admin/AdminResourcePage.vue'), meta: { adminResource: 'bills' } },
+          { path: 'notifications', name: 'admin-notifications', component: () => import('@/pages/admin/AdminNotificationsPage.vue') },
           { path: 'accounts', name: 'admin-accounts', component: () => import('@/pages/admin/AdminResourcePage.vue'), meta: { adminResource: 'accounts' } },
           { path: 'reports', name: 'admin-reports', component: () => import('@/pages/admin/AdminResourcePage.vue'), meta: { adminResource: 'reports' } },
         ],

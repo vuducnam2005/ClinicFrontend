@@ -16,6 +16,30 @@ export interface NotificationItem {
   createdAt: string
 }
 
+export interface NotificationRecipient {
+  userId: number
+  fullName: string
+  username: string
+  email: string
+  role: string
+}
+
+export interface ManualNotificationPayload {
+  title: string
+  content: string
+  type?: string
+  navigateUrl?: string
+  referenceId?: string
+  targetMode: 'All' | 'Roles' | 'User'
+  roles?: string[]
+  userId?: number
+}
+
+export interface ManualNotificationResponse {
+  recipientCount: number
+  notifications: NotificationItem[]
+}
+
 const client = createServiceClient('billing')
 
 function joinUrl(baseUrl: string, path: string) {
@@ -55,9 +79,20 @@ function normalizeNotificationList(payload: unknown): NotificationItem[] {
   return items.map(normalizeNotification)
 }
 
+function normalizeRecipient(item: Record<string, any>): NotificationRecipient {
+  return {
+    userId: Number(item.userId ?? item.UserId),
+    fullName: item.fullName ?? item.FullName ?? '',
+    username: item.username ?? item.Username ?? '',
+    email: item.email ?? item.Email ?? '',
+    role: item.role ?? item.Role ?? '',
+  }
+}
+
 export const useNotificationStore = defineStore('notifications', {
   state: () => ({
     notifications: [] as NotificationItem[],
+    recipients: [] as NotificationRecipient[],
     unreadCount: 0,
     hubConnection: null as signalR.HubConnection | null,
     loading: false,
@@ -105,6 +140,23 @@ export const useNotificationStore = defineStore('notifications', {
       await client.post('/api/notifications/read-all')
       this.notifications = this.notifications.map((item) => ({ ...item, isRead: true }))
       this.unreadCount = 0
+    },
+    async fetchAdminRecipients(search = '') {
+      const response = await client.get('/api/notifications/admin/recipients', {
+        params: search.trim() ? { search: search.trim() } : {},
+      })
+      const data = readApiResponse<any>(response.data)
+      const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []
+      this.recipients = items.map(normalizeRecipient)
+      return this.recipients
+    },
+    async sendManualNotification(payload: ManualNotificationPayload) {
+      const response = await client.post('/api/notifications/admin/send', payload)
+      const data = readApiResponse<any>(response.data)
+      return {
+        recipientCount: Number(data?.recipientCount ?? data?.RecipientCount ?? 0),
+        notifications: normalizeNotificationList(data?.notifications ?? data?.Notifications ?? []),
+      } as ManualNotificationResponse
     },
     async initSignalR() {
       const authStore = useAuthStore()

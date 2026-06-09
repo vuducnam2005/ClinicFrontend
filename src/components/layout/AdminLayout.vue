@@ -6,6 +6,7 @@
 import {
  Calendar,
  CreditCard,
+ BellRing,
  LayoutDashboard,
  Pill,
  Receipt,
@@ -42,6 +43,7 @@ const menuGroups = [
  {
  title: 'Hệ thống',
  items: [
+ { label: 'Thông báo', to: '/admin/notifications', icon: BellRing },
  { label: 'Tài khoản', to: '/admin/accounts', icon: Users },
  { label: 'Báo cáo', to: '/admin/reports', icon: LayoutDashboard },
  ],
