@@ -118,13 +118,13 @@
       <!-- Dog Avatar Button (no border/bg, character stands directly on page) -->
       <button
         type="button"
-        class="group pointer-events-auto flex h-32 w-auto items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 focus:outline-none"
+        class="dog-avatar-btn group pointer-events-auto flex h-32 w-auto items-center justify-center transition-all duration-300 focus:outline-none"
         @click="toggleChat"
       >
         <img
-          :src="assistantDogWebp"
+          :src="assistantDogPng"
           alt="Dr. Doggy"
-          class="h-full w-auto object-contain transition duration-300 drop-shadow-md group-hover:rotate-3"
+          class="dog-img h-full w-auto object-contain transition duration-300 drop-shadow-xl"
         />
       </button>
     </div>
@@ -135,7 +135,6 @@
 import { nextTick, ref, watch } from 'vue'
 import { Send, X, Minus } from 'lucide-vue-next'
 import assistantDogPng from '@/assets/assistant-dog.png'
-import assistantDogWebp from '@/assets/assistant-dog.webp'
 
 interface Message {
   sender: 'bot' | 'patient'
@@ -256,6 +255,38 @@ function getBotReply(inputText: string): string {
 }
 .animate-float {
   animation: float 2s infinite ease-in-out;
+}
+
+/* Float animation for the dog button */
+@keyframes float-dog {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.dog-avatar-btn {
+  animation: float-dog 3s infinite ease-in-out;
+}
+
+/* Wiggle animation on hover */
+@keyframes dog-wiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-3deg);
+  }
+  75% {
+    transform: rotate(3deg);
+  }
+}
+.dog-avatar-btn:hover .dog-img {
+  animation: dog-wiggle 0.5s infinite ease-in-out;
+}
+.dog-avatar-btn:active {
+  transform: scale(0.95);
 }
 
 /* Transitions */
