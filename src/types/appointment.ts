@@ -2,6 +2,7 @@ export type AppointmentStatus = 'Pending' | 'Confirmed' | 'CheckedIn' | 'InProgr
 
 export interface Appointment {
   appointmentId: number
+  appointmentCode?: string
   patientId: number | string
   patientName: string
   patientPhone: string
@@ -13,9 +14,11 @@ export interface Appointment {
   appointmentDate: string
   slotTime: string
   status: AppointmentStatus
-  queueNumber: number
+  queueNumber?: number | null
   reason?: string
   cancelReason?: string
+  createdAt?: string
+  updatedAt?: string
   checkedInAt?: string
   startedAt?: string
   completedAt?: string

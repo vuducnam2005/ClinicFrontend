@@ -373,7 +373,7 @@ watch(() => toast.show, (visible) => {
 })
 
 const configs: Record<Resource, { title: string; service: string; description: string; placeholder: string; icon: any; iconClass: string; search: string[]; columns: Column[] }> = {
-  appointments: cfg('Lịch hẹn của tôi', 'N1 Appointment', 'Theo dõi lịch đã đặt, bác sĩ, giờ khám, số thứ tự và trạng thái xác nhận.', 'Tìm bác sĩ, lý do, trạng thái...', CalendarClock, 'bg-blue-50 text-[#0F52BA]', ['doctorName', 'status', 'reason', 'dateTime'], cols(['id', 'Mã'], ['doctorName', 'Bác sĩ', false, true], ['dateTime', 'Ngày giờ'], ['queueNumber', 'STT'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
+  appointments: cfg('Lịch hẹn của tôi', 'N1 Appointment', 'Theo dõi lịch đã đặt, bác sĩ, giờ khám và trạng thái xác nhận.', 'Tìm mã lịch, bác sĩ, chuyên khoa, lý do, trạng thái...', CalendarClock, 'bg-blue-50 text-[#0F52BA]', ['id', 'doctorName', 'specialtyName', 'status', 'reason', 'dateTime'], cols(['id', 'Mã lịch'], ['doctorName', 'Bác sĩ', false, true], ['specialtyName', 'Chuyên khoa'], ['dateTime', 'Ngày giờ hẹn'], ['reason', 'Lý do khám'], ['status', 'Trạng thái', true])),
   records: cfg('Hồ sơ bệnh án', 'N2 Medical Record', 'Xem chẩn đoán, triệu chứng và ghi chú bác sĩ sau mỗi lần khám.', 'Tìm chẩn đoán, triệu chứng, ghi chú...', FileHeart, 'bg-indigo-50 text-indigo-700', ['id', 'diagnosis', 'symptoms', 'doctorNotes'], cols(['id', 'Mã BA'], ['diagnosis', 'Chẩn đoán', false, true], ['symptoms', 'Triệu chứng'], ['doctorNotes', 'Ghi chú'], ['createdAt', 'Ngày tạo'])),
   prescriptions: cfg('Đơn thuốc', 'N2 Prescription', 'Xem đơn thuốc cũ đã được bác sĩ chốt và gửi sang nhà thuốc.', 'Tìm mã đơn, thuốc, trạng thái...', Pill, 'bg-cyan-50 text-cyan-700', ['id', 'medicine', 'status', 'note'], cols(['id', 'Mã đơn'], ['medicine', 'Thuốc', false, true], ['quantity', 'Số lượng'], ['note', 'Ghi chú'], ['status', 'Trạng thái', true])),
   bills: cfg('Viện phí của tôi', 'N3 Billing', 'Xem hóa đơn, số tiền và thực hiện thanh toán viện phí khi cần.', 'Tìm mã hóa đơn, trạng thái...', CreditCard, 'bg-emerald-50 text-emerald-700', ['id', 'amount', 'status'], cols(['id', 'Mã HĐ'], ['appointmentId', 'Lịch hẹn'], ['amount', 'Số tiền', false, true], ['status', 'Trạng thái', true])),
@@ -486,7 +486,10 @@ async function loadData() {
     if (resource.value === 'profile') return
     if (resource.value === 'appointments') {
       const id = patientId.value
-      rows.value = id ? uniqueRows((await appointmentApi.getAppointmentsByPatient(id).catch(() => [] as Appointment[])).map(mapAppointment)) : []
+      rows.value = id
+        ? uniqueRows((await appointmentApi.getAppointmentsByPatient(id).catch(() => [] as Appointment[])).map(mapAppointment))
+          .sort((a, b) => appointmentTimestamp(b) - appointmentTimestamp(a))
+        : []
       note.value = rows.value.length ? 'Đã tải lịch hẹn từ N1.' : 'Database chưa có lịch hẹn cho bệnh nhân này.'
       showLoadToast('Lịch hẹn', rows.value.length, 'Nếu chưa có lịch, sang Đặt lịch khám để tạo lịch mới.')
     }
@@ -657,15 +660,48 @@ function invoiceDisplayCode(item: Partial<Invoice> & Record<string, any>) {
   return item.invoiceCode || item.invoiceIdCode || item.InvoiceCode || item.InvoiceIdCode || toNumber(item.invoiceId, item.InvoiceId, item.id, item.Id) || 'HĐ'
 }
 
-function mapAppointment(item: Appointment): Row {
+function mapAppointment(item: Appointment & Record<string, any>): Row {
+  const appointmentId = getAny(item, 'appointmentId', 'AppointmentId', 'id', 'Id')
+  const appointmentDate = getAny(item, 'appointmentDate', 'AppointmentDate')
+  const slotTime = getAny(item, 'slotTime', 'SlotTime')
+  const doctorName = cleanDisplayText(getAny(item, 'doctorName', 'DoctorName'))
+  const specialtyName = cleanDisplayText(getAny(item, 'specialtyName', 'SpecialtyName'))
+  const reason = cleanDisplayText(getAny(item, 'reason', 'Reason'))
+  const status = getAny(item, 'status', 'Status')
+
   return {
-    id: item.appointmentId,
-    doctorName: item.doctorName,
-    dateTime: `${formatDate(item.appointmentDate)} - ${item.slotTime || 'Chưa cập nhật'}`,
-    queueNumber: item.queueNumber || '-',
-    reason: item.reason || 'Khám bệnh',
-    status: statusLabel(item.status),
+    id: appointmentDisplayCode(item, appointmentId),
+    appointmentId,
+    doctorName: doctorName || 'Chưa phân công bác sĩ',
+    specialtyName: specialtyName || 'Chưa cập nhật',
+    appointmentDate,
+    slotTime,
+    dateTime: formatAppointmentDateTime(appointmentDate, slotTime),
+    reason: reason || 'Chưa ghi nhận',
+    status: statusLabel(status),
+    raw: item,
   }
+}
+
+function appointmentDisplayCode(item: Record<string, any>, appointmentId: unknown) {
+  const code = cleanDisplayText(getAny(item, 'appointmentCode', 'AppointmentCode', 'appointmentIdCode', 'AppointmentIdCode'))
+  if (code) return code
+  const numericId = Number(appointmentId)
+  return Number.isFinite(numericId) && numericId > 0 ? `LH${String(numericId).padStart(3, '0')}` : 'Chưa cập nhật'
+}
+
+function formatAppointmentDateTime(dateValue: unknown, timeValue: unknown) {
+  const date = formatDate(String(dateValue || ''))
+  const time = String(timeValue || '').trim().slice(0, 5)
+  if (date === 'Chưa cập nhật') return time || date
+  return time ? `${date} lúc ${time}` : date
+}
+
+function appointmentTimestamp(row: Row) {
+  const date = String(row.appointmentDate || '').slice(0, 10)
+  const time = String(row.slotTime || '00:00').slice(0, 8)
+  const timestamp = new Date(`${date}T${time}`).getTime()
+  return Number.isNaN(timestamp) ? 0 : timestamp
 }
 
 function mapRecord(item: MedicalRecord): Row {
@@ -779,6 +815,20 @@ function normalizeDate(value: unknown) {
   return String(value ?? '').trim().slice(0, 10)
 }
 
+function cleanDisplayText(value: unknown) {
+  const text = String(value ?? '').trim()
+  return ['null', 'undefined', '-', 'n/a'].includes(text.toLowerCase()) ? '' : text
+}
+
+function getAny(source: unknown, ...keys: string[]) {
+  const data = source as Record<string, any> | null | undefined
+  if (!data) return undefined
+  for (const key of keys) {
+    if (data[key] !== undefined && data[key] !== null) return data[key]
+  }
+  return undefined
+}
+
 function handleCitizenInput(value: string) {
   profileForm.citizenId = value.replace(/\D/g, '').slice(0, 12)
 }
@@ -839,6 +889,8 @@ function invoiceAmount(item: Invoice & Record<string, any>) {
 
 function formatDate(value?: string) {
   if (!value) return 'Chưa cập nhật'
+  const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (dateOnly) return `${Number(dateOnly[3])}/${Number(dateOnly[2])}/${dateOnly[1]}`
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('vi-VN').format(date)
 }

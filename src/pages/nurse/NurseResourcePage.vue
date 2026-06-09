@@ -128,12 +128,48 @@
 
     <div v-else class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <!-- Simple search bar (non-appointments) -->
-      <div v-if="resource !== 'appointments'" class="grid gap-3 border-b border-slate-100 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
-        <label class="relative block">
-          <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input v-model="query" class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100" :placeholder="config.placeholder" />
-        </label>
-        <span class="rounded-xl bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">{{ filteredRows.length }} dòng</span>
+      <div v-if="resource !== 'appointments'" class="space-y-4 border-b border-slate-100 p-4">
+        <div class="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+          <label class="relative block">
+            <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input v-model="query" class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100" :placeholder="config.placeholder" />
+          </label>
+          <span class="rounded-xl bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">{{ filteredRows.length }} dòng</span>
+        </div>
+
+        <div v-if="resource === 'bills'" class="grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 xl:grid-cols-[1fr_auto] xl:items-center">
+          <div class="grid gap-3 sm:grid-cols-3">
+            <div class="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
+              <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Cần thu</p>
+              <p class="mt-1 text-lg font-bold text-amber-700">{{ billUnpaidTotal }}</p>
+              <p class="text-xs font-semibold text-slate-500">{{ billUnpaidCount }} hóa đơn chưa thanh toán</p>
+            </div>
+            <div class="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
+              <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Đã thu</p>
+              <p class="mt-1 text-lg font-bold text-emerald-700">{{ billPaidTotal }}</p>
+              <p class="text-xs font-semibold text-slate-500">{{ billPaidCount }} hóa đơn hoàn tất</p>
+            </div>
+            <div class="rounded-xl border border-white bg-white px-4 py-3 shadow-sm">
+              <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Tổng phát sinh</p>
+              <p class="mt-1 text-lg font-bold text-slate-950">{{ billGrandTotal }}</p>
+              <p class="text-xs font-semibold text-slate-500">Theo danh sách đang đồng bộ</p>
+            </div>
+          </div>
+          <div class="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+            <button
+              v-for="option in billStatusOptions"
+              :key="option.value"
+              type="button"
+              :class="[
+                'h-9 rounded-lg px-3 text-xs font-bold transition',
+                billStatusFilter === option.value ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
+              ]"
+              @click="billStatusFilter = option.value"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+        </div>
       </div>
       <!-- Summary header for appointments -->
       <div v-else class="flex items-center justify-between border-b border-slate-100 p-4 bg-slate-50/50">
@@ -204,6 +240,62 @@
                   <!-- Detail is always available -->
                   <BaseButton size="sm" variant="outline" @click="openDetailDrawer(row)">Chi tiết</BaseButton>
                 </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Table for bills -->
+        <table v-else-if="resource === 'bills'" class="min-w-full divide-y divide-slate-100 text-sm">
+          <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="px-5 py-3.5">Hóa đơn</th>
+              <th class="px-5 py-3.5">Bệnh nhân</th>
+              <th class="px-5 py-3.5">Nguồn thu</th>
+              <th class="px-5 py-3.5 text-right">Số tiền</th>
+              <th class="px-5 py-3.5">Trạng thái</th>
+              <th class="px-5 py-3.5">Thời điểm</th>
+              <th class="px-5 py-3.5 text-right">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 bg-white">
+            <tr v-for="row in paginatedRows" :key="String(row.id)" :class="['transition hover:bg-slate-50', isPaidStatus(row.status) ? 'text-slate-600' : 'bg-amber-50/20']">
+              <td class="px-5 py-4 align-middle">
+                <div class="font-mono text-sm font-bold text-slate-950">#{{ row.invoiceNo || row.id }}</div>
+                <div class="mt-1 text-xs font-semibold text-slate-500">{{ row.appointmentLabel }}</div>
+              </td>
+              <td class="px-5 py-4 align-middle">
+                <div class="font-bold text-slate-950">{{ row.patientName }}</div>
+                <div class="mt-1 text-xs font-semibold text-slate-500">{{ row.patientCode }}</div>
+              </td>
+              <td class="px-5 py-4 align-middle">
+                <div class="font-semibold text-slate-800">{{ row.sourceLabel }}</div>
+                <div class="mt-1 max-w-xs truncate text-xs font-medium text-slate-500" :title="row.description">{{ row.description }}</div>
+              </td>
+              <td class="px-5 py-4 align-middle text-right">
+                <div class="text-base font-bold text-slate-950">{{ row.amount }}</div>
+              </td>
+              <td class="px-5 py-4 align-middle">
+                <span :class="['inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold', billStatusClass(row.status)]">
+                  {{ statusText(row.status) }}
+                </span>
+              </td>
+              <td class="px-5 py-4 align-middle">
+                <div class="font-semibold text-slate-700">{{ row.createdAt }}</div>
+                <div v-if="row.paidAt" class="mt-1 text-xs font-semibold text-emerald-700">Thu lúc {{ row.paidAt }}</div>
+              </td>
+              <td class="px-5 py-4 align-middle text-right">
+                <button
+                  v-if="canCollectInvoice(row)"
+                  type="button"
+                  :disabled="actingId === row.id"
+                  class="inline-flex h-10 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  @click="runAction('pay', row)"
+                >
+                  <CreditCard class="h-4 w-4" />
+                  Thu tiền
+                </button>
+                <span v-else :class="['inline-flex h-10 items-center rounded-lg border px-4 text-xs font-bold', invoiceActionClass(row)]">{{ invoiceActionLabel(row) }}</span>
               </td>
             </tr>
           </tbody>
@@ -352,7 +444,7 @@
     </div>
 
     <div v-if="patientModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.5rem] bg-white p-6 shadow-2xl">
+      <div class="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-[1.5rem] bg-white p-6 shadow-2xl">
         <div class="flex items-start justify-between gap-4">
           <div>
             <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">N2 Patient</p>
@@ -369,14 +461,20 @@
             <BaseInput v-model="patientForm.email" label="Email" type="email" />
             <BaseInput v-model="patientForm.dateOfBirth" label="Ngày sinh" type="date" />
             <BaseSelect v-model="patientForm.gender" label="Giới tính" :options="genderOptions" placeholder="Chọn giới tính" />
+            <BaseInput v-model="patientForm.citizenId" label="CCCD / định danh" maxlength="20" />
             <BaseInput v-model="patientForm.bloodType" label="Nhóm máu" />
+            <BaseSelect v-if="editingPatientId" v-model="patientForm.status" label="Trạng thái" :options="patientStatusOptions" placeholder="Chọn trạng thái" />
           </div>
           <label class="block">
             <span class="mb-2 block text-sm font-medium text-slate-700">Địa chỉ</span>
             <textarea v-model="patientForm.address" rows="2" maxlength="255" class="form-textarea"></textarea>
           </label>
           <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Tiền sử bệnh / dị ứng</span>
+            <span class="mb-2 block text-sm font-medium text-slate-700">Dị ứng</span>
+            <textarea v-model="patientForm.allergyNote" rows="3" class="form-textarea"></textarea>
+          </label>
+          <label class="block">
+            <span class="mb-2 block text-sm font-medium text-slate-700">Tiền sử bệnh</span>
             <textarea v-model="patientForm.medicalHistory" rows="3" class="form-textarea"></textarea>
           </label>
           <div class="flex justify-end gap-3">
@@ -415,7 +513,7 @@
           </div>
         </div>
 
-        <div v-if="stockInvoiceStatus && !String(stockInvoiceStatus).toLowerCase().includes('paid')" class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+        <div v-if="stockInvoiceStatus && !isPaidStatus(stockInvoiceStatus)" class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
           Cần thu viện phí trước khi phát thuốc. Backend chỉ cho phát thuốc khi hóa đơn đã Paid.
         </div>
         <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-900">
@@ -996,6 +1094,7 @@ const saving = ref(false)
 const error = ref('')
 const note = ref('')
 const query = ref('')
+const billStatusFilter = ref<'all' | 'unpaid' | 'paid'>('all')
 const actingId = ref<string | number | null>(null)
 const rows = ref<Row[]>([])
 const patientsList = ref<Patient[]>([])
@@ -1013,8 +1112,14 @@ const activePrescriptionRow = ref<Row | null>(null)
 const stockCheck = ref<PrescriptionStockCheck | null>(null)
 const editingPatientId = ref<string | number | null>(null)
 const vitalsForm = reactive({ temperature: undefined as number | undefined, bloodPressure: '', heartRate: undefined as number | undefined, height: undefined as number | undefined, weight: undefined as number | undefined, note: '' })
-const patientForm = reactive({ fullName: '', phoneNumber: '', email: '', dateOfBirth: '', gender: '', address: '', bloodType: '', allergyNote: '', medicalHistory: '' })
+const patientForm = reactive({ fullName: '', phoneNumber: '', email: '', dateOfBirth: '', gender: '', address: '', citizenId: '', bloodType: '', allergyNote: '', medicalHistory: '', status: 'Đang hoạt động' })
 const genderOptions = [{ label: 'Nam', value: 'Male' }, { label: 'Nữ', value: 'Female' }]
+const patientStatusOptions = [{ label: 'Đang hoạt động', value: 'Đang hoạt động' }, { label: 'Đã khóa', value: 'Đã khóa' }]
+const billStatusOptions: Array<{ label: string; value: 'all' | 'unpaid' | 'paid' }> = [
+  { label: 'Tất cả', value: 'all' },
+  { label: 'Cần thu', value: 'unpaid' },
+  { label: 'Đã thu', value: 'paid' },
+]
 
 // Advanced filters for appointments
 const appointmentQuery = ref('')
@@ -1047,9 +1152,9 @@ const invoicesList = ref<Invoice[]>([])
 
 const configs: Record<Resource, { title: string; service: string; description: string; endpoint: string; search: string[]; placeholder: string; emptyText: string; columns: Column[] }> = {
   appointments: cfg('Lịch hẹn tiếp nhận', 'N1 -> N2', 'Xác nhận lịch hẹn và gửi event check-in để N2 tạo lượt khám.', 'POST /medical/api/v1/medical/events/patient-checked-in', ['patientName', 'doctorName', 'status', 'reason'], 'Tìm bệnh nhân, bác sĩ, lý do...', 'N1 chưa có lịch hẹn để tiếp nhận.', cols(['id', 'Mã'], ['patientName', 'Bệnh nhân', false, true], ['doctorName', 'Bác sĩ'], ['dateTime', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
-  patients: cfg('Hồ sơ bệnh nhân', 'N2 Patients', 'Tạo và cập nhật thông tin hồ sơ bệnh nhân khi tiếp nhận.', 'GET/POST/PUT /medical/api/v1/medical/patients', ['id', 'name', 'phone', 'gender', 'history'], 'Tìm mã bệnh nhân, họ tên, số điện thoại...', 'N2 chưa có hồ sơ bệnh nhân.', cols(['id', 'Mã BN'], ['name', 'Bệnh nhân', false, true], ['phone', 'Số điện thoại'], ['gender', 'Giới tính'], ['history', 'Tiền sử bệnh'])),
+  patients: cfg('Hồ sơ bệnh nhân', 'N2 Patients', 'Tạo và cập nhật thông tin hồ sơ bệnh nhân khi tiếp nhận.', 'GET/POST/PUT /medical/api/v1/medical/patients', ['id', 'name', 'phone', 'email', 'gender', 'dateOfBirth', 'address', 'citizenId', 'bloodType', 'allergyNote', 'history', 'status'], 'Tìm mã bệnh nhân, họ tên, số điện thoại, CCCD...', 'N2 chưa có hồ sơ bệnh nhân.', cols(['id', 'Mã BN'], ['name', 'Bệnh nhân', false, true], ['phone', 'Số điện thoại'], ['email', 'Email'], ['dateOfBirth', 'Ngày sinh'], ['gender', 'Giới tính'], ['citizenId', 'CCCD'], ['bloodType', 'Nhóm máu'], ['address', 'Địa chỉ'], ['allergyNote', 'Dị ứng'], ['history', 'Tiền sử bệnh'], ['status', 'Trạng thái', true], ['createdAt', 'Ngày tạo'], ['updatedAt', 'Cập nhật'])),
   queue: cfg('Hàng chờ khám', 'N2 Visits', 'Theo dõi lượt khám đã check-in và cập nhật chỉ số sức khỏe trước khám.', 'GET /medical/api/v1/medical/visits/today', ['patientName', 'doctorName', 'status', 'reason'], 'Tìm bệnh nhân, bác sĩ, trạng thái...', 'N2 chưa có lượt khám hôm nay.', cols(['id', 'Visit'], ['patientName', 'Bệnh nhân', false, true], ['doctorName', 'Bác sĩ'], ['dateTime', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
-  bills: cfg('Thu viện phí', 'N3 Billing', 'Theo dõi hóa đơn và thu tiền. Không thuộc nghiệp vụ N2 bệnh án.', 'GET /pharmacy/api/invoices', ['id', 'patientId', 'amount', 'status'], 'Tìm hóa đơn, bệnh nhân, trạng thái...', 'N3 chưa có hóa đơn.', cols(['id', 'Mã HĐ'], ['patientId', 'Bệnh nhân'], ['appointmentId', 'Lịch hẹn'], ['amount', 'Số tiền'], ['status', 'Trạng thái', true])),
+  bills: cfg('Thu viện phí', 'N3 Billing', 'Theo dõi hóa đơn và thu tiền. Không thuộc nghiệp vụ N2 bệnh án.', 'GET /pharmacy/api/invoices', ['id', 'invoiceNo', 'patientName', 'patientCode', 'appointmentLabel', 'amount', 'status', 'description'], 'Tìm mã hóa đơn, bệnh nhân, mã BN, lịch hẹn...', 'N3 chưa có hóa đơn.', cols(['id', 'Mã HĐ'], ['patientId', 'Bệnh nhân'], ['appointmentId', 'Lịch hẹn'], ['amount', 'Số tiền'], ['status', 'Trạng thái', true])),
   prescriptions: cfg('Xử lý đơn thuốc', 'N3 Pharmacy', 'Kiểm tồn kho, duyệt đơn và phát thuốc sau khi hóa đơn đã thanh toán.', 'GET /pharmacy/api/prescriptions/{id}/stock-check', ['id', 'patientName', 'patientCode', 'medicalRecordId', 'medicine', 'status'], 'Tìm đơn thuốc, bệnh nhân, mã BN, thuốc...', 'Chưa có đơn thuốc.', cols(['id', 'Mã đơn'], ['patientName', 'Bệnh nhân', false, true], ['patientCode', 'Mã BN'], ['medicalRecordId', 'Bệnh án'], ['medicine', 'Thuốc'], ['status', 'Trạng thái', true])),
 }
 
@@ -1131,15 +1236,24 @@ const filteredRows = computed(() => {
     return filteredAppointments.value
   }
   const keyword = query.value.trim().toLowerCase()
-  if (!keyword) return rows.value
-  return rows.value.filter((row) => config.value.search.some((key) => String(row[key] || '').toLowerCase().includes(keyword)))
+  let list = keyword
+    ? rows.value.filter((row) => config.value.search.some((key) => String(row[key] || '').toLowerCase().includes(keyword)))
+    : rows.value
+
+  if (resource.value === 'bills') {
+    if (billStatusFilter.value === 'unpaid') list = list.filter((row) => !isPaidStatus(row.status))
+    if (billStatusFilter.value === 'paid') list = list.filter((row) => isPaidStatus(row.status))
+    return [...list].sort((a, b) => Number(isPaidStatus(a.status)) - Number(isPaidStatus(b.status)) || Number(b.id || 0) - Number(a.id || 0))
+  }
+
+  return list
 })
 
 // Pagination
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
 
-watch([resource, query, appointmentQuery, appointmentDate, appointmentFromDate, appointmentToDate, appointmentStatus, appointmentDoctor], () => {
+watch([resource, query, billStatusFilter, appointmentQuery, appointmentDate, appointmentFromDate, appointmentToDate, appointmentStatus, appointmentDoctor], () => {
   currentPage.value = 1
 })
 
@@ -1185,12 +1299,27 @@ const metrics = computed(() => {
   if (resource.value === 'appointments') {
     return []
   }
+  if (resource.value === 'bills') {
+    return [
+      { label: 'Tổng hóa đơn', value: rows.value.length, note: 'Theo N3 Billing' },
+      { label: 'Cần thu', value: billUnpaidCount.value, note: billUnpaidTotal.value },
+      { label: 'Đã thu', value: billPaidCount.value, note: billPaidTotal.value },
+    ]
+  }
   return [
     { label: 'Tổng dữ liệu', value: rows.value.length, note: 'Theo service hiện tại' },
     { label: 'Đang xử lý', value: rows.value.filter((row) => isActiveStatus(row.status)).length, note: 'Chờ, xác nhận hoặc chưa thu' },
     { label: 'Hoàn tất', value: rows.value.filter((row) => isDoneStatus(row.status)).length, note: 'Đã xử lý xong' },
   ]
 })
+
+const billUnpaidRows = computed(() => rows.value.filter((row) => !isPaidStatus(row.status)))
+const billPaidRows = computed(() => rows.value.filter((row) => isPaidStatus(row.status)))
+const billUnpaidCount = computed(() => billUnpaidRows.value.length)
+const billPaidCount = computed(() => billPaidRows.value.length)
+const billUnpaidTotal = computed(() => formatCurrency(billUnpaidRows.value.reduce((sum, row) => sum + Number(row.amountValue || 0), 0)))
+const billPaidTotal = computed(() => formatCurrency(billPaidRows.value.reduce((sum, row) => sum + Number(row.amountValue || 0), 0)))
+const billGrandTotal = computed(() => formatCurrency(rows.value.reduce((sum, row) => sum + Number(row.amountValue || 0), 0)))
 
 const selectedPatient = computed(() => {
   if (!selectedRow.value) return null
@@ -1204,10 +1333,7 @@ const stockInvoiceStatus = computed(() => stockCheck.value?.invoiceStatus || get
 const stockAllAvailable = computed(() => stockItems.value.length > 0 && stockItems.value.every(stockItemAvailable))
 const stockCanApprove = computed(() => booleanValue(stockCheck.value?.canApprove ?? getAny(stockCheck.value, 'CanApprove'), stockAllAvailable.value))
 const stockCanDispense = computed(() => booleanValue(stockCheck.value?.canDispense ?? getAny(stockCheck.value, 'CanDispense'), false))
-const stockInvoicePaid = computed(() => {
-  const status = String(stockInvoiceStatus.value || '').toLowerCase()
-  return status.includes('paid') || status.includes('đã thanh toán') || status.includes('da thanh toan')
-})
+const stockInvoicePaid = computed(() => isPaidStatus(stockInvoiceStatus.value))
 const stockPrimaryAction = computed<'approve' | 'dispense' | 'blocked'>(() => {
   if (!stockCheck.value || !stockAllAvailable.value) return 'blocked'
   if (stockCanDispense.value && stockInvoicePaid.value) return 'dispense'
@@ -1405,11 +1531,11 @@ function rowActions(row: Row) {
     if (status.includes('confirmed')) actions.push({ key: 'checkin', label: 'Check-in', className: 'bg-emerald-600 text-white hover:bg-emerald-700' })
     if (!isDoneStatus(row.status) && !status.includes('cancel')) actions.push({ key: 'cancelAppointment', label: 'Hủy', className: 'bg-rose-50 text-rose-700 hover:bg-rose-100' })
   }
-  if (resource.value === 'queue' && Number(row.visitId) > 0) {
+  if (resource.value === 'queue' && Number(row.visitId) > 0 && canUpdateVitals(row)) {
     actions.push({ key: 'vitals', label: 'Sinh hiệu', className: 'bg-blue-700 text-white hover:bg-blue-800' })
   }
   if (resource.value === 'patients') actions.push({ key: 'editPatient', label: 'Cập nhật', className: 'bg-blue-50 text-blue-700 hover:bg-blue-100' })
-  if (resource.value === 'bills' && !status.includes('paid')) actions.push({ key: 'pay', label: 'Thu tiền', className: 'bg-emerald-600 text-white hover:bg-emerald-700' })
+  if (resource.value === 'bills' && canCollectInvoice(row)) actions.push({ key: 'pay', label: 'Thu tiền', className: 'bg-emerald-600 text-white hover:bg-emerald-700' })
   if (resource.value === 'prescriptions') actions.push({ key: 'stockCheck', label: 'Xử lý', className: 'bg-blue-700 text-white hover:bg-blue-800' })
   return actions
 }
@@ -1713,12 +1839,17 @@ function openVitals(row: Row) {
   activeRow.value = row
   vitalsOpen.value = true
   const raw = row.raw || {}
+  const vitals = parseVitalSigns(raw.vitalSignsJson ?? raw.VitalSignsJson)
   vitalsForm.temperature = numberOrUndefined(raw.temperature ?? raw.Temperature)
-  vitalsForm.bloodPressure = String(raw.bloodPressure ?? raw.BloodPressure ?? '')
+    ?? numberOrUndefined(vitals.temperature ?? vitals.Temperature)
+  vitalsForm.bloodPressure = String(raw.bloodPressure ?? raw.BloodPressure ?? vitals.bloodPressure ?? vitals.BloodPressure ?? '')
   vitalsForm.heartRate = numberOrUndefined(raw.heartRate ?? raw.HeartRate)
+    ?? numberOrUndefined(vitals.heartRate ?? vitals.HeartRate)
   vitalsForm.height = numberOrUndefined(raw.height ?? raw.Height)
+    ?? numberOrUndefined(vitals.height ?? vitals.Height)
   vitalsForm.weight = numberOrUndefined(raw.weight ?? raw.Weight)
-  vitalsForm.note = String(raw.note ?? raw.Note ?? '')
+    ?? numberOrUndefined(vitals.weight ?? vitals.Weight)
+  vitalsForm.note = String(raw.note ?? raw.Note ?? vitals.note ?? vitals.Note ?? '')
 }
 
 function closeVitals() {
@@ -1738,7 +1869,7 @@ async function submitVitals() {
   saving.value = true
   error.value = ''
   try {
-    await medicalRecordApi.updateVisitVitals(visitId, {
+    const updatedVisit = await medicalRecordApi.updateVisitVitals(visitId, {
       temperature: emptyToNull(vitalsForm.temperature),
       bloodPressure: vitalsForm.bloodPressure.trim() || null,
       heartRate: emptyToNull(vitalsForm.heartRate),
@@ -1746,6 +1877,10 @@ async function submitVitals() {
       weight: emptyToNull(vitalsForm.weight),
       note: vitalsForm.note.trim() || null,
     })
+    if (activeRow.value) {
+      activeRow.value.raw = { ...(activeRow.value.raw || {}), ...updatedVisit }
+      activeRow.value.status = updatedVisit.status || activeRow.value.status
+    }
     note.value = 'Đã cập nhật chỉ số sức khỏe N2.'
     showToast('Đã lưu chỉ số sức khỏe', 'Tiếp theo bác sĩ có thể sang Khám & kê đơn để bắt đầu lượt khám.', 'success')
     closeVitals()
@@ -1777,9 +1912,11 @@ function openPatientModal(row?: Row) {
     dateOfBirth: String(row?.raw?.dateOfBirth || '').slice(0, 10),
     gender: row?.raw?.gender || '',
     address: row?.raw?.address || '',
+    citizenId: row?.raw?.citizenId || '',
     bloodType: row?.raw?.bloodType || '',
     allergyNote: row?.raw?.allergyNote || '',
     medicalHistory: row?.raw?.medicalHistory || '',
+    status: row?.raw?.status || 'Đang hoạt động',
   })
   patientModalOpen.value = true
 }
@@ -1787,7 +1924,7 @@ function openPatientModal(row?: Row) {
 function closePatientModal() {
   patientModalOpen.value = false
   editingPatientId.value = null
-  Object.assign(patientForm, { fullName: '', phoneNumber: '', email: '', dateOfBirth: '', gender: '', address: '', bloodType: '', allergyNote: '', medicalHistory: '' })
+  Object.assign(patientForm, { fullName: '', phoneNumber: '', email: '', dateOfBirth: '', gender: '', address: '', citizenId: '', bloodType: '', allergyNote: '', medicalHistory: '', status: 'Đang hoạt động' })
 }
 
 async function submitPatient() {
@@ -1799,7 +1936,19 @@ async function submitPatient() {
   saving.value = true
   error.value = ''
   try {
-    const payload = { ...patientForm, fullName: patientForm.fullName.trim(), phoneNumber: patientForm.phoneNumber.trim() || undefined }
+    const payload = {
+      fullName: patientForm.fullName.trim(),
+      phoneNumber: optionalText(patientForm.phoneNumber),
+      email: optionalText(patientForm.email),
+      dateOfBirth: optionalText(patientForm.dateOfBirth),
+      gender: optionalText(patientForm.gender),
+      address: optionalText(patientForm.address),
+      citizenId: optionalText(patientForm.citizenId),
+      bloodType: optionalText(patientForm.bloodType),
+      allergyNote: optionalText(patientForm.allergyNote),
+      medicalHistory: optionalText(patientForm.medicalHistory),
+      ...(editingPatientId.value ? { status: optionalText(patientForm.status) || 'Đang hoạt động' } : {}),
+    }
     if (editingPatientId.value) await medicalRecordApi.updatePatient(editingPatientId.value, payload)
     else await medicalRecordApi.createPatient(payload)
     note.value = editingPatientId.value ? 'Đã cập nhật hồ sơ bệnh nhân.' : 'Đã tạo hồ sơ bệnh nhân.'
@@ -1912,26 +2061,51 @@ function mapQueue(item: WaitingQueueItem): Row {
 }
 
 function mapPatient(item: Patient & Record<string, any>): Row {
+  const createdAt = item.createdAt || item.CreatedAt
+  const updatedAt = item.updatedAt || item.UpdatedAt
   return {
     id: item.patientCode || item.patientIdCode || item.patientId || item.id,
     patientId: item.patientId || item.id,
     name: displayText(item.fullName),
     phone: item.phoneNumber || item.phone || 'Chưa cập nhật',
+    email: item.email || 'Chưa cập nhật',
+    dateOfBirth: item.dateOfBirth ? formatDate(item.dateOfBirth) : 'Chưa cập nhật',
     gender: genderLabel(item.gender),
+    address: item.address || 'Chưa cập nhật',
+    citizenId: item.citizenId || 'Chưa cập nhật',
+    bloodType: item.bloodType || 'Chưa xác định',
+    allergyNote: item.allergyNote || item.allergies || 'Chưa ghi nhận',
     history: item.medicalHistory || 'Chưa ghi nhận',
+    status: item.status || 'Active',
+    createdAt: createdAt ? formatDetailDateTime(createdAt) : 'Chưa cập nhật',
+    updatedAt: updatedAt ? formatDetailDateTime(updatedAt) : 'Chưa cập nhật',
     raw: item,
   }
 }
 
 function mapInvoice(item: Invoice & Record<string, any>): Row {
   const amount = invoiceAmount(item)
+  const invoiceId = toNumber(item.invoiceId, item.InvoiceId, item.id, item.Id)
+  const patientId = item.patientId || item.PatientId
+  const appointmentId = item.appointmentId || item.AppointmentId
+  const createdAt = item.createdAt || item.CreatedAt || item.issueDate || item.IssueDate || item.invoiceDate || item.InvoiceDate
+  const paidAt = item.paidAt || item.PaidAt || item.paymentDate || item.PaymentDate
+  const patient = patientsList.value.find(p => Number(p.patientId || p.id) === Number(patientId))
   return {
-    id: toNumber(item.invoiceId, item.InvoiceId, item.id, item.Id),
-    patientId: getPatientDisplayFallback(item.patientId || item.PatientId),
-    appointmentId: item.appointmentId || item.AppointmentId ? `#${item.appointmentId || item.AppointmentId}` : 'Không gắn lịch',
+    id: invoiceId,
+    invoiceNo: item.invoiceCode || item.InvoiceCode || invoiceId,
+    patientId: getPatientDisplayFallback(patientId),
+    patientName: item.patientName || item.PatientName || patient?.fullName || patientNameFallback(patientId),
+    patientCode: item.patientCode || item.PatientCode || patient?.patientCode || patient?.patientIdCode || patientCodeFallback(patientId),
+    appointmentId: appointmentId ? `#${appointmentId}` : 'Không gắn lịch',
+    appointmentLabel: appointmentId ? `Lịch hẹn #${appointmentId}` : 'Không gắn lịch hẹn',
     amount: formatCurrency(amount),
     amountValue: amount,
     status: item.status || item.Status,
+    sourceLabel: invoiceSourceLabel(item),
+    description: invoiceDescription(item),
+    createdAt: createdAt ? formatDetailDateTime(createdAt) : 'Chưa ghi nhận',
+    paidAt: paidAt ? formatDetailDateTime(paidAt) : '',
     raw: item,
   }
 }
@@ -2014,6 +2188,35 @@ function stockBlockMessage(action: 'approve' | 'dispense' | 'blocked') {
   return 'Đơn đủ thuốc và đã thanh toán, nhưng N3 chưa trả bước xử lý tiếp theo. Bấm Kiểm kho lại hoặc kiểm tra trạng thái đơn.'
 }
 
+function canUpdateVitals(row: Row) {
+  const raw = row.raw || {}
+  const status = String(row.status || raw.status || raw.Status || '').toLowerCase()
+  if (status.includes('progress') || status.includes('đang khám') || status.includes('completed') || status.includes('hoàn') || status.includes('cancel')) return false
+  return !hasVitalSigns(raw)
+}
+
+function hasVitalSigns(raw: Record<string, any>) {
+  const vitals = parseVitalSigns(raw.vitalSignsJson ?? raw.VitalSignsJson)
+  return Boolean(raw.vitalSignsJson || raw.VitalSignsJson)
+    || [raw.temperature, raw.Temperature, vitals.temperature, vitals.Temperature,
+      raw.bloodPressure, raw.BloodPressure, vitals.bloodPressure, vitals.BloodPressure,
+      raw.heartRate, raw.HeartRate, vitals.heartRate, vitals.HeartRate,
+      raw.height, raw.Height, vitals.height, vitals.Height,
+      raw.weight, raw.Weight, vitals.weight, vitals.Weight,
+      raw.note, raw.Note, vitals.note, vitals.Note]
+      .some((value) => value !== undefined && value !== null && String(value).trim() !== '')
+}
+
+function parseVitalSigns(value: unknown): Record<string, any> {
+  if (!value || typeof value !== 'string') return {}
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, any> : {}
+  } catch {
+    return {}
+  }
+}
+
 function value(row: Row, key: string) {
   return row[key] === undefined || row[key] === '' ? 'Chưa cập nhật' : String(row[key])
 }
@@ -2059,8 +2262,26 @@ function emptyToNull(value: unknown) {
   return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : null
 }
 
+function optionalText(value: unknown) {
+  const textValue = String(value || '').trim()
+  return textValue || undefined
+}
+
 function invoiceAmount(item: Invoice & Record<string, any>) {
   return toNumber(item.amount, item.Amount, item.totalAmount, item.TotalAmount, item.examinationFee, item.ExaminationFee, item.examFee, item.ExamFee)
+}
+
+function invoiceSourceLabel(item: Invoice & Record<string, any>) {
+  const type = String(getAny(item, 'type', 'Type', 'invoiceType', 'InvoiceType', 'category', 'Category') || '').toLowerCase()
+  if (type.includes('medicine') || type.includes('prescription') || type.includes('thuoc') || type.includes('thuốc')) return 'Đơn thuốc'
+  if (type.includes('exam') || type.includes('appointment') || type.includes('kham') || type.includes('khám')) return 'Phí khám'
+  if (getAny(item, 'prescriptionId', 'PrescriptionId')) return 'Đơn thuốc'
+  if (getAny(item, 'appointmentId', 'AppointmentId')) return 'Phí khám'
+  return 'Thu viện phí'
+}
+
+function invoiceDescription(item: Invoice & Record<string, any>) {
+  return meaningfulText(getAny(item, 'description', 'Description', 'note', 'Note', 'serviceName', 'ServiceName', 'content', 'Content')) || 'Hóa đơn phát sinh từ N3 Billing'
 }
 
 function formatCurrency(value: number) {
@@ -2092,8 +2313,8 @@ function statusText(status?: string | number) {
   if (normalized.includes('confirmed')) return 'Đã xác nhận'
   if (normalized.includes('progress')) return 'Đang khám'
   if (normalized.includes('completed') || normalized.includes('done')) return 'Hoàn tất'
-  if (normalized.includes('paid')) return 'Đã thanh toán'
   if (normalized.includes('unpaid')) return 'Chưa thanh toán'
+  if (isPaidStatus(value)) return 'Đã thanh toán'
   if (normalized.includes('cancel')) return 'Đã hủy'
   if (normalized.includes('waiting') || normalized.includes('pending')) return 'Đang chờ'
   return value || 'Chưa cập nhật'
@@ -2106,16 +2327,48 @@ function isActiveStatus(status?: string | number) {
 
 function isDoneStatus(status?: string | number) {
   const value = String(status || '').toLowerCase()
-  return value.includes('done') || value.includes('completed') || value.includes('paid') || value.includes('hoàn')
+  return value.includes('done') || value.includes('completed') || isPaidStatus(status) || value.includes('hoàn')
 }
 
 function statusClass(status?: string | number) {
   const value = String(status || '').toLowerCase()
-  if (value.includes('completed') || value.includes('done') || value.includes('confirmed') || value.includes('checked') || value.includes('paid')) return 'bg-emerald-100 text-emerald-700'
+  if (value.includes('completed') || value.includes('done') || value.includes('confirmed') || value.includes('checked') || isPaidStatus(status)) return 'bg-emerald-100 text-emerald-700'
   if (value.includes('progress')) return 'bg-blue-100 text-blue-700'
   if (value.includes('waiting') || value.includes('pending') || value.includes('unpaid')) return 'bg-amber-100 text-amber-700'
   if (value.includes('cancel')) return 'bg-rose-100 text-rose-700'
   return 'bg-slate-100 text-slate-700'
+}
+
+function billStatusClass(status?: string | number) {
+  const value = String(status || '').toLowerCase()
+  if (isPaidStatus(status)) return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+  if (value.includes('cancel') || value.includes('void')) return 'border-rose-200 bg-rose-50 text-rose-700'
+  return 'border-amber-200 bg-amber-50 text-amber-700'
+}
+
+function canCollectInvoice(row: Row) {
+  const status = String(row.status || '').toLowerCase()
+  return !isPaidStatus(row.status) && !status.includes('cancel') && !status.includes('void')
+}
+
+function invoiceActionLabel(row: Row) {
+  const status = String(row.status || '').toLowerCase()
+  if (status.includes('cancel') || status.includes('void')) return 'Không thu'
+  if (isPaidStatus(row.status)) return 'Đã thu'
+  return 'Chưa thể thu'
+}
+
+function invoiceActionClass(row: Row) {
+  const status = String(row.status || '').toLowerCase()
+  if (status.includes('cancel') || status.includes('void')) return 'border-rose-100 bg-rose-50 text-rose-700'
+  if (isPaidStatus(row.status)) return 'border-emerald-100 bg-emerald-50 text-emerald-700'
+  return 'border-slate-200 bg-slate-50 text-slate-600'
+}
+
+function isPaidStatus(status?: string | number) {
+  const normalized = String(status || '').trim().toLowerCase()
+  if (!normalized || normalized.includes('unpaid') || normalized.includes('chưa thanh toán') || normalized.includes('chua thanh toan')) return false
+  return normalized === 'paid' || normalized.includes('đã thanh toán') || normalized.includes('da thanh toan')
 }
 
 function isResource(value: unknown): value is Resource {
@@ -2138,7 +2391,7 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
 }
 </script>
 
-<style scoped>
+<style scoped lang="postcss">
 .form-textarea {
   @apply w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100;
 }

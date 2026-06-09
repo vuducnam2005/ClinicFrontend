@@ -15,18 +15,12 @@
             </p>
           </div>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center">
           <BaseButton variant="outline" :disabled="loading" @click="loadData">
             <template #icon>
               <RefreshCw :class="['h-4 w-4', loading ? 'animate-spin' : '']" />
             </template>
             Tải lại
-          </BaseButton>
-          <BaseButton class="bg-blue-600 hover:bg-blue-700 text-white font-bold" @click="triggerPrint">
-            <template #icon>
-              <Printer class="h-4 w-4" />
-            </template>
-            In đơn thuốc
           </BaseButton>
         </div>
       </div>
@@ -243,17 +237,6 @@
                       </template>
                       Chi tiết
                     </BaseButton>
-                    <BaseButton
-                      variant="ghost"
-                      size="sm"
-                      class="bg-slate-50 text-slate-600 hover:bg-slate-100 font-bold flex items-center gap-1.5 border border-transparent"
-                      @click="printPrescription(prescription)"
-                    >
-                      <template #icon>
-                        <Printer class="h-4 w-4 text-slate-500" />
-                      </template>
-                      In
-                    </BaseButton>
                   </div>
                 </td>
               </tr>
@@ -355,17 +338,7 @@
               Mã: {{ selectedPrescription.prescriptionCode || 'DT' + String(selectedPrescription.id).padStart(3, '0') }}
             </p>
           </div>
-          <div class="flex items-center gap-2">
-            <BaseButton
-              v-slot:icon
-              v-if="selectedPrescription"
-              variant="outline"
-              size="sm"
-              class="border-slate-200 text-slate-700 bg-white hover:bg-slate-50 font-bold inline-flex items-center gap-1.5 h-9"
-              @click="printPrescription(selectedPrescription)"
-            >
-              <Printer class="h-4 w-4 text-slate-500" />
-            </BaseButton>
+          <div class="flex items-center">
             <button type="button" class="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition" @click="closeDrawer">
               <X class="h-5 w-5" />
             </button>
@@ -558,109 +531,11 @@
       @close="toast.show = false"
     />
 
-    <!-- Print Area for Prescription -->
-    <div v-if="prescriptionToPrint" class="print-area">
-      <div class="print-container p-6 bg-white max-w-2xl mx-auto text-slate-800">
-        <!-- Logo and System Name -->
-        <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4 mb-6">
-          <img :src="logoUrl" alt="Logo MedicareDNU" class="h-8 w-auto object-contain" />
-          <div class="text-right text-xs text-slate-500">
-            <p>Hệ thống quản lý phòng khám MedicareDNU</p>
-            <p>Thời gian in: {{ currentPrintDateTime() }}</p>
-          </div>
-        </div>
-
-        <!-- Document Title -->
-        <div class="text-center mb-6">
-          <h1 class="text-xl font-bold text-slate-900 tracking-wide uppercase">Đơn thuốc</h1>
-          <p class="text-xs text-slate-500 mt-1 font-mono">Mã đơn thuốc: {{ prescriptionToPrint.prescriptionCode || 'DT' + String(prescriptionToPrint.id).padStart(3, '0') }}</p>
-        </div>
-
-        <!-- Patient Info -->
-        <div class="mb-5">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Thông tin bệnh nhân</h2>
-          <div class="grid grid-cols-2 gap-y-2 text-xs">
-            <div><span class="font-bold text-slate-500">Mã bệnh nhân:</span> <span class="font-semibold text-slate-800">{{ currentPatient?.patientCode || currentPatient?.patientIdCode || prescriptionToPrint.patientCode || prescriptionToPrint.patientIdCode || currentPatient?.id || prescriptionToPrint.patientId || 'Chưa có thông tin' }}</span></div>
-            <div><span class="font-bold text-slate-500">Họ và tên:</span> <span class="font-semibold text-slate-800">{{ currentPatient?.fullName || authStore.user?.fullName || 'Chưa có thông tin' }}</span></div>
-            <div><span class="font-bold text-slate-500">Ngày sinh:</span> <span class="font-semibold text-slate-800">{{ formatDate(currentPatient?.dateOfBirth) }}</span></div>
-            <div><span class="font-bold text-slate-500">Giới tính:</span> <span class="font-semibold text-slate-800">{{ genderLabel(currentPatient?.gender) }}</span></div>
-            <div class="col-span-2"><span class="font-bold text-slate-500">Số điện thoại:</span> <span class="font-semibold text-slate-800">{{ currentPatient?.phoneNumber || currentPatient?.phone || 'Chưa có thông tin' }}</span></div>
-          </div>
-        </div>
-
-        <!-- Prescription Info -->
-        <div class="mb-5">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Thông tin đơn thuốc</h2>
-          <div class="grid grid-cols-2 gap-y-2 text-xs">
-            <div><span class="font-bold text-slate-500">Mã bệnh án:</span> <span class="font-semibold text-slate-800 font-mono">{{ prescriptionToPrint.medicalRecordCode || 'Chưa có thông tin' }}</span></div>
-            <div><span class="font-bold text-slate-500">Bác sĩ kê đơn:</span> <span class="font-semibold text-slate-800">{{ associatedDoctorName(prescriptionToPrint) || 'Chưa có thông tin' }}</span></div>
-            <div><span class="font-bold text-slate-500">Ngày kê đơn:</span> <span class="font-semibold text-slate-800">{{ formatDateTime(prescriptionToPrint.createdAt) }}</span></div>
-            <div><span class="font-bold text-slate-500">Trạng thái xử lý:</span> <span class="font-semibold text-slate-800">{{ statusLabel(prescriptionToPrint.status) }}</span></div>
-          </div>
-        </div>
-
-        <!-- Medicines List Table -->
-        <div class="mb-5">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Danh mục thuốc</h2>
-          <table v-if="(prescriptionToPrint.items || prescriptionToPrint.prescriptionItems || []).length" class="min-w-full border border-slate-200 text-xs mb-3">
-            <thead class="bg-slate-50 font-bold text-slate-600 text-left border-b border-slate-200">
-              <tr>
-                <th class="px-2 py-1.5 border-r border-slate-200 w-10 text-center">STT</th>
-                <th class="px-2 py-1.5 border-r border-slate-200">Tên thuốc</th>
-                <th class="px-2 py-1.5 border-r border-slate-200 w-20 text-center">Số lượng</th>
-                <th class="px-2 py-1.5 border-r border-slate-200">Liều lượng</th>
-                <th class="px-2 py-1.5">Cách dùng / Hướng dẫn</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 bg-white">
-              <tr v-for="(item, index) in (prescriptionToPrint.items || prescriptionToPrint.prescriptionItems)" :key="item.id">
-                <td class="px-2 py-1.5 border-r border-slate-200 text-center font-medium">{{ index + 1 }}</td>
-                <td class="px-2 py-1.5 border-r border-slate-200 font-bold text-slate-800">{{ item.medicineNameSnapshot || item.medicineName }}</td>
-                <td class="px-2 py-1.5 border-r border-slate-200 text-center font-bold">{{ item.quantity }} {{ item.unitSnapshot || 'Viên' }}</td>
-                <td class="px-2 py-1.5 border-r border-slate-200 font-medium">{{ item.dosage || 'Chỉ định' }} · {{ item.frequency || 'Chưa cập nhật' }}</td>
-                <td class="px-2 py-1.5 font-medium">{{ item.usageInstruction || 'Theo dặn dò' }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div v-else-if="prescriptionToPrint.note" class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-700 whitespace-pre-line leading-relaxed font-semibold">
-            {{ prescriptionToPrint.note }}
-          </div>
-          <div v-else class="text-xs text-slate-500 italic pl-3">Chưa có thông tin danh sách thuốc chi tiết</div>
-        </div>
-
-        <!-- Footnote / Safety notes -->
-        <div class="rounded-xl border border-blue-100 bg-blue-50/50 p-3 text-[10px] text-blue-800 leading-relaxed mb-6">
-          <span class="font-bold">Lưu ý:</span> Uống thuốc đúng giờ, đúng liều theo chỉ dẫn. Không tự ý ngưng thuốc hoặc thay đổi liều lượng thuốc được bác sĩ kê.
-        </div>
-
-        <!-- Signature Block -->
-        <div class="mt-8 pt-6 border-t border-slate-200 grid grid-cols-3 text-center text-xs gap-4">
-          <div>
-            <p class="font-bold text-slate-500 uppercase tracking-wide">Bệnh nhân</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">(Ký và ghi rõ họ tên)</p>
-            <div class="h-16"></div>
-            <p class="font-bold text-slate-800">{{ currentPatient?.fullName || authStore.user?.fullName || '' }}</p>
-          </div>
-          <div>
-            <p class="font-bold text-slate-500 uppercase tracking-wide">Dược sĩ</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">(Ký và ghi rõ họ tên)</p>
-            <div class="h-16"></div>
-            <p class="font-bold text-slate-800"></p>
-          </div>
-          <div>
-            <p class="font-bold text-slate-500 uppercase tracking-wide">Bác sĩ kê đơn</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">(Ký và ghi rõ họ tên)</p>
-            <div class="h-16"></div>
-            <p class="font-bold text-slate-800">{{ associatedDoctorName(prescriptionToPrint) }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import {
   CalendarClock,
   CheckCircle2,
@@ -670,7 +545,6 @@ import {
   Eye,
   FileText,
   Pill,
-  Printer,
   RefreshCw,
   Search,
   Send,
@@ -688,7 +562,6 @@ import type { Prescription } from '@/types/billing'
 import type { Appointment } from '@/types/appointment'
 import type { Patient } from '@/types/medicalRecord'
 import type { Doctor } from '@/types/doctor'
-import logoUrl from '@/assets/logo.png'
 
 const authStore = useAuthStore()
 const loading = ref(true)
@@ -712,9 +585,6 @@ const filters = reactive({
 const drawerOpen = ref(false)
 const selectedPrescription = ref<Prescription | null>(null)
 const currentTab = ref('overview')
-
-// Print State
-const prescriptionToPrint = ref<Prescription | null>(null)
 
 const drawerTabs = [
   { key: 'overview', label: 'Tổng quan' },
@@ -886,35 +756,6 @@ function resetFilters() {
   filters.status = 'ALL'
   filters.startDate = ''
   filters.endDate = ''
-}
-
-function currentPrintDateTime() {
-  return formatDateTime(new Date().toISOString())
-}
-
-async function printPrescription(prescription: Prescription) {
-  prescriptionToPrint.value = prescription
-  showToast('In đơn thuốc', 'Đang chuẩn bị bản in...', 'success')
-  await nextTick()
-  setTimeout(() => {
-    window.print()
-  }, 300)
-}
-
-function triggerPrint() {
-  if (selectedPrescription.value) {
-    printPrescription(selectedPrescription.value)
-    return
-  }
-  if (prescriptions.value.length === 1) {
-    printPrescription(prescriptions.value[0])
-    return
-  }
-  if (prescriptions.value.length === 0) {
-    showToast('In đơn thuốc', 'Chưa có dữ liệu đơn thuốc để in', 'error')
-    return
-  }
-  showToast('In đơn thuốc', 'Vui lòng chọn đơn thuốc cần in', 'error')
 }
 
 // Helpers for medicines lists
@@ -1150,38 +991,5 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-</style>
-
-<style>
-@media print {
-  body * {
-    visibility: hidden !important;
-  }
-  .print-area,
-  .print-area * {
-    visibility: visible !important;
-  }
-  .print-area {
-    display: block !important;
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
-    background: white !important;
-    color: black !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-  
-  @page {
-    size: A4;
-    margin: 15mm;
-  }
-}
-
-/* Hide print area by default on screen */
-.print-area {
-  display: none !important;
 }
 </style>

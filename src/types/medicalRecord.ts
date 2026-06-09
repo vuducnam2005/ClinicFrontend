@@ -34,7 +34,9 @@ export interface MedicalRecord {
   appointmentId?: string
   doctorId?: string | number
   doctorName?: string
+  chiefComplaint?: string
   symptoms?: string
+  vitalSignsJson?: string
   diagnosis?: string
   diagnosisCode?: string
   diagnosisText?: string
