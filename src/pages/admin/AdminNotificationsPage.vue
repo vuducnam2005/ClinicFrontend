@@ -264,7 +264,9 @@ async function submitNotification() {
     showToast('Đã gửi thông báo', `Đã gửi thông báo đến ${result.recipientCount} người dùng.`, 'success')
     resetForm(false)
   } catch (apiError) {
-    error.value = getApiErrorMessage(apiError)
+    error.value = Number((apiError as any)?.response?.status) === 404
+      ? 'Không tìm thấy API gửi thông báo. Vui lòng kiểm tra backend PharmacyBillingService đã deploy endpoint admin/send.'
+      : getApiErrorMessage(apiError)
     showToast('Gửi thông báo thất bại', error.value, 'error')
   } finally {
     saving.value = false

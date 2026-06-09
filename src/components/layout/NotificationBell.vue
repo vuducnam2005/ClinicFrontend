@@ -126,8 +126,11 @@ onBeforeUnmount(() => {
 
 async function togglePanel() {
   open.value = !open.value
-  if (open.value && !notificationStore.notifications.length) {
-    await notificationStore.fetchNotifications(activeTab.value === 'unread' ? false : undefined).catch(() => undefined)
+  if (open.value) {
+    await Promise.all([
+      notificationStore.fetchNotifications().catch(() => undefined),
+      notificationStore.fetchUnreadCount().catch(() => undefined),
+    ])
   }
 }
 
