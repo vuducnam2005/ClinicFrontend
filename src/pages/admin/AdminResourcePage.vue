@@ -610,6 +610,20 @@
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <template v-for="field in fields" :key="field.key">
               <BaseSelect v-if="field.type === 'select'" v-model="form[field.key]" :label="field.label" :options="field.options || []" :placeholder="field.placeholder || 'Chọn'" :required="field.required" />
+              <div v-else-if="field.type === 'textarea'" class="col-span-1 sm:col-span-2 lg:col-span-3 block">
+                <label class="block">
+                  <span class="mb-2 block text-sm font-medium text-slate-700">
+                    {{ field.label }} <span v-if="field.required" class="text-rose-600" aria-hidden="true">*</span>
+                  </span>
+                  <textarea
+                    v-model="form[field.key]"
+                    rows="3"
+                    class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
+                    :placeholder="field.placeholder || 'Nhập...'"
+                    :required="field.required"
+                  ></textarea>
+                </label>
+              </div>
               <BaseInput v-else v-model="form[field.key]" :label="field.label" :type="field.type || 'text'" :required="field.required" :min="field.type === 'number' ? 0 : undefined" />
             </template>
           </div>
@@ -1079,11 +1093,16 @@ function buildFields(k: Key): Field[] {
     field('doctorName','Tên bác sĩ','text',true),
     field('specialtyId','Chuyên khoa','select',true, specialtyOptions.value),
     field('degree','Học vị'),
+    field('experienceYears','Số năm kinh nghiệm','number'),
+    field('gender','Giới tính','select',false,[{label:'Nam',value:'Nam'},{label:'Nữ',value:'Nữ'},{label:'Khác',value:'Khác'}]),
+    field('dateOfBirth','Ngày sinh','date'),
     field('examFee','Phí khám','number',true),
     field('phone','Số điện thoại'),
     field('email','Email','email'),
     field('roomNumber','Phòng khám'),
+    field('avatarUrl','Ảnh đại diện (URL)'),
     field('isActive','Trạng thái hoạt động','select',true,[{label:'Đang hoạt động',value:'true'},{label:'Tạm ngưng',value:'false'}]),
+    field('description','Mô tả','textarea'),
   ]
   if (k === 'specialties') return [field('specialtyName','Tên chuyên khoa','text',true)]
   if (k === 'schedules') return [field('doctorId','Bác sĩ','select',true, doctorOptions.value), field('workDate','Ngày làm','date',true), field('startTime','Giờ bắt đầu','time',true), field('endTime','Giờ kết thúc','time',true), field('slotDurationMinutes','Phút/slot','number', true), field('isAvailable','Trạng thái','select',true,[{label:'Đang mở',value:'true'},{label:'Tạm ngưng',value:'false'}])]
@@ -1178,7 +1197,26 @@ async function submitBulkSchedules() {
   }
 }
 
-function doctorPayload() { const sp = specialtyOptions.value.find((s) => Number(s.value) === Number(form.specialtyId)); return { doctorName: form.doctorName, fullName: form.doctorName, specialtyId: Number(form.specialtyId), specialtyName: sp?.label, degree: form.degree || '', examFee: Number(form.examFee || 0), phone: form.phone || '', email: form.email || '', roomNumber: form.roomNumber || '', isActive: form.isActive !== 'false' } }
+function doctorPayload() {
+  const sp = specialtyOptions.value.find((s) => Number(s.value) === Number(form.specialtyId))
+  return {
+    doctorName: form.doctorName,
+    fullName: form.doctorName,
+    specialtyId: Number(form.specialtyId),
+    specialtyName: sp?.label,
+    degree: form.degree || '',
+    examFee: Number(form.examFee || 0),
+    phone: form.phone || '',
+    email: form.email || '',
+    roomNumber: form.roomNumber || '',
+    isActive: form.isActive !== 'false',
+    experienceYears: form.experienceYears ? Number(form.experienceYears) : 0,
+    gender: form.gender || '',
+    dateOfBirth: form.dateOfBirth || null,
+    description: form.description || '',
+    avatarUrl: form.avatarUrl || '',
+  }
+}
 function schedulePayload() { return { doctorId: Number(form.doctorId), workDate: form.workDate, startTime: normalizeTime(form.startTime), endTime: normalizeTime(form.endTime), slotDurationMinutes: Number(form.slotDurationMinutes || 30), isAvailable: form.isAvailable !== 'false' } }
 function schedulePayloadFromRow(row: Row, isAvailable = row.isAvailable !== false) { return { doctorId: Number(row.doctorId), workDate: row.workDateRaw, startTime: normalizeTime(row.startTime), endTime: normalizeTime(row.endTime), slotDurationMinutes: Number(row.slotDurationMinutes || 30), isAvailable } }
 function bulkSchedulePayload(workDate: string) { return { doctorId: Number(bulkScheduleForm.doctorId), workDate, startTime: normalizeTime(bulkScheduleForm.startTime), endTime: normalizeTime(bulkScheduleForm.endTime), slotDurationMinutes: Number(bulkScheduleForm.slotDurationMinutes || 30), isAvailable: bulkScheduleForm.isAvailable !== 'false' } }
@@ -1704,6 +1742,8 @@ function formValue(row: Row | undefined, key: string) {
     if (key === 'minStockLevel') return '10'
     if (key === 'slotDurationMinutes') return '30'
     if (key === 'workDate') return localDateIso(new Date())
+    if (key === 'experienceYears') return '0'
+    if (key === 'gender') return 'Nam'
     return ''
   }
   if (key === 'password') return ''
@@ -1720,7 +1760,7 @@ function formValue(row: Row | undefined, key: string) {
   const value = raw[key] ?? raw[pascal(key)] ?? row[key] ?? ''
   if (key === 'roleId') return String(raw.roleId ?? row.raw?.roleId ?? value ?? RoleId.Receptionist)
   if (key === 'price') return String(row.priceValue ?? value ?? '')
-  if (key === 'expiryDate') return dateInputValue(value)
+  if (key === 'expiryDate' || key === 'dateOfBirth') return dateInputValue(value)
   return String(value ?? '')
 }
 function dateInputValue(v: unknown) { if (!v) return ''; const d = new Date(String(v)); return Number.isNaN(d.getTime()) ? String(v).slice(0, 10) : d.toISOString().slice(0, 10) }
