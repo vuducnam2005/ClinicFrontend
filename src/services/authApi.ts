@@ -12,6 +12,13 @@ function roleIdFromName(role?: string | number): RoleId {
   return RoleId.Patient
 }
 
+function roleNameFromId(roleId: RoleId) {
+  if (roleId === RoleId.Admin) return 'Admin'
+  if (roleId === RoleId.Doctor) return 'Doctor'
+  if (roleId === RoleId.Receptionist) return 'Nurse'
+  return 'Patient'
+}
+
 function normalizeUser(payload: any): User {
   const roleName = payload?.roleName || payload?.role || payload?.userRole || 'Patient'
   return {
@@ -22,6 +29,7 @@ function normalizeUser(payload: any): User {
     phoneNumber: payload?.phoneNumber || payload?.phone,
     roleId: roleIdFromName(payload?.roleId ?? roleName),
     roleName,
+    status: payload?.status || payload?.Status || 'Active',
     createdAt: payload?.createdAt || new Date().toISOString(),
     doctorId: payload?.doctorId,
     specialtyId: payload?.specialtyId,
@@ -60,12 +68,24 @@ export interface RegisterRequest {
   email?: string
   phoneNumber?: string
   roleId: RoleId
+  roleName?: string
 }
 
 export interface UpdateProfileRequest {
   fullName: string
   email: string
   phoneNumber?: string
+}
+
+export interface UpdateUserRequest {
+  username?: string
+  password?: string
+  fullName: string
+  email: string
+  phoneNumber?: string
+  roleId: RoleId
+  roleName?: string
+  status?: string
 }
 
 export const authApi = {
@@ -87,7 +107,19 @@ export const authApi = {
       username: payload.username,
       password: payload.password,
       phoneNumber: payload.phoneNumber,
-      role: RoleId[payload.roleId] || 'Patient',
+      role: payload.roleName || roleNameFromId(payload.roleId),
+    })
+    return normalizeUser(readApiResponse<any>(response.data))
+  },
+
+  async createUser(payload: RegisterRequest) {
+    const response = await client.post('/api/auth/users', {
+      fullName: payload.fullName,
+      email: payload.email,
+      username: payload.username,
+      password: payload.password,
+      phoneNumber: payload.phoneNumber,
+      role: payload.roleName || roleNameFromId(payload.roleId),
     })
     return normalizeUser(readApiResponse<any>(response.data))
   },
@@ -112,12 +144,42 @@ export const authApi = {
   },
 
   async getUsers() {
+    try {
+      const response = await client.get('/api/auth/users')
+      return readApiResponse<any[]>(response.data).map(normalizeUser)
+    } catch (error: any) {
+      if (![404, 405].includes(Number(error?.response?.status))) throw error
+    }
+
     const responses = await Promise.all([
       client.get('/api/auth/users/doctors'),
       client.get('/api/auth/users/nurses'),
       client.get('/api/auth/users/patients'),
     ])
     return responses.flatMap((response) => readApiResponse<any[]>(response.data).map(normalizeUser))
+  },
+
+  async getNurses() {
+    const response = await client.get('/api/auth/users/nurses')
+    return readApiResponse<any[]>(response.data).map(normalizeUser)
+  },
+
+  async updateUser(id: string | number, payload: UpdateUserRequest) {
+    const response = await client.put(`/api/auth/users/${id}`, {
+      fullName: payload.fullName,
+      email: payload.email,
+      username: payload.username,
+      password: payload.password || undefined,
+      phoneNumber: payload.phoneNumber,
+      role: payload.roleName || roleNameFromId(payload.roleId),
+      status: payload.status || 'Active',
+    })
+    return normalizeUser(readApiResponse<any>(response.data))
+  },
+
+  async deleteUser(id: string | number) {
+    const response = await client.delete(`/api/auth/users/${id}`)
+    return readApiResponse<void>(response.data)
   },
 
   logout() {

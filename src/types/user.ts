@@ -13,6 +13,7 @@ export interface User {
   phoneNumber?: string
   roleId: RoleId
   roleName: string
+  status?: string
   createdAt: string
   doctorId?: number
   specialtyId?: number

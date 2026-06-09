@@ -45,6 +45,7 @@ const menuGroups = [
  items: [
  { label: 'Thông báo', to: '/admin/notifications', icon: BellRing },
  { label: 'Tài khoản', to: '/admin/accounts', icon: Users },
+ { label: 'Y tá', to: '/admin/nurses', icon: Users },
  { label: 'Báo cáo', to: '/admin/reports', icon: LayoutDashboard },
  ],
  },

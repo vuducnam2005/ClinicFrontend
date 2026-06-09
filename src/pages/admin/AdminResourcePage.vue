@@ -222,7 +222,7 @@
 <script setup lang="ts">
 import { computed, h, reactive, ref, watch, type Component } from 'vue'
 import { useRoute } from 'vue-router'
-import { CalendarDays, ChevronLeft, ChevronRight, ClipboardList, CreditCard, FileHeart, Pill, Plus, RefreshCw, Search, SearchX, Settings, Stethoscope, UserCog, UserRound } from 'lucide-vue-next'
+import { CalendarDays, ChevronLeft, ChevronRight, ClipboardList, CreditCard, FileHeart, Pill, Plus, RefreshCw, Search, SearchX, Settings, Stethoscope, UserCog, UserRound, Users } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSelect, { type SelectOption } from '@/components/ui/BaseSelect.vue'
@@ -235,6 +235,7 @@ import { medicineApi } from '@/services/medicineApi'
 import type { MedicinePayload } from '@/services/medicineApi'
 import { getApiErrorMessage } from '@/services/apiClient'
 import { fallbackAppointments, fallbackDoctors, fallbackSpecialties } from '@/services/fallbackData'
+import { useAuthStore } from '@/stores/authStore'
 import { RoleId } from '@/types/user'
 import type { Appointment } from '@/types/appointment'
 import type { Invoice } from '@/types/billing'
@@ -245,15 +246,16 @@ import type { Specialty } from '@/types/specialty'
 import type { User } from '@/types/user'
 import { displayText } from '@/utils/displayText'
 
-type Key = 'doctors' | 'specialties' | 'schedules' | 'patients' | 'appointments' | 'medicines' | 'prescriptions' | 'bills' | 'accounts' | 'reports'
+type Key = 'doctors' | 'specialties' | 'schedules' | 'patients' | 'appointments' | 'medicines' | 'prescriptions' | 'bills' | 'accounts' | 'nurses' | 'reports'
 type Row = Record<string, any>
 type Action = 'edit' | 'delete' | 'confirm' | 'checkin' | 'start' | 'cancel' | 'complete' | 'pay' | 'noop'
 interface Column { key: string; label: string; right?: boolean; badge?: boolean; strong?: boolean }
 interface Config { title: string; service: string; description: string; endpoint: string; icon: Component; columns: Column[] }
 interface Field { key: string; label: string; type?: string; required?: boolean; placeholder?: string; options?: SelectOption[] }
 
-const adminKeys: Key[] = ['doctors', 'specialties', 'schedules', 'patients', 'appointments', 'medicines', 'prescriptions', 'bills', 'accounts', 'reports']
+const adminKeys: Key[] = ['doctors', 'specialties', 'schedules', 'patients', 'appointments', 'medicines', 'prescriptions', 'bills', 'accounts', 'nurses', 'reports']
 const route = useRoute()
+const authStore = useAuthStore()
 const key = computed<Key>(() => adminKeys.includes(route.meta.adminResource as Key) ? route.meta.adminResource as Key : 'doctors')
 const config = computed(() => configs[key.value] || configs.doctors)
 const hiddenAppointmentsStorageKey = 'admin.hiddenAppointmentIds'
@@ -301,8 +303,9 @@ const paginatedRows = computed(() => {
   const end = start + itemsPerPage.value
   return filteredRows.value.slice(start, end)
 })
-const canCreate = computed(() => ['doctors', 'specialties', 'schedules', 'patients', 'medicines', 'accounts'].includes(key.value))
-const hasActions = computed(() => ['doctors', 'specialties', 'schedules', 'appointments', 'medicines', 'bills'].includes(key.value))
+const canCreate = computed(() => ['doctors', 'specialties', 'schedules', 'patients', 'medicines', 'accounts', 'nurses'].includes(key.value))
+const hasActions = computed(() => ['doctors', 'specialties', 'schedules', 'patients', 'appointments', 'medicines', 'bills', 'accounts', 'nurses'].includes(key.value))
+const canDeleteResource = computed(() => authStore.isAdmin)
 const fields = computed(() => buildFields(key.value))
 const selectedAppointment = computed(() => selectedAppointmentRow.value ? appointmentDetails(selectedAppointmentRow.value) : null)
 const canDeleteSelectedAppointment = computed(() => selectedAppointmentRow.value ? canDeleteAppointment(selectedAppointmentRow.value) : false)
@@ -312,18 +315,21 @@ const fallbackPatients: Patient[] = [{ patientId: 'BN001', fullName: 'Nguyễn M
 const fallbackRecords: MedicalRecord[] = [{ recordId: 'MR001', patientId: 'BN001', diagnosis: 'Theo dõi tim mạch', doctorNotes: 'Tái khám sau 7 ngày', createdAt: new Date().toISOString() }]
 const fallbackMedicines: Medicine[] = [{ medicineId: 1, medicineName: 'Paracetamol 500mg', activeIngredient: 'Paracetamol', medicineType: 'Nội tổng quát', unit: 'Viên', price: 1500, stockQuantity: 200, minStockLevel: 20, expiryDate: addDays(365).toISOString(), status: 'Active', createdAt: new Date().toISOString() }]
 const fallbackInvoices: Invoice[] = [{ invoiceId: 1001, appointmentId: 2201, patientId: 12, amount: 300000, status: 'Unpaid', createdAt: new Date().toISOString() }]
-const fallbackAccounts: User[] = [{ id: 'u-admin', username: 'admin', fullName: 'Quản trị viên Hệ thống', email: 'admin@cliniccare.vn', roleId: 1, roleName: 'Admin', createdAt: new Date().toISOString() }]
+const fallbackAccounts: User[] = [{ id: 'u-admin', username: 'admin', fullName: 'Quản trị viên Hệ thống', email: 'admin@cliniccare.vn', phoneNumber: 'Chưa cập nhật', roleId: 1, roleName: 'Admin', createdAt: new Date().toISOString() }]
+const specialtyOptions = ref<SelectOption[]>(fallbackSpecialties.map((s) => ({ label: s.specialtyName, value: s.specialtyId })))
+const doctorOptions = ref<SelectOption[]>(fallbackDoctors.map((d) => ({ label: d.doctorName, value: d.doctorId })))
 
 const configs: Record<Key, Config> = {
-  doctors: cfg('Quản lý bác sĩ', 'N1 Appointment', 'Thêm, sửa, xóa bác sĩ thuộc Appointment Service.', 'GET/POST/PUT/DELETE /api/doctors', Stethoscope, cols(['id','ID'], ['name','Bác sĩ', false, false, true], ['specialty','Chuyên khoa'], ['degree','Học vị'], ['fee','Phí khám', true], ['status','Trạng thái', false, true])),
+  doctors: cfg('Quản lý bác sĩ', 'N1 Appointment', 'Thêm, sửa, xóa bác sĩ thuộc Appointment Service.', 'GET/POST/PUT/DELETE /api/doctors', Stethoscope, cols(['id','ID'], ['name','Bác sĩ', false, false, true], ['specialty','Chuyên khoa'], ['degree','Học vị'], ['fee','Phí khám', true], ['phone','SĐT'], ['email','Email'], ['roomNumber','Phòng'], ['status','Trạng thái', false, true])),
   specialties: cfg('Quản lý chuyên khoa', 'N1 Appointment', 'Thêm, sửa, xóa chuyên khoa.', 'GET/POST/PUT/DELETE /api/specialties', Settings, cols(['id','ID'], ['name','Chuyên khoa', false, false, true], ['status','Trạng thái', false, true])),
   schedules: cfg('Lịch làm việc', 'N1 Appointment', 'Thêm, sửa, xóa lịch làm việc bác sĩ.', 'GET/POST/PUT/DELETE /api/doctor-schedules', CalendarDays, cols(['id','Mã'], ['doctorName','Bác sĩ', false, false, true], ['workDate','Ngày'], ['timeRange','Ca'], ['duration','Slot'], ['status','Trạng thái', false, true])),
-  patients: cfg('Quản lý bệnh nhân', 'N2 Medical Record', 'Tạo và đọc hồ sơ bệnh nhân.', 'GET/POST /api/patients', UserRound, cols(['id','Mã BN'], ['name','Bệnh nhân', false, false, true], ['phone','SĐT'], ['gender','Giới tính'], ['history','Tiền sử'])),
+  patients: cfg('Quản lý bệnh nhân', 'N2 Medical Record', 'Thêm, sửa, xóa thật hồ sơ bệnh nhân.', 'GET/POST/PUT/DELETE /api/patients', UserRound, cols(['patientCode','Mã BN'], ['name','Bệnh nhân', false, false, true], ['phone','SĐT'], ['gender','Giới tính'], ['history','Tiền sử'])),
   appointments: cfg('Quản lý lịch hẹn', 'N1 Appointment', 'Xác nhận, hủy và hoàn tất lịch hẹn. Hóa đơn được N3 tạo sau event prescription.created.', 'GET /api/appointments', ClipboardList, cols(['id','Mã'], ['patientName','Bệnh nhân', false, false, true], ['doctorName','Bác sĩ'], ['dateTime','Ngày giờ'], ['status','Trạng thái', false, true])),
   medicines: cfg('Kho thuốc', 'N3 Pharmacy', 'Tìm kiếm nhanh theo ký tự đầu, lọc theo chuyên khoa/nhóm thuốc, thêm sửa xóa thuốc và tồn kho.', 'GET/POST/PUT/DELETE /api/medicines', Pill, cols(['id','ID'], ['name','Tên thuốc', false, false, true], ['activeIngredient','Hoạt chất'], ['medicineType','Chuyên khoa'], ['unit','Đơn vị'], ['price','Đơn giá', true], ['stock','Tồn', true], ['minStockLevel','Cảnh báo', true], ['expiryDate','Hạn dùng'], ['stockStatus','Trạng thái', false, true])),
   prescriptions: cfg('Đơn thuốc', 'N2 Medical Record', 'Theo dõi ghi chú kê đơn từ bệnh án.', 'GET /api/medical-records', FileHeart, cols(['id','Mã BA'], ['patientId','Bệnh nhân', false, false, true], ['diagnosis','Chẩn đoán'], ['doctorNotes','Ghi chú'], ['status','Trạng thái', false, true])),
   bills: cfg('Hóa đơn viện phí', 'N3 Billing', 'Theo dõi và thu tiền hóa đơn.', 'GET /api/billing/invoices', CreditCard, cols(['id','Mã HĐ'], ['patientId','Bệnh nhân'], ['appointmentId','Lịch hẹn'], ['amount','Số tiền', true], ['status','Trạng thái', false, true])),
-  accounts: cfg('Tài khoản hệ thống', 'N3 Auth', 'Tạo và xem tài khoản người dùng.', 'GET /api/users · POST /api/auth/register', UserCog, cols(['id','ID'], ['fullName','Họ tên', false, false, true], ['username','Username'], ['email','Email'], ['roleName','Vai trò', false, true])),
+  accounts: cfg('Tài khoản hệ thống', 'N3 Auth', 'Thêm, sửa, xóa tài khoản người dùng.', 'GET/POST/PUT/DELETE /api/auth/users', UserCog, cols(['id','ID'], ['fullName','Họ tên', false, false, true], ['username','Username'], ['email','Email'], ['phoneNumber','SĐT'], ['roleName','Vai trò', false, true], ['status','Trạng thái', false, true])),
+  nurses: cfg('Quản lý y tá', 'N3 Auth', 'Thêm, sửa, xóa tài khoản y tá.', 'GET /api/auth/users/nurses · POST/PUT/DELETE /api/auth/users', Users, cols(['id','ID'], ['fullName','Họ tên', false, false, true], ['username','Username'], ['email','Email'], ['phoneNumber','SĐT'], ['roleName','Vai trò', false, true], ['status','Trạng thái', false, true])),
   reports: cfg('Báo cáo vận hành', 'N1 + N2 + N3', 'Tổng hợp dữ liệu vận hành từ các service.', 'N1/N2/N3 health data', ClipboardList, cols(['metric','Chỉ số', false, false, true], ['value','Giá trị', true], ['source','Nguồn'], ['status','Trạng thái', false, true])),
 }
 
@@ -344,7 +350,15 @@ watch(key, () => { query.value = ''; medicineTypeFilter.value = ''; closeForm();
 async function loadData() {
   loading.value = true; error.value = ''; note.value = ''
   try {
-    if (key.value === 'doctors') rows.value = mapList(await appointmentApi.getDoctors(), fallbackDoctors, mapDoctor)
+    if (key.value === 'doctors') {
+      const [doctors, specialties] = await Promise.all([
+        appointmentApi.getDoctors(),
+        appointmentApi.getSpecialties().catch(() => fallbackSpecialties),
+      ])
+      specialtyOptions.value = specialties.map((s) => ({ label: s.specialtyName, value: s.specialtyId }))
+      doctorOptions.value = doctors.map((d) => ({ label: d.doctorName || d.fullName || `Bác sĩ #${d.doctorId}`, value: d.doctorId }))
+      rows.value = mapList(doctors, fallbackDoctors, mapDoctor)
+    }
     if (key.value === 'specialties') rows.value = mapList(await appointmentApi.getSpecialties(), fallbackSpecialties, mapSpecialty)
     if (key.value === 'schedules') rows.value = mapList(await appointmentApi.getDoctorSchedules(), fallbackSchedules, mapSchedule)
     if (key.value === 'patients') rows.value = mapList(await medicalRecordApi.getPatients(), fallbackPatients, mapPatient)
@@ -361,27 +375,69 @@ async function loadData() {
       if (!rows.value.length) rows.value = fallbackInvoices.map(mapInvoice)
     }
     if (key.value === 'accounts') rows.value = mapList(await authApi.getUsers(), fallbackAccounts, mapUser)
+    if (key.value === 'nurses') rows.value = mapList(await authApi.getNurses(), fallbackAccounts.filter((user) => user.roleId === RoleId.Receptionist), mapUser)
     if (key.value === 'reports') rows.value = await loadReports()
     note.value = 'Đã tải dữ liệu. Nếu API rỗng hoặc lỗi, frontend dùng fallback an toàn.'
   } catch (e) { error.value = getApiErrorMessage(e); rows.value = fallbackRows(key.value) } finally { loading.value = false }
 }
 function mapList<T>(data: T[], fallback: T[], mapper: (item: T) => Row) { return (data.length ? data : fallback).map(mapper) }
-function fallbackRows(k: Key) { return ({ doctors: fallbackDoctors.map(mapDoctor), specialties: fallbackSpecialties.map(mapSpecialty), schedules: fallbackSchedules.map(mapSchedule), patients: fallbackPatients.map(mapPatient), appointments: visibleAppointmentRows(fallbackAppointments.map(mapAppointment)), medicines: fallbackMedicines.map(mapMedicine), prescriptions: fallbackRecords.map(mapPrescription), bills: fallbackInvoices.map(mapInvoice), accounts: fallbackAccounts.map(mapUser), reports: [] } as Record<Key, Row[]>)[k] }
+function fallbackRows(k: Key) { return ({ doctors: fallbackDoctors.map(mapDoctor), specialties: fallbackSpecialties.map(mapSpecialty), schedules: fallbackSchedules.map(mapSchedule), patients: fallbackPatients.map(mapPatient), appointments: visibleAppointmentRows(fallbackAppointments.map(mapAppointment)), medicines: fallbackMedicines.map(mapMedicine), prescriptions: fallbackRecords.map(mapPrescription), bills: fallbackInvoices.map(mapInvoice), accounts: fallbackAccounts.map(mapUser), nurses: fallbackAccounts.filter((user) => user.roleId === RoleId.Receptionist).map(mapUser), reports: [] } as Record<Key, Row[]>)[k] }
 async function loadReports() { const [doctors, appointments, patients, invoices] = await Promise.all([appointmentApi.getDoctors().catch(() => fallbackDoctors), appointmentApi.getAppointments().catch(() => fallbackAppointments), medicalRecordApi.getPatients().catch(() => fallbackPatients), billingApi.getInvoices().catch(() => fallbackInvoices)]); return [{ id: 'R1', metric: 'Bác sĩ', value: doctors.length, source: 'N1', status: 'OK' }, { id: 'R2', metric: 'Lịch hẹn', value: appointments.length, source: 'N1', status: 'OK' }, { id: 'R3', metric: 'Bệnh nhân', value: patients.length, source: 'N2', status: 'OK' }, { id: 'R4', metric: 'Hóa đơn', value: invoices.length, source: 'N3', status: 'OK' }] }
 
-function buildFields(k: Key): Field[] { const sp = fallbackSpecialties.map((s) => ({ label: s.specialtyName, value: s.specialtyId })); const ds = fallbackDoctors.map((d) => ({ label: d.doctorName, value: d.doctorId })); if (k === 'doctors') return [field('doctorName','Tên bác sĩ','text',true), field('specialtyId','Chuyên khoa','select',true, sp), field('degree','Học vị'), field('examFee','Phí khám','number',true)]; if (k === 'specialties') return [field('specialtyName','Tên chuyên khoa','text',true)]; if (k === 'schedules') return [field('doctorId','Bác sĩ','select',true, ds), field('workDate','Ngày làm','date',true), field('startTime','Giờ bắt đầu','time',true), field('endTime','Giờ kết thúc','time',true), field('slotDurationMinutes','Phút/slot','number')]; if (k === 'patients') return [field('fullName','Họ tên','text',true), field('phone','Số điện thoại','text',true), field('gender','Giới tính','select',false,[{label:'Nam',value:'Male'},{label:'Nữ',value:'Female'}]), field('medicalHistory','Tiền sử bệnh')]; if (k === 'medicines') return [field('medicineName','Tên thuốc','text',true), field('activeIngredient','Hoạt chất'), field('medicineType','Chuyên khoa/nhóm thuốc','select',false, medicineTypeOptions.value), field('unit','Đơn vị tính','text',true), field('price','Đơn giá','number',true), field('stockQuantity','Tồn kho','number',true), field('minStockLevel','Ngưỡng cảnh báo','number',true), field('expiryDate','Hạn dùng','date'), field('status','Trạng thái','select',true,[{label:'Đang bán',value:'Active'},{label:'Tạm ngưng',value:'Inactive'},{label:'Hết hàng',value:'OutOfStock'}])]; if (k === 'accounts') return [field('username','Username','text',true), field('password','Mật khẩu','password',true), field('fullName','Họ tên','text',true), field('email','Email','email'), field('roleId','Vai trò','select',true,[{label:'Admin',value:RoleId.Admin},{label:'Bác sĩ',value:RoleId.Doctor},{label:'Tiếp tân',value:RoleId.Receptionist},{label:'Bệnh nhân',value:RoleId.Patient}])]; return [] }
+function buildFields(k: Key): Field[] {
+  if (k === 'doctors') return [
+    field('doctorName','Tên bác sĩ','text',true),
+    field('specialtyId','Chuyên khoa','select',true, specialtyOptions.value),
+    field('degree','Học vị'),
+    field('examFee','Phí khám','number',true),
+    field('phone','Số điện thoại'),
+    field('email','Email','email'),
+    field('roomNumber','Phòng khám'),
+    field('isActive','Trạng thái hoạt động','select',true,[{label:'Đang hoạt động',value:'true'},{label:'Tạm ngưng',value:'false'}]),
+  ]
+  if (k === 'specialties') return [field('specialtyName','Tên chuyên khoa','text',true)]
+  if (k === 'schedules') return [field('doctorId','Bác sĩ','select',true, doctorOptions.value), field('workDate','Ngày làm','date',true), field('startTime','Giờ bắt đầu','time',true), field('endTime','Giờ kết thúc','time',true), field('slotDurationMinutes','Phút/slot','number')]
+  if (k === 'patients') return [field('fullName','Họ tên','text',true), field('phone','Số điện thoại','text',true), field('gender','Giới tính','select',false,[{label:'Nam',value:'Male'},{label:'Nữ',value:'Female'}]), field('medicalHistory','Tiền sử bệnh')]
+  if (k === 'medicines') return [field('medicineName','Tên thuốc','text',true), field('activeIngredient','Hoạt chất'), field('medicineType','Chuyên khoa/nhóm thuốc','select',false, medicineTypeOptions.value), field('unit','Đơn vị tính','text',true), field('price','Đơn giá','number',true), field('stockQuantity','Tồn kho','number',true), field('minStockLevel','Ngưỡng cảnh báo','number',true), field('expiryDate','Hạn dùng','date'), field('status','Trạng thái','select',true,[{label:'Đang bán',value:'Active'},{label:'Tạm ngưng',value:'Inactive'},{label:'Hết hàng',value:'OutOfStock'}])]
+  if (k === 'accounts') return [field('username','Username','text',true), field('password','Mật khẩu','password',!editingRow.value), field('fullName','Họ tên','text',true), field('email','Email','email',true), field('phoneNumber','Số điện thoại'), field('roleId','Vai trò','select',true,[{label:'Admin',value:RoleId.Admin},{label:'Bác sĩ',value:RoleId.Doctor},{label:'Y tá',value:RoleId.Receptionist},{label:'Bệnh nhân',value:RoleId.Patient}]), field('status','Trạng thái','select',true,[{label:'Đang hoạt động',value:'Active'},{label:'Đã khóa',value:'Locked'}])]
+  if (k === 'nurses') return [field('username','Username','text',true), field('password','Mật khẩu','password',!editingRow.value), field('fullName','Họ tên','text',true), field('email','Email','email',true), field('phoneNumber','Số điện thoại'), field('status','Trạng thái','select',true,[{label:'Đang hoạt động',value:'Active'},{label:'Đã khóa',value:'Locked'}])]
+  return []
+}
 function field(key: string, label: string, type = 'text', required = false, options?: SelectOption[]): Field { return { key, label, type, required, options } }
 function openForm(row?: Row) { editingRow.value = row || null; Object.keys(form).forEach((k) => delete form[k]); for (const f of fields.value) form[f.key] = formValue(row, f.key); formOpen.value = true }
 function closeForm() { formOpen.value = false; editingRow.value = null }
-async function submitForm() { saving.value = true; error.value = ''; try { const id = Number(editingRow.value?.id); if (key.value === 'doctors') editingRow.value ? await appointmentApi.updateDoctor(id, doctorPayload()) : await appointmentApi.createDoctor(doctorPayload()); if (key.value === 'specialties') editingRow.value ? await appointmentApi.updateSpecialty(id, { specialtyName: form.specialtyName }) : await appointmentApi.createSpecialty({ specialtyName: form.specialtyName }); if (key.value === 'schedules') editingRow.value ? await appointmentApi.updateDoctorSchedule(id, schedulePayload()) : await appointmentApi.createDoctorSchedule(schedulePayload()); if (key.value === 'patients') await medicalRecordApi.createPatient({ fullName: form.fullName, phone: form.phone, phoneNumber: form.phone, gender: form.gender, medicalHistory: form.medicalHistory }); if (key.value === 'medicines') editingRow.value ? await medicineApi.updateMedicine(id, medicinePayload()) : await medicineApi.createMedicine(medicinePayload()); if (key.value === 'accounts') await authApi.register({ username: form.username, password: form.password, fullName: form.fullName, email: form.email, roleId: Number(form.roleId) as RoleId }); closeForm(); await loadData() } catch(e) { error.value = getApiErrorMessage(e) } finally { saving.value = false } }
-function doctorPayload() { const sp = fallbackSpecialties.find((s) => s.specialtyId === Number(form.specialtyId)); return { doctorName: form.doctorName, specialtyId: Number(form.specialtyId), specialtyName: sp?.specialtyName, degree: form.degree, examFee: Number(form.examFee || 0), isActive: true } }
+async function submitForm() {
+  saving.value = true; error.value = ''
+  const wasEditing = Boolean(editingRow.value)
+  try {
+    const id = Number(editingRow.value?.id)
+    if (key.value === 'doctors') wasEditing ? await appointmentApi.updateDoctor(id, doctorPayload()) : await appointmentApi.createDoctor(doctorPayload())
+    if (key.value === 'specialties') wasEditing ? await appointmentApi.updateSpecialty(id, { specialtyName: form.specialtyName }) : await appointmentApi.createSpecialty({ specialtyName: form.specialtyName })
+    if (key.value === 'schedules') wasEditing ? await appointmentApi.updateDoctorSchedule(id, schedulePayload()) : await appointmentApi.createDoctorSchedule(schedulePayload())
+    if (key.value === 'patients') wasEditing ? await medicalRecordApi.updatePatient(id, patientPayload()) : await medicalRecordApi.createPatient(patientPayload())
+    if (key.value === 'medicines') wasEditing ? await medicineApi.updateMedicine(id, medicinePayload()) : await medicineApi.createMedicine(medicinePayload())
+    if (key.value === 'accounts') wasEditing ? await authApi.updateUser(id, userPayload()) : await authApi.createUser(userPayload())
+    if (key.value === 'nurses') wasEditing ? await authApi.updateUser(id, nursePayload()) : await authApi.createUser(nursePayload())
+    closeForm()
+    await loadData()
+    note.value = wasEditing ? 'Đã cập nhật dữ liệu thành công.' : 'Đã thêm dữ liệu thành công.'
+  } catch(e) {
+    error.value = getApiErrorMessage(e)
+  } finally {
+    saving.value = false
+  }
+}
+function doctorPayload() { const sp = specialtyOptions.value.find((s) => Number(s.value) === Number(form.specialtyId)); return { doctorName: form.doctorName, fullName: form.doctorName, specialtyId: Number(form.specialtyId), specialtyName: sp?.label, degree: form.degree || '', examFee: Number(form.examFee || 0), phone: form.phone || '', email: form.email || '', roomNumber: form.roomNumber || '', isActive: form.isActive !== 'false' } }
 function schedulePayload() { const d = fallbackDoctors.find((x) => x.doctorId === Number(form.doctorId)); return { doctorId: Number(form.doctorId), doctorName: d?.doctorName, workDate: form.workDate, startTime: form.startTime, endTime: form.endTime, slotDurationMinutes: Number(form.slotDurationMinutes || 30), isAvailable: true } }
+function patientPayload() { return { fullName: form.fullName, phone: form.phone, phoneNumber: form.phone, gender: form.gender, medicalHistory: form.medicalHistory } }
+function userPayload() { return { username: form.username, password: form.password || undefined, fullName: form.fullName, email: form.email, phoneNumber: form.phoneNumber, roleId: Number(form.roleId) as RoleId, status: form.status || 'Active' } }
+function nursePayload() { return { username: form.username, password: form.password || undefined, fullName: form.fullName, email: form.email, phoneNumber: form.phoneNumber, roleId: RoleId.Receptionist, roleName: 'Nurse', status: form.status || 'Active' } }
 function medicinePayload(): MedicinePayload { return { medicineName: (form.medicineName || '').trim(), activeIngredient: (form.activeIngredient || '').trim() || undefined, medicineType: form.medicineType || 'Khác', unit: (form.unit || '').trim(), price: Number(form.price || 0), stockQuantity: Number(form.stockQuantity || 0), minStockLevel: Number(form.minStockLevel || 10), expiryDate: form.expiryDate || undefined, status: Number(form.stockQuantity || 0) === 0 ? 'OutOfStock' : (form.status || 'Active') } }
 
-function actions(row: Row) { const a: Array<{key: Action; label: string; className: string}> = []; const st = String(row.status || '').toLowerCase(); if (['doctors','specialties','schedules','medicines'].includes(key.value)) a.push(btn('edit','Sửa','bg-slate-100 text-slate-700 hover:bg-slate-200'), btn('delete','Xóa','bg-rose-50 text-rose-700 hover:bg-rose-100')); if (key.value === 'appointments') { if (st.includes('pending')) a.push(btn('confirm','Xác nhận','bg-teal-600 text-white hover:bg-teal-700')); if (st.includes('confirmed')) a.push(btn('checkin','Check-in','bg-emerald-600 text-white hover:bg-emerald-700')); if (st.includes('checked')) a.push(btn('noop','Đã check-in','bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200')); if (!st.includes('cancel') && !st.includes('completed') && !st.includes('checked')) a.push(btn('cancel','Hủy','bg-rose-50 text-rose-700 hover:bg-rose-100')); if (st.includes('inprogress')) a.push(btn('complete','Hoàn tất','bg-indigo-600 text-white hover:bg-indigo-700')) } if (key.value === 'bills' && !st.includes('paid')) a.push(btn('pay','Thu tiền','bg-teal-600 text-white hover:bg-teal-700')); return a }
+function actions(row: Row) { const a: Array<{key: Action; label: string; className: string}> = []; const st = String(row.status || '').toLowerCase(); if (['doctors','specialties','schedules','patients','medicines','accounts','nurses'].includes(key.value)) { a.push(btn('edit','Sửa','bg-slate-100 text-slate-700 hover:bg-slate-200')); if (canDeleteResource.value) a.push(btn('delete','Xóa','bg-rose-50 text-rose-700 hover:bg-rose-100')) } if (key.value === 'appointments') { if (st.includes('pending')) a.push(btn('confirm','Xác nhận','bg-teal-600 text-white hover:bg-teal-700')); if (st.includes('confirmed')) a.push(btn('checkin','Check-in','bg-emerald-600 text-white hover:bg-emerald-700')); if (st.includes('checked')) a.push(btn('noop','Đã check-in','bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200')); if (!st.includes('cancel') && !st.includes('completed') && !st.includes('checked')) a.push(btn('cancel','Hủy','bg-rose-50 text-rose-700 hover:bg-rose-100')); if (st.includes('inprogress')) a.push(btn('complete','Hoàn tất','bg-indigo-600 text-white hover:bg-indigo-700')) } if (key.value === 'bills' && !st.includes('paid')) a.push(btn('pay','Thu tiền','bg-teal-600 text-white hover:bg-teal-700')); return a }
 function btn(key: Action, label: string, className: string) { return { key, label, className } }
-async function runAction(action: Action, row: Row) { if (action === 'noop') return; if (action === 'edit') return openForm(row); actingId.value = row.id; error.value = ''; try { const id = Number(row.invoiceId || row.id); if (action === 'delete') await deleteRow(id); if (action === 'confirm') await appointmentApi.confirmAppointment(id); if (action === 'checkin') { await appointmentApi.checkInAppointment(id); row.status = 'CheckedIn'; if (row.raw) row.raw.status = 'CheckedIn' } if (action === 'start') await appointmentApi.ensureAppointmentInProgress(id, String(row.raw?.appointmentDate || row.appointmentDate || '')); if (action === 'cancel') await appointmentApi.cancelAppointment(id); if (action === 'complete') await appointmentApi.completeAppointmentSafely(id, String(row.raw?.appointmentDate || row.appointmentDate || '')); if (action === 'pay') { await billingApi.payInvoice(id, row.amountValue); note.value = 'Đã gửi yêu cầu thanh toán sang N3.' } await loadData() } catch(e) { error.value = getApiErrorMessage(e) } finally { actingId.value = null } }
-async function deleteRow(id: number) { if (key.value === 'doctors') await appointmentApi.deleteDoctor(id); if (key.value === 'specialties') await appointmentApi.deleteSpecialty(id); if (key.value === 'schedules') await appointmentApi.deleteDoctorSchedule(id); if (key.value === 'medicines') await medicineApi.deleteMedicine(id) }
+async function runAction(action: Action, row: Row) { if (action === 'noop') return; if (action === 'edit') return openForm(row); if (action === 'delete' && !window.confirm('Bạn chắc chắn muốn xóa dữ liệu này? Thao tác này sẽ xóa khỏi database.')) return; actingId.value = row.id; error.value = ''; try { const id = Number(row.invoiceId || row.id); if (action === 'delete') await deleteRow(id); if (action === 'confirm') await appointmentApi.confirmAppointment(id); if (action === 'checkin') { await appointmentApi.checkInAppointment(id); row.status = 'CheckedIn'; if (row.raw) row.raw.status = 'CheckedIn' } if (action === 'start') await appointmentApi.ensureAppointmentInProgress(id, String(row.raw?.appointmentDate || row.appointmentDate || '')); if (action === 'cancel') await appointmentApi.cancelAppointment(id); if (action === 'complete') await appointmentApi.completeAppointmentSafely(id, String(row.raw?.appointmentDate || row.appointmentDate || '')); if (action === 'pay') await billingApi.payInvoice(id, row.amountValue); await loadData(); if (action === 'delete') note.value = 'Đã xóa dữ liệu thành công khỏi database.'; if (action === 'pay') note.value = 'Đã gửi yêu cầu thanh toán sang N3.' } catch(e) { error.value = getApiErrorMessage(e) } finally { actingId.value = null } }
+async function deleteRow(id: number) { if (key.value === 'doctors') await appointmentApi.deleteDoctor(id); if (key.value === 'specialties') await appointmentApi.deleteSpecialty(id); if (key.value === 'schedules') await appointmentApi.deleteDoctorSchedule(id); if (key.value === 'patients') await medicalRecordApi.deletePatient(id); if (key.value === 'medicines') await medicineApi.deleteMedicine(id); if (key.value === 'accounts' || key.value === 'nurses') await authApi.deleteUser(id) }
 function openAppointmentDetails(row: Row) { if (key.value !== 'appointments') return; selectedAppointmentRow.value = row; appointmentDetailOpen.value = true }
 function closeAppointmentDetails() { appointmentDetailOpen.value = false; selectedAppointmentRow.value = null }
 async function deleteSelectedAppointment() {
@@ -401,15 +457,15 @@ async function deleteSelectedAppointment() {
     saving.value = false
   }
 }
-function mapDoctor(x: Doctor): Row { return { id: x.doctorId, name: displayText(x.doctorName), specialty: displayText(x.specialtyName), degree: x.degree || 'Chưa cập nhật', fee: money(x.examFee), feeValue: x.examFee, status: x.isActive === false ? 'Tạm ngưng' : 'Đang hoạt động', raw: x } }
+function mapDoctor(x: Doctor): Row { return { id: x.doctorId, name: displayText(x.doctorName || x.fullName), specialty: displayText(x.specialtyName), degree: x.degree || 'Chưa cập nhật', fee: money(x.examFee), feeValue: x.examFee, phone: x.phone || 'Chưa cập nhật', email: x.email || 'Chưa cập nhật', roomNumber: x.roomNumber || 'Chưa cập nhật', status: x.isActive === false ? 'Tạm ngưng' : 'Đang hoạt động', raw: x } }
 function mapSpecialty(x: Specialty): Row { return { id: x.specialtyId, name: displayText(x.specialtyName), specialtyName: x.specialtyName, status: 'Đang hoạt động', raw: x } }
 function mapSchedule(x: DoctorSchedule): Row { return { id: x.scheduleId, doctorName: displayText(x.doctorName), workDate: date(x.workDate), timeRange: `${x.startTime} - ${x.endTime}`, duration: `${x.slotDurationMinutes || 30} phút`, status: x.isAvailable === false ? 'Tạm ngưng' : 'Đang mở', raw: x } }
-function mapPatient(x: Patient): Row { return { id: x.patientCode || x.patientIdCode || x.id || x.patientId, name: displayText(x.fullName), phone: x.phone || x.phoneNumber || 'Chưa cập nhật', gender: x.gender || 'Chưa cập nhật', history: x.medicalHistory || 'Chưa ghi nhận', raw: x } }
+function mapPatient(x: Patient): Row { const id = toNumber(x.id, x.patientId); return { id: id || x.patientId, patientCode: x.patientCode || x.patientIdCode || x.patientId || id, name: displayText(x.fullName), phone: x.phone || x.phoneNumber || 'Chưa cập nhật', gender: x.gender || 'Chưa cập nhật', history: x.medicalHistory || 'Chưa ghi nhận', raw: x } }
 function mapAppointment(x: Appointment & Record<string, any>): Row { return { id: toNumber(x.appointmentId, x.AppointmentId, x.id), appointmentDate: x.appointmentDate || x.AppointmentDate, patientId: toNumber(x.patientId, x.PatientId), doctorId: toNumber(x.doctorId, x.DoctorId), patientName: displayText(x.patientName || x.PatientName || x.patientNameSnapshot), doctorName: displayText(x.doctorName || x.DoctorName), dateTime: `${date(x.appointmentDate || x.AppointmentDate)} · ${x.slotTime || x.SlotTime || '-'}`, status: x.status || x.Status, feeValue: toNumber(x.examFee, x.ExamFee, x.doctor?.examFee, x.Doctor?.ExamFee), raw: x } }
 function mapMedicine(x: Medicine & Record<string, any>): Row { const price = toNumber(x.price, x.Price, x.unitPrice, x.UnitPrice); const stock = toNumberAllowZero(x.stockQuantity, x.StockQuantity, x.stock, x.Stock); const minStock = toNumberAllowZero(x.minStockLevel, x.MinStockLevel) || 10; const status = String(x.status || x.Status || (stock <= 0 ? 'OutOfStock' : 'Active')); return { id: toNumber(x.medicineId, x.MedicineId, x.id), name: x.medicineName || x.MedicineName || x.name, activeIngredient: x.activeIngredient || x.ActiveIngredient || 'Chưa cập nhật', medicineType: x.medicineType || x.MedicineType || 'Khác', unit: x.unit || x.Unit || x.dosageForm || x.DosageForm || 'Chưa cập nhật', price: money(price), priceValue: price, stock, minStockLevel: minStock, expiryDate: dateOnly(x.expiryDate || x.ExpiryDate), stockStatus: medicineStatusLabel(status, stock, minStock), status, raw: x } }
 function mapPrescription(x: MedicalRecord): Row { return { id: x.medicalRecordCode || x.medicalRecordIdCode || x.recordIdCode || x.recordId || x.medicalRecordId || 'MR', patientId: x.patientCode || x.patientIdCode || x.patientId, diagnosis: x.diagnosis || 'Chưa chẩn đoán', doctorNotes: x.doctorNotes || 'Chưa ghi chú', status: 'Chờ kê đơn', raw: x } }
 function mapInvoice(x: Invoice & Record<string, any>): Row { const amount = invoiceAmount(x); const invoiceId = toNumber(x.invoiceId, x.InvoiceId, x.id, x.Id); return { id: x.invoiceCode || x.invoiceIdCode || x.InvoiceCode || x.InvoiceIdCode || invoiceId, invoiceId, patientId: x.patientCode || x.patientIdCode || x.PatientCode || x.PatientIdCode || x.patientId || x.PatientId || 'Chưa cập nhật', appointmentId: x.appointmentId || x.AppointmentId ? `#${x.appointmentId || x.AppointmentId}` : '-', amount: money(amount), amountValue: amount, status: x.status || x.Status || 'Unpaid', raw: x } }
-function mapUser(x: User): Row { return { id: x.id, fullName: displayText(x.fullName), username: x.username, email: x.email || 'Chưa cập nhật', roleName: x.roleName, raw: x } }
+function mapUser(x: User): Row { return { id: x.id, fullName: displayText(x.fullName), username: x.username, email: x.email || 'Chưa cập nhật', phoneNumber: x.phoneNumber || 'Chưa cập nhật', roleName: x.roleName, status: (x as any).status || 'Active', raw: x } }
 function cfg(title: string, service: string, description: string, endpoint: string, icon: Component, columns: Column[]): Config { return { title, service, description, endpoint, icon, columns } }
 function cols(...xs: [string, string, boolean?, boolean?, boolean?][]): Column[] { return xs.map(([key,label,right,badge,strong]) => ({ key, label, right, badge, strong })) }
 function columnHeaderClass(col: Column) { return ['px-4 py-3 align-middle', col.right ? 'text-right' : 'text-left', columnWidthClass(col), compactColumnClass(col)] }
@@ -514,7 +570,7 @@ function money(v: number) { return new Intl.NumberFormat('vi-VN', { style: 'curr
 function date(v?: string) { if (!v) return 'Chưa cập nhật'; const d = new Date(v); return Number.isNaN(d.getTime()) ? v : new Intl.DateTimeFormat('vi-VN').format(d) }
 function dateTime(v?: string) { if (!v) return 'Chưa cập nhật'; const d = new Date(v); return Number.isNaN(d.getTime()) ? v : new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(d) }
 function dateOnly(v?: string) { if (!v) return 'Chưa cập nhật'; const d = new Date(v); return Number.isNaN(d.getTime()) ? v : d.toISOString().slice(0, 10) }
-function formValue(row: Row | undefined, key: string) { if (!row) return key === 'status' ? 'Active' : key === 'minStockLevel' ? '10' : ''; const raw = row.raw || {}; const value = raw[key] ?? raw[pascal(key)] ?? row[key] ?? ''; if (key === 'price') return String(row.priceValue ?? value ?? ''); if (key === 'expiryDate') return dateInputValue(value); return String(value ?? '') }
+function formValue(row: Row | undefined, key: string) { if (!row) return key === 'status' ? 'Active' : key === 'isActive' ? 'true' : key === 'minStockLevel' ? '10' : ''; if (key === 'password') return ''; const raw = row.raw || {}; if (key === 'doctorName') return String(raw.doctorName ?? raw.DoctorName ?? raw.fullName ?? raw.FullName ?? row.name ?? ''); if (key === 'phone') return String(raw.phone ?? raw.Phone ?? raw.phoneNumber ?? raw.PhoneNumber ?? row.phone ?? ''); if (key === 'isActive') return String(raw.isActive ?? raw.IsActive ?? !String(row.status || '').toLowerCase().includes('tạm')); const value = raw[key] ?? raw[pascal(key)] ?? row[key] ?? ''; if (key === 'roleId') return String(raw.roleId ?? row.raw?.roleId ?? value ?? RoleId.Receptionist); if (key === 'price') return String(row.priceValue ?? value ?? ''); if (key === 'expiryDate') return dateInputValue(value); return String(value ?? '') }
 function dateInputValue(v: unknown) { if (!v) return ''; const d = new Date(String(v)); return Number.isNaN(d.getTime()) ? String(v).slice(0, 10) : d.toISOString().slice(0, 10) }
 function medicineStatusLabel(status: string, stock: number, minStock: number) { const normalized = status.toLowerCase(); if (normalized === 'inactive') return 'Tạm ngưng'; if (normalized === 'outofstock' || stock <= 0) return 'Hết hàng'; if (stock <= minStock) return 'Tồn thấp'; return 'Đủ hàng' }
 function pascal(value: string) { return value ? value.charAt(0).toUpperCase() + value.slice(1) : value }

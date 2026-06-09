@@ -335,6 +335,10 @@ export const medicalRecordApi = {
     const response = await client.put(`/api/v1/medical/patients/${id}`, payload)
     return normalizePatient(readApiResponse<any>(response.data))
   },
+  async deletePatient(id: string | number) {
+    const response = await client.delete(`/api/v1/medical/patients/${id}`)
+    return readApiResponse<boolean>(response.data)
+  },
   async getPatientHistory(patientId: string | number): Promise<PatientMedicalHistory> {
     const key = String(patientId || '').trim()
     if (!key) return emptyHistory()

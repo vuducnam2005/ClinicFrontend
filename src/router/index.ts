@@ -70,6 +70,7 @@ export default function router() {
           { path: 'bills', name: 'admin-bills', component: () => import('@/pages/admin/AdminResourcePage.vue'), meta: { adminResource: 'bills' } },
           { path: 'notifications', name: 'admin-notifications', component: () => import('@/pages/admin/AdminNotificationsPage.vue') },
           { path: 'accounts', name: 'admin-accounts', component: () => import('@/pages/admin/AdminResourcePage.vue'), meta: { adminResource: 'accounts' } },
+          { path: 'nurses', name: 'admin-nurses', component: () => import('@/pages/admin/AdminResourcePage.vue'), meta: { adminResource: 'nurses' } },
           { path: 'reports', name: 'admin-reports', component: () => import('@/pages/admin/AdminResourcePage.vue'), meta: { adminResource: 'reports' } },
         ],
       },
