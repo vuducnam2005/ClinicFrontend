@@ -1,9 +1,10 @@
 <template>
-  <div class="fixed bottom-6 right-6 z-50 flex flex-col items-end font-sans">
+  <div class="fixed bottom-4 right-4 z-50 flex max-w-[calc(100vw-2rem)] flex-col items-end font-sans sm:bottom-6 sm:right-6">
     <!-- Chat Window -->
     <transition name="chat-fade">
       <div
-        class="mb-4 flex h-[480px] w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl transition-all duration-300 pointer-events-auto"
+        v-if="chatOpen"
+        class="mb-3 flex h-[min(480px,calc(100vh-13rem))] w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl transition-all duration-300 pointer-events-auto"
       >
         <!-- Header -->
         <div class="flex items-center justify-between bg-[#0F52BA] px-4 py-3.5 text-white">
@@ -13,6 +14,14 @@
               <p class="text-[10px] font-semibold text-blue-100">Trợ lý ảo Medicare · Đang hoạt động</p>
             </div>
           </div>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-lg text-blue-50 transition hover:bg-white/10"
+            aria-label="Đóng trợ lý Medicare"
+            @click="chatOpen = false"
+          >
+            <X class="h-4.5 w-4.5" />
+          </button>
         </div>
 
         <!-- Messages Body -->
@@ -76,12 +85,38 @@
         </form>
       </div>
     </transition>
+
+    <button
+      type="button"
+      class="group flex flex-col items-center gap-2 rounded-2xl outline-none pointer-events-auto"
+      aria-label="Mở trợ lý Medicare"
+      @click="openChat"
+    >
+      <span
+        class="relative rounded-2xl border border-blue-100 bg-white px-4 py-2 text-sm font-bold text-[#003c90] shadow-lg transition group-hover:-translate-y-0.5 group-hover:border-blue-200 group-hover:text-[#0F52BA]"
+      >
+        Tôi có thể giúp gì cho bạn?
+        <span class="absolute -bottom-1.5 right-9 h-3 w-3 rotate-45 border-b border-r border-blue-100 bg-white"></span>
+      </span>
+      <span class="relative flex h-28 w-28 items-end justify-center sm:h-32 sm:w-32">
+        <video
+          :src="assistantVideoUrl"
+          class="h-full w-full object-contain drop-shadow-[0_18px_30px_rgba(15,82,186,0.22)] transition duration-200 group-hover:scale-[1.03]"
+          autoplay
+          loop
+          muted
+          playsinline
+          aria-hidden="true"
+        ></video>
+      </span>
+    </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
-import { Send } from 'lucide-vue-next'
+import { Send, X } from 'lucide-vue-next'
+import assistantVideoUrl from '@/assets/assistant.webm'
 
 interface Message {
   sender: 'bot' | 'patient'
@@ -91,6 +126,7 @@ interface Message {
 
 const inputMsg = ref('')
 const isTyping = ref(false)
+const chatOpen = ref(false)
 const messagesRef = ref<HTMLElement | null>(null)
 
 const messages = ref<Message[]>([
@@ -123,6 +159,11 @@ function scrollToBottom() {
       messagesRef.value.scrollTop = messagesRef.value.scrollHeight
     }
   })
+}
+
+function openChat() {
+  chatOpen.value = true
+  scrollToBottom()
 }
 
 watch(messages, () => {
