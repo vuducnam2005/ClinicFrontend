@@ -1,5 +1,9 @@
 <template>
-  <div class="fixed bottom-4 right-4 z-50 flex max-w-[calc(100vw-2rem)] flex-col items-end font-sans sm:bottom-6 sm:right-6">
+  <div
+    class="fixed z-50 flex max-w-[calc(100vw-2rem)] flex-col items-end font-sans"
+    :class="isReturningAssistant ? 'assistant-returning' : ''"
+    :style="assistantPositionStyle"
+  >
     <!-- Chat Window -->
     <transition name="chat-fade">
       <div
@@ -88,9 +92,11 @@
 
     <button
       type="button"
-      class="group flex flex-col items-center gap-0 rounded-2xl outline-none pointer-events-auto"
+      class="group flex touch-none select-none flex-col items-center gap-0 rounded-2xl outline-none pointer-events-auto"
+      :class="chatOpen || isReturningAssistant ? 'cursor-pointer' : isDraggingAssistant ? 'cursor-grabbing' : 'cursor-grab'"
       aria-label="Mở hoặc đóng Dogky"
-      @click="toggleChat"
+      @click="handleAssistantClick"
+      @pointerdown="startAssistantDrag"
     >
       <span
         v-if="!chatOpen"
@@ -116,7 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Send, X } from 'lucide-vue-next'
 import assistantVideoUrl from '@/assets/assistant-loop.webm'
 
@@ -130,6 +136,24 @@ const inputMsg = ref('')
 const isTyping = ref(false)
 const chatOpen = ref(false)
 const messagesRef = ref<HTMLElement | null>(null)
+const defaultAssistantPosition = { bottom: 24, right: 24 }
+const assistantReturnMs = 520
+const assistantPosition = ref({ ...defaultAssistantPosition })
+const isDraggingAssistant = ref(false)
+const isReturningAssistant = ref(false)
+
+let dragStartX = 0
+let dragStartY = 0
+let dragStartBottom = defaultAssistantPosition.bottom
+let dragStartRight = defaultAssistantPosition.right
+let assistantMovedDuringDrag = false
+let ignoreNextAssistantClick = false
+let assistantReturnTimer: number | undefined
+
+const assistantPositionStyle = computed(() => ({
+  bottom: `${assistantPosition.value.bottom}px`,
+  right: `${assistantPosition.value.right}px`,
+}))
 
 const messages = ref<Message[]>([
   {
@@ -163,10 +187,118 @@ function scrollToBottom() {
   })
 }
 
-function toggleChat() {
-  chatOpen.value = !chatOpen.value
-  if (chatOpen.value) scrollToBottom()
+function handleAssistantClick() {
+  if (ignoreNextAssistantClick) {
+    ignoreNextAssistantClick = false
+    return
+  }
+
+  if (chatOpen.value) {
+    chatOpen.value = false
+    return
+  }
+
+  openChatFromDefaultPosition()
 }
+
+function isAssistantAtDefaultPosition() {
+  return (
+    Math.abs(assistantPosition.value.bottom - defaultAssistantPosition.bottom) < 1 &&
+    Math.abs(assistantPosition.value.right - defaultAssistantPosition.right) < 1
+  )
+}
+
+function openChatFromDefaultPosition() {
+  if (isAssistantAtDefaultPosition()) {
+    chatOpen.value = true
+    scrollToBottom()
+    return
+  }
+
+  if (assistantReturnTimer) window.clearTimeout(assistantReturnTimer)
+  isReturningAssistant.value = true
+  assistantPosition.value = { ...defaultAssistantPosition }
+
+  assistantReturnTimer = window.setTimeout(() => {
+    isReturningAssistant.value = false
+    assistantReturnTimer = undefined
+    chatOpen.value = true
+    scrollToBottom()
+  }, assistantReturnMs)
+}
+
+function clampAssistantPosition() {
+  if (typeof window === 'undefined') return
+
+  const padding = 8
+  const iconSize = 128
+  const maxRight = Math.max(padding, window.innerWidth - iconSize - padding)
+  const maxBottom = Math.max(padding, window.innerHeight - iconSize - padding)
+
+  assistantPosition.value = {
+    bottom: Math.min(Math.max(assistantPosition.value.bottom, padding), maxBottom),
+    right: Math.min(Math.max(assistantPosition.value.right, padding), maxRight),
+  }
+}
+
+function startAssistantDrag(event: PointerEvent) {
+  if (chatOpen.value || isReturningAssistant.value || event.button !== 0) return
+
+  dragStartX = event.clientX
+  dragStartY = event.clientY
+  dragStartBottom = assistantPosition.value.bottom
+  dragStartRight = assistantPosition.value.right
+  assistantMovedDuringDrag = false
+  isDraggingAssistant.value = true
+
+  window.addEventListener('pointermove', moveAssistant)
+  window.addEventListener('pointerup', stopAssistantDrag, { once: true })
+  window.addEventListener('pointercancel', stopAssistantDrag, { once: true })
+}
+
+function moveAssistant(event: PointerEvent) {
+  if (!isDraggingAssistant.value) return
+
+  const deltaX = event.clientX - dragStartX
+  const deltaY = event.clientY - dragStartY
+
+  if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+    assistantMovedDuringDrag = true
+  }
+
+  assistantPosition.value = {
+    bottom: dragStartBottom - deltaY,
+    right: dragStartRight - deltaX,
+  }
+  clampAssistantPosition()
+}
+
+function stopAssistantDrag() {
+  window.removeEventListener('pointermove', moveAssistant)
+  window.removeEventListener('pointerup', stopAssistantDrag)
+  window.removeEventListener('pointercancel', stopAssistantDrag)
+
+  isDraggingAssistant.value = false
+  if (assistantMovedDuringDrag) {
+    ignoreNextAssistantClick = true
+    window.setTimeout(() => {
+      ignoreNextAssistantClick = false
+    }, 0)
+  }
+}
+
+onMounted(() => {
+  clampAssistantPosition()
+  window.addEventListener('resize', clampAssistantPosition)
+})
+
+onBeforeUnmount(() => {
+  if (assistantReturnTimer) window.clearTimeout(assistantReturnTimer)
+  window.removeEventListener('resize', clampAssistantPosition)
+  window.removeEventListener('pointermove', moveAssistant)
+  window.removeEventListener('pointerup', stopAssistantDrag)
+  window.removeEventListener('pointercancel', stopAssistantDrag)
+})
 
 watch(messages, () => {
   scrollToBottom()
@@ -233,6 +365,12 @@ function getBotReply(inputText: string): string {
 .chat-fade-leave-to {
   opacity: 0;
   transform: translateY(20px) scale(0.95);
+}
+
+.assistant-returning {
+  transition:
+    bottom 520ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    right 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .assistant-speech-bubble {
