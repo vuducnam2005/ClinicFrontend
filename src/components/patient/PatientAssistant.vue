@@ -88,21 +88,21 @@
 
     <button
       type="button"
-      class="group flex flex-col items-center gap-2 rounded-2xl outline-none pointer-events-auto"
+      class="group flex flex-col items-center gap-0 rounded-2xl outline-none pointer-events-auto"
       aria-label="Mở trợ lý Medicare"
       @click="openChat"
     >
       <span
-        class="relative rounded-2xl border border-blue-100 bg-white px-4 py-2 text-sm font-bold text-[#003c90] shadow-lg transition group-hover:-translate-y-0.5 group-hover:border-blue-200 group-hover:text-[#0F52BA]"
+        class="relative z-10 translate-y-3 rounded-2xl border border-blue-100 bg-white px-4 py-2 text-sm font-bold text-[#003c90] shadow-lg transition group-hover:translate-y-2 group-hover:border-blue-200 group-hover:text-[#0F52BA]"
       >
         Tôi có thể giúp gì cho bạn?
         <span class="absolute -bottom-1.5 right-9 h-3 w-3 rotate-45 border-b border-r border-blue-100 bg-white"></span>
       </span>
-      <span class="relative flex h-28 w-28 items-end justify-center sm:h-32 sm:w-32">
+      <span class="relative flex h-28 w-28 items-end justify-center drop-shadow-[0_18px_30px_rgba(15,82,186,0.22)] transition duration-200 group-hover:scale-[1.03] sm:h-32 sm:w-32">
         <video
           ref="primaryAssistantVideoRef"
           :src="assistantVideoUrl"
-          class="absolute inset-0 h-full w-full object-contain drop-shadow-[0_18px_30px_rgba(15,82,186,0.22)] transition duration-700 group-hover:scale-[1.03]"
+          class="absolute inset-0 h-full w-full object-contain transition-opacity duration-[420ms]"
           :class="activeAssistantVideo === 0 ? 'opacity-100' : 'opacity-0'"
           autoplay
           muted
@@ -115,7 +115,7 @@
         <video
           ref="secondaryAssistantVideoRef"
           :src="assistantVideoUrl"
-          class="absolute inset-0 h-full w-full object-contain drop-shadow-[0_18px_30px_rgba(15,82,186,0.22)] transition duration-700 group-hover:scale-[1.03]"
+          class="absolute inset-0 h-full w-full object-contain transition-opacity duration-[420ms]"
           :class="activeAssistantVideo === 1 ? 'opacity-100' : 'opacity-0'"
           muted
           playsinline
@@ -148,8 +148,8 @@ const primaryAssistantVideoRef = ref<HTMLVideoElement | null>(null)
 const secondaryAssistantVideoRef = ref<HTMLVideoElement | null>(null)
 const activeAssistantVideo = ref<0 | 1>(0)
 
-const loopBlendMs = 700
-const loopTriggerSeconds = 0.85
+const loopBlendMs = 420
+const loopTriggerSeconds = 0.48
 let loopBlendTimer: number | undefined
 
 const messages = ref<Message[]>([
