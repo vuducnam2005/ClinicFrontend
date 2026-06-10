@@ -100,29 +100,14 @@
       </span>
       <span class="relative flex h-28 w-28 items-end justify-center drop-shadow-[0_18px_30px_rgba(15,82,186,0.22)] transition duration-200 group-hover:scale-[1.03] sm:h-32 sm:w-32">
         <video
-          ref="primaryAssistantVideoRef"
           :src="assistantVideoUrl"
-          class="absolute inset-0 h-full w-full object-contain transition-opacity duration-[420ms]"
-          :class="activeAssistantVideo === 0 ? 'opacity-100' : 'opacity-0'"
+          class="absolute inset-0 h-full w-full object-contain"
           autoplay
+          loop
           muted
           playsinline
           preload="auto"
           aria-hidden="true"
-          @timeupdate="handleAssistantTimeUpdate(0)"
-          @ended="handleAssistantEnded(0)"
-        ></video>
-        <video
-          ref="secondaryAssistantVideoRef"
-          :src="assistantVideoUrl"
-          class="absolute inset-0 h-full w-full object-contain transition-opacity duration-[420ms]"
-          :class="activeAssistantVideo === 1 ? 'opacity-100' : 'opacity-0'"
-          muted
-          playsinline
-          preload="auto"
-          aria-hidden="true"
-          @timeupdate="handleAssistantTimeUpdate(1)"
-          @ended="handleAssistantEnded(1)"
         ></video>
       </span>
     </button>
@@ -130,9 +115,9 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import { Send, X } from 'lucide-vue-next'
-import assistantVideoUrl from '@/assets/assistant.webm'
+import assistantVideoUrl from '@/assets/assistant-loop.webm'
 
 interface Message {
   sender: 'bot' | 'patient'
@@ -144,13 +129,6 @@ const inputMsg = ref('')
 const isTyping = ref(false)
 const chatOpen = ref(false)
 const messagesRef = ref<HTMLElement | null>(null)
-const primaryAssistantVideoRef = ref<HTMLVideoElement | null>(null)
-const secondaryAssistantVideoRef = ref<HTMLVideoElement | null>(null)
-const activeAssistantVideo = ref<0 | 1>(0)
-
-const loopBlendMs = 420
-const loopTriggerSeconds = 0.48
-let loopBlendTimer: number | undefined
 
 const messages = ref<Message[]>([
   {
@@ -196,55 +174,6 @@ watch(messages, () => {
 watch(isTyping, () => {
   scrollToBottom()
 })
-
-onBeforeUnmount(() => {
-  if (loopBlendTimer) window.clearTimeout(loopBlendTimer)
-})
-
-function getAssistantVideo(index: 0 | 1) {
-  return index === 0 ? primaryAssistantVideoRef.value : secondaryAssistantVideoRef.value
-}
-
-function handleAssistantTimeUpdate(index: 0 | 1) {
-  const video = getAssistantVideo(index)
-  if (index !== activeAssistantVideo.value || loopBlendTimer || !video?.duration) return
-
-  const remainingSeconds = video.duration - video.currentTime
-  if (remainingSeconds <= loopTriggerSeconds) {
-    startAssistantLoopBlend(index)
-  }
-}
-
-function handleAssistantEnded(index: 0 | 1) {
-  if (index === activeAssistantVideo.value) {
-    startAssistantLoopBlend(index)
-  }
-}
-
-function startAssistantLoopBlend(currentIndex: 0 | 1) {
-  if (loopBlendTimer) return
-
-  const nextIndex = currentIndex === 0 ? 1 : 0
-  const currentVideo = getAssistantVideo(currentIndex)
-  const nextVideo = getAssistantVideo(nextIndex)
-  if (!nextVideo) return
-
-  nextVideo.currentTime = 0
-  const playPromise = nextVideo.play()
-  activeAssistantVideo.value = nextIndex
-
-  loopBlendTimer = window.setTimeout(() => {
-    currentVideo?.pause()
-    if (currentVideo) currentVideo.currentTime = 0
-    loopBlendTimer = undefined
-  }, loopBlendMs)
-
-  playPromise.catch(() => {
-    if (loopBlendTimer) window.clearTimeout(loopBlendTimer)
-    loopBlendTimer = undefined
-    activeAssistantVideo.value = currentIndex
-  })
-}
 
 function sendMessage() {
   const text = inputMsg.value.trim()
