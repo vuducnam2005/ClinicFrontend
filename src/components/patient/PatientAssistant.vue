@@ -11,7 +11,7 @@
           <div class="flex items-center gap-3">
             <div class="relative">
               <video autoplay loop muted playsinline preload="auto" class="h-10 w-10 rounded-full border border-white/20 bg-transparent object-contain">
-                <source :src="assistantWebm + '?v=3'" type="video/webm" />
+                <source :src="assistantWebm + '?v=7'" type="video/webm" />
               </video>
               <span class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[#0F52BA] bg-emerald-500"></span>
             </div>
@@ -130,9 +130,9 @@
           playsinline
           preload="auto"
           aria-label="Dr. Doggy"
-          class="dog-img h-full w-auto object-contain transition duration-300 drop-shadow-xl"
+          class="dog-img h-full w-auto bg-transparent object-contain transition duration-300"
         >
-          <source :src="assistantWebm + '?v=4'" type="video/webm" />
+          <source :src="assistantWebm + '?v=7'" type="video/webm" />
         </video>
       </button>
     </div>
