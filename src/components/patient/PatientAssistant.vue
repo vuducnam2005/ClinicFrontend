@@ -10,7 +10,9 @@
         <div class="flex items-center justify-between bg-[#0F52BA] px-4 py-3.5 text-white">
           <div class="flex items-center gap-3">
             <div class="relative">
-              <img :src="assistantDogPng" alt="Dr. Doggy" class="h-10 w-10 rounded-full border border-white/20 bg-white object-contain" />
+              <video autoplay loop muted playsinline preload="auto" class="h-10 w-10 rounded-full border border-white/20 bg-transparent object-contain">
+                <source :src="assistantWebm + '?v=3'" type="video/webm" />
+              </video>
               <span class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[#0F52BA] bg-emerald-500"></span>
             </div>
             <div>
@@ -121,11 +123,17 @@
         class="dog-avatar-btn group pointer-events-auto flex h-32 w-auto items-center justify-center transition-all duration-300 focus:outline-none"
         @click="toggleChat"
       >
-        <img
-          :src="assistantDogPng"
-          alt="Dr. Doggy"
+        <video
+          autoplay
+          loop
+          muted
+          playsinline
+          preload="auto"
+          aria-label="Dr. Doggy"
           class="dog-img h-full w-auto object-contain transition duration-300 drop-shadow-xl"
-        />
+        >
+          <source :src="assistantWebm + '?v=4'" type="video/webm" />
+        </video>
       </button>
     </div>
   </div>
@@ -135,6 +143,7 @@
 import { nextTick, ref, watch } from 'vue'
 import { Send, X, Minus } from 'lucide-vue-next'
 import assistantDogPng from '@/assets/assistant-dog.png'
+import assistantWebm from '@/assets/assistant.webm'
 
 interface Message {
   sender: 'bot' | 'patient'
