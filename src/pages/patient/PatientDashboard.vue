@@ -269,7 +269,10 @@ const invoices = ref<Invoice[]>([])
 const records = ref<MedicalRecord[]>([])
 
 const displayName = computed(() => authStore.user?.fullName || authStore.user?.username || 'bệnh nhân')
-const nextAppointment = computed(() => appointments.value[0])
+const upcomingAppointments = computed(() => appointments.value
+  .filter(isUpcomingAppointment)
+  .sort((a, b) => appointmentStartTimestamp(a) - appointmentStartTimestamp(b)))
+const nextAppointment = computed(() => upcomingAppointments.value[0] || null)
 const unpaidInvoices = computed(() => invoices.value.filter((item) => String(item.status || '').toLowerCase().includes('unpaid')))
 
 const stats = computed(() => [
@@ -353,6 +356,58 @@ function medicalRecordDisplayCode(record: MedicalRecord & Record<string, any>) {
 
 function invoiceDisplayCode(invoice: Invoice & Record<string, any>) {
   return invoice.invoiceCode || invoice.invoiceIdCode || invoice.InvoiceCode || invoice.InvoiceIdCode || invoice.invoiceId || '-'
+}
+
+function isUpcomingAppointment(appointment: Appointment & Record<string, any>) {
+  if (isClosedAppointmentStatus(appointment.status || appointment.Status)) return false
+  const timestamp = appointmentStartTimestamp(appointment)
+  return Number.isFinite(timestamp) && timestamp >= Date.now()
+}
+
+function isClosedAppointmentStatus(status?: string | number) {
+  const value = String(status || '').trim().toLowerCase()
+  return value.includes('completed')
+    || value.includes('complete')
+    || value.includes('done')
+    || value.includes('hoàn')
+    || value.includes('cancel')
+    || value.includes('hủy')
+    || value.includes('huỷ')
+    || value.includes('noshow')
+    || value.includes('no show')
+    || value.includes('expired')
+    || value.includes('quá hạn')
+}
+
+function appointmentStartTimestamp(appointment: Appointment & Record<string, any>) {
+  const scheduledAt = appointment.scheduledAt || appointment.ScheduledAt
+  if (scheduledAt) {
+    const scheduledTime = new Date(String(scheduledAt)).getTime()
+    if (Number.isFinite(scheduledTime)) return scheduledTime
+  }
+
+  const dateOnly = normalizeAppointmentDate(appointment.appointmentDate || appointment.AppointmentDate)
+  if (!dateOnly) return Number.NaN
+  const timeText = String(appointment.slotTime || appointment.SlotTime || '00:00').slice(0, 5)
+  const time = /^\d{1,2}:\d{2}$/.test(timeText) ? timeText : '00:00'
+  return new Date(`${dateOnly}T${time}:00`).getTime()
+}
+
+function normalizeAppointmentDate(value: unknown) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`
+
+  const viMatch = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/)
+  if (viMatch) {
+    const day = viMatch[1].padStart(2, '0')
+    const month = viMatch[2].padStart(2, '0')
+    return `${viMatch[3]}-${month}-${day}`
+  }
+
+  const parsed = new Date(text)
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10)
 }
 
 function formatCurrency(value: number) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0)) }

@@ -26,6 +26,7 @@ function normalizeBillingItem(item: Record<string, any>) {
   const medicalRecordCode = item.medicalRecordCode ?? item.MedicalRecordCode ?? item.medicalRecordIdCode ?? item.MedicalRecordIdCode
   const patientCode = item.patientCode ?? item.PatientCode ?? item.patientIdCode ?? item.PatientIdCode
   const amount = amountValue(item)
+  const prescriptionItems = normalizePrescriptionItems(item.items ?? item.Items ?? item.prescriptionItems ?? item.PrescriptionItems)
   return {
     ...item,
     id: item.id ?? item.Id ?? invoiceId ?? item.prescriptionId ?? item.PrescriptionId,
@@ -49,15 +50,47 @@ function normalizeBillingItem(item: Record<string, any>) {
     paidAmount: Number(item.paidAmount ?? item.PaidAmount ?? 0),
     refundedAmount: Number(item.refundedAmount ?? item.RefundedAmount ?? 0),
     balanceDue: Number(item.balanceDue ?? item.BalanceDue ?? 0),
-    status: item.status ?? item.Status,
+    status: item.status ?? item.Status ?? item.prescriptionStatus ?? item.PrescriptionStatus,
+    stockStatus: item.stockStatus ?? item.StockStatus,
+    invoiceStatus: item.invoiceStatus ?? item.InvoiceStatus,
+    canApprove: item.canApprove ?? item.CanApprove,
+    canDispense: item.canDispense ?? item.CanDispense,
     createdAt: item.createdAt ?? item.CreatedAt,
+    submittedAt: item.submittedAt ?? item.SubmittedAt,
+    sentToPharmacyAt: item.sentToPharmacyAt ?? item.SentToPharmacyAt,
+    dispensedAt: item.dispensedAt ?? item.DispensedAt,
     paidAt: item.paidAt ?? item.PaidAt,
     payments: item.payments ?? item.Payments,
+    items: prescriptionItems,
+    prescriptionItems,
   }
 }
 
 function amountValue(data: Record<string, any>) {
   return Number(data.amount ?? data.Amount ?? data.totalAmount ?? data.TotalAmount ?? data.examinationFee ?? data.ExaminationFee ?? data.examFee ?? data.ExamFee ?? 0)
+}
+
+function normalizePrescriptionItems(value: unknown) {
+  const list = Array.isArray(value) ? value : []
+  return list.map((item: any) => ({
+    ...item,
+    id: item.id ?? item.Id ?? item.prescriptionItemId ?? item.PrescriptionItemId,
+    prescriptionItemCode: item.prescriptionItemCode ?? item.PrescriptionItemCode,
+    medicineId: item.medicineId ?? item.MedicineId,
+    medicineNameSnapshot: item.medicineNameSnapshot ?? item.MedicineNameSnapshot ?? item.medicineName ?? item.MedicineName,
+    medicineName: item.medicineName ?? item.MedicineName ?? item.medicineNameSnapshot ?? item.MedicineNameSnapshot,
+    unitSnapshot: item.unitSnapshot ?? item.UnitSnapshot ?? item.unit ?? item.Unit,
+    dosage: item.dosage ?? item.Dosage,
+    frequency: item.frequency ?? item.Frequency,
+    durationDays: item.durationDays ?? item.DurationDays,
+    quantity: item.quantity ?? item.Quantity,
+    usageInstruction: item.usageInstruction ?? item.UsageInstruction,
+    note: item.note ?? item.Note,
+    currentStock: item.currentStock ?? item.CurrentStock,
+    isAvailable: item.isAvailable ?? item.IsAvailable,
+    shortageQuantity: item.shortageQuantity ?? item.ShortageQuantity,
+    stockStatus: item.stockStatus ?? item.StockStatus,
+  }))
 }
 
 async function tryGet<T>(paths: string[]) {

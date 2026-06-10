@@ -64,8 +64,8 @@
             class="grid w-full grid-cols-[36px_1fr] gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50"
             @click="openNotification(notification)"
           >
-            <span class="flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-lg">
-              {{ typeIcon(notification.type) }}
+            <span :class="['flex h-9 w-9 items-center justify-center rounded-md', typeMeta(notification.type).className]">
+              <component :is="typeMeta(notification.type).icon" class="h-4.5 w-4.5" />
             </span>
             <span class="min-w-0">
               <span class="flex items-start gap-2">
@@ -98,7 +98,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowRight, Bell, CheckCheck } from 'lucide-vue-next'
+import { ArrowRight, Bell, CalendarCheck, CheckCheck, CreditCard, FileHeart, Pill, Settings, Stethoscope } from 'lucide-vue-next'
 import { useNotificationStore, type NotificationItem } from '@/stores/notificationStore'
 
 const router = useRouter()
@@ -153,12 +153,24 @@ function viewAll() {
   }
 }
 
-function typeIcon(type: string) {
-  if (type === 'Appointment') return '📅'
-  if (type === 'Billing') return '💳'
-  if (type === 'Prescription') return '💊'
-  if (type === 'MedicalRecord') return '🩺'
-  return '⚙️'
+function typeMeta(type: string) {
+  const normalized = String(type || '').toLowerCase()
+  if (normalized.includes('appointment')) {
+    return { icon: CalendarCheck, className: 'bg-blue-50 text-blue-700' }
+  }
+  if (normalized.includes('billing') || normalized.includes('invoice') || normalized.includes('payment')) {
+    return { icon: CreditCard, className: 'bg-emerald-50 text-emerald-700' }
+  }
+  if (normalized.includes('prescription') || normalized.includes('medicine') || normalized.includes('pharmacy')) {
+    return { icon: Pill, className: 'bg-indigo-50 text-indigo-700' }
+  }
+  if (normalized.includes('medicalrecord') || normalized.includes('record')) {
+    return { icon: FileHeart, className: 'bg-rose-50 text-rose-700' }
+  }
+  if (normalized.includes('visit') || normalized.includes('exam')) {
+    return { icon: Stethoscope, className: 'bg-cyan-50 text-cyan-700' }
+  }
+  return { icon: Settings, className: 'bg-slate-100 text-slate-700' }
 }
 
 function formatTime(value: string) {

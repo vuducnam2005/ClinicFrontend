@@ -70,21 +70,8 @@
           <Menu class="h-6 w-6" />
         </button>
 
-        <div class="relative hidden w-full max-w-2xl items-center md:flex">
-          <Search class="pointer-events-none absolute left-5 h-5 w-5 text-slate-500" />
-          <input
-            class="h-12 w-full rounded-2xl border border-transparent bg-slate-100 pl-[52px] pr-16 text-sm text-slate-800 outline-none transition placeholder:text-slate-500 focus:border-blue-200 focus:bg-white focus:ring-4 focus:ring-blue-100"
-            type="search"
-            placeholder="Tìm kiếm bệnh nhân, hồ sơ bệnh án hoặc lịch hẹn..."
-          />
-        </div>
-
         <div class="ml-auto flex items-center gap-4">
           <NotificationBell />
-          <button type="button" class="hidden h-10 w-10 items-center justify-center rounded-xl text-slate-700 transition hover:bg-slate-100 sm:inline-flex">
-            <MessageSquare class="h-5 w-5" />
-          </button>
-
           <div class="hidden h-12 border-l border-slate-200 sm:block"></div>
 
           <div class="flex items-center gap-3">
@@ -166,8 +153,6 @@ import {
   ChevronRight,
   LogOut,
   Menu,
-  MessageSquare,
-  Search,
   X,
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/authStore'

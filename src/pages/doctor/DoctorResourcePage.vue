@@ -565,7 +565,16 @@ const configs: Record<Resource, Config> = {
     emptyTitle: 'Chưa có bệnh án phù hợp',
     emptyText: 'Không tìm thấy bệnh án của bác sĩ này trong bộ lọc hiện tại.',
     detailTitle: 'Chi tiết bệnh án',
-    columns: cols(['id', 'Mã bệnh án'], ['patientName', 'Bệnh nhân', true], ['diagnosis', 'Chẩn đoán'], ['diagnosisCode', 'Mã ICD'], ['diagnosisSpecialty', 'Chuyên khoa'], ['timeLabel', 'Ngày tạo'], ['status', 'Trạng thái']),
+    columns: cols(
+      ['id', 'Mã bệnh án'],
+      ['patientName', 'Bệnh nhân', true],
+      ['timeLabel', 'Ngày khám'],
+      ['completedLabel', 'Ngày hoàn tất'],
+      ['diagnosisCode', 'Mã ICD'],
+      ['diagnosisSpecialty', 'Chuyên khoa ICD'],
+      ['diagnosis', 'Chẩn đoán'],
+      ['status', 'Trạng thái']
+    ),
   },
   schedule: {
     kicker: 'N1 Doctor Schedule',
@@ -907,7 +916,7 @@ async function saveMedicalRecord() {
   }
   savingExam.value = true
   try {
-    await saveVitals(false)
+    await savePatientHistory()
     const payload = {
       visitId: activeVisit.value.visitId,
       diagnosisCode: examForm.diagnosisCode.trim() || undefined,
@@ -1020,7 +1029,7 @@ async function submitExamination() {
       'success',
     )
     clearWorkingState()
-    await loadData()
+    await router.push('/doctor/records')
   } catch (apiError) {
     showToast('Chưa hoàn tất khám', businessError(apiError), 'error')
   } finally {
@@ -1150,9 +1159,9 @@ async function saveDraft() {
   if (!activeVisit.value?.visitId) return showToast('Thiếu lượt khám', 'Cần mở lượt khám N2 trước khi lưu nháp.', 'error')
   savingExam.value = true
   try {
-    await saveVitals(false)
+    await savePatientHistory()
     if (examForm.diagnosis.trim()) await saveMedicalRecord()
-    else showToast('Đã lưu nháp', 'Sinh hiệu và thông tin khám hiện có đã được lưu.', 'success')
+    else showToast('Đã lưu nháp', 'Tiền sử, dị ứng và thông tin khám hiện có đã được lưu.', 'success')
   } catch (apiError) {
     showToast('Lưu nháp thất bại', businessError(apiError), 'error')
   } finally {
@@ -1364,6 +1373,8 @@ function mapVisit(item: MedicalVisit): Row {
 
 function mapRecord(item: MedicalRecord): Row {
   const patientName = (item as any).patientName || (item as any).patient?.fullName || (item as any).Patient?.FullName || `Bệnh nhân #${item.patientId || ''}`
+  const examDate = item.examDate || item.createdAt
+  const diagnosisCode = item.diagnosisCode || ''
   return {
     key: `R${item.medicalRecordId || item.recordId || item.id}`,
     id: item.medicalRecordCode || item.medicalRecordIdCode || item.recordIdCode || item.recordId || item.medicalRecordId || item.id,
@@ -1372,15 +1383,22 @@ function mapRecord(item: MedicalRecord): Row {
     doctorId: Number(item.doctorId || 0) || undefined,
     patientName: displayText(patientName),
     doctorName: displayText(item.doctorName),
-    date: normalizeDate(item.createdAt || item.examDate),
-    timeLabel: formatDate(item.createdAt || item.examDate),
+    date: normalizeDate(examDate),
+    timeLabel: formatDate(examDate),
+    completedLabel: item.completedAt ? formatDateTime(item.completedAt) : '-',
     diagnosis: item.diagnosisText || item.diagnosis || 'Chưa có chẩn đoán',
-    diagnosisCode: item.diagnosisCode || '-',
-    diagnosisSpecialty: item.diagnosisSpecialty || '-',
+    diagnosisCode: diagnosisCode || '-',
+    diagnosisSpecialty: item.diagnosisSpecialty || specialtyFromIcdCode(diagnosisCode) || '-',
     note: item.doctorNote || item.doctorNotes || item.treatmentPlan || 'Chưa ghi chú',
     status: item.status || 'Đã lưu',
     raw: item,
   }
+}
+
+function specialtyFromIcdCode(value?: string) {
+  const code = String(value || '').split('-')[0].trim().toLowerCase()
+  if (!code) return ''
+  return icdCodes.find((item) => item.code.toLowerCase() === code)?.specialty || ''
 }
 
 function mapSchedule(item: DoctorSchedule & Record<string, any>): Row {
@@ -1467,6 +1485,14 @@ function formatDate(value?: string) {
   if (!value) return 'Chưa cập nhật'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? String(value).slice(0, 10) : new Intl.DateTimeFormat('vi-VN').format(date)
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return 'Chưa cập nhật'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime())
+    ? String(value)
+    : new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date)
 }
 
 function timeOf(value?: string) {
@@ -1963,25 +1989,22 @@ function renderReasonCard(props: any) {
   ])
 }
 
-function renderVitalsCard(props: any, emit: any) {
+function renderVitalsCard(props: any, _emit: any) {
   const bmi = bmiValue(props.vitalsForm.height, props.vitalsForm.weight)
   return medicalCard('Sinh hiệu', HeartPulse, [
     h('div', { class: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8' }, [
-      vitalField('Huyết áp', props.vitalsForm.bloodPressure, (value: string) => { props.vitalsForm.bloodPressure = value }, 'mmHg', HeartPulse),
-      vitalField('Mạch', props.vitalsForm.heartRate, (value: string) => { props.vitalsForm.heartRate = value }, 'lần/phút', Activity, 'number'),
-      vitalField('Nhiệt độ', props.vitalsForm.temperature, (value: string) => { props.vitalsForm.temperature = value }, '°C', Thermometer, 'number'),
-      vitalField('Nhịp thở', props.vitalsForm.respiratoryRate, (value: string) => { props.vitalsForm.respiratoryRate = value }, 'lần/phút', Wind, 'number'),
-      vitalField('SpO2', props.vitalsForm.spo2, (value: string) => { props.vitalsForm.spo2 = value }, '%', Activity, 'number'),
-      vitalField('Chiều cao', props.vitalsForm.height, (value: string) => { props.vitalsForm.height = value }, 'cm', Ruler, 'number'),
-      vitalField('Cân nặng', props.vitalsForm.weight, (value: string) => { props.vitalsForm.weight = value }, 'kg', Weight, 'number'),
+      vitalField('Huyết áp', props.vitalsForm.bloodPressure, 'mmHg', HeartPulse),
+      vitalField('Mạch', props.vitalsForm.heartRate, 'lần/phút', Activity),
+      vitalField('Nhiệt độ', props.vitalsForm.temperature, '°C', Thermometer),
+      vitalField('Nhịp thở', props.vitalsForm.respiratoryRate, 'lần/phút', Wind),
+      vitalField('SpO2', props.vitalsForm.spo2, '%', Activity),
+      vitalField('Chiều cao', props.vitalsForm.height, 'cm', Ruler),
+      vitalField('Cân nặng', props.vitalsForm.weight, 'kg', Weight),
       h('div', { class: 'rounded-xl border border-blue-100 bg-blue-50 p-3' }, [
         h('p', { class: 'text-xs font-bold text-blue-700' }, 'BMI'),
         h('p', { class: 'mt-2 text-xl font-bold text-slate-950' }, bmi || 'Chưa có'),
         h('p', { class: 'text-xs text-slate-500' }, bmi ? 'kg/m²' : 'Nhập chiều cao/cân nặng'),
       ]),
-    ]),
-    h('div', { class: 'mt-4 flex justify-end' }, [
-      h(BaseButton, { type: 'button', variant: 'outline', loading: props.saving, onClick: () => emit('save-vitals') }, () => 'Lưu sinh hiệu'),
     ]),
   ])
 }
@@ -2106,9 +2129,9 @@ function renderPrescriptionCard(props: any, emit: any) {
     props.medicineLoading
       ? h(LoadingSkeleton)
       : h('div', { class: 'overflow-x-auto rounded-xl border border-slate-200' }, [
-          h('table', { class: 'min-w-[900px] w-full divide-y divide-slate-200 text-sm' }, [
+          h('table', { class: 'min-w-[1020px] w-full divide-y divide-slate-200 text-sm' }, [
             h('thead', { class: 'bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500' }, [
-              h('tr', null, ['Thuốc', 'Liều dùng', 'Số lượng', 'Ghi chú', 'Thao tác'].map((label) => h('th', { class: 'px-4 py-3' }, label))),
+              h('tr', null, ['Thuốc', 'Liều dùng', 'Số ngày', 'Số lượng', 'Ghi chú', 'Thao tác'].map((label) => h('th', { class: 'px-4 py-3' }, label))),
             ]),
             h('tbody', { class: 'divide-y divide-slate-100 bg-white' }, props.prescriptionItems.length
               ? props.prescriptionItems.map((item: PrescriptionItemPayload, index: number) => {
@@ -2147,12 +2170,13 @@ function renderPrescriptionCard(props: any, emit: any) {
                       ]),
                     ]),
                     h('td', { class: 'px-4 py-3' }, h('input', { value: item.dosage, class: [formInputClass, 'min-w-[160px]'], placeholder: 'VD: 1 viên x 2 lần/ngày', onInput: (event: Event) => { item.dosage = (event.target as HTMLInputElement).value } })),
+                    h('td', { class: 'px-4 py-3' }, h('input', { value: item.durationDays, type: 'number', min: 1, class: [formInputClass, 'min-w-[100px]'], onInput: (event: Event) => { item.durationDays = Number((event.target as HTMLInputElement).value) } })),
                     h('td', { class: 'px-4 py-3' }, h('input', { value: item.quantity, type: 'number', class: [formInputClass, 'min-w-[110px]'], onInput: (event: Event) => { item.quantity = Number((event.target as HTMLInputElement).value) } })),
                     h('td', { class: 'px-4 py-3' }, h('input', { value: item.note || item.usageInstruction || '', class: [formInputClass, 'min-w-[180px]'], placeholder: 'Sau ăn, khi đau...', onInput: (event: Event) => { item.note = (event.target as HTMLInputElement).value; item.usageInstruction = (event.target as HTMLInputElement).value } })),
                     h('td', { class: 'px-4 py-3 text-center' }, h('button', { type: 'button', class: 'inline-flex h-9 w-9 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50', onClick: () => emit('remove-medicine', item, index) }, [h(Trash2, { class: 'h-4 w-4' })])),
                   ])
                 })
-              : [h('tr', null, [h('td', { class: 'px-4 py-6 text-center text-slate-500', colspan: 5 }, 'Chưa có thuốc trong đơn.')])]),
+              : [h('tr', null, [h('td', { class: 'px-4 py-6 text-center text-slate-500', colspan: 6 }, 'Chưa có thuốc trong đơn.')])]),
           ]),
         ]),
     h('div', { class: 'mt-4 flex flex-wrap gap-3' }, [
@@ -2212,20 +2236,15 @@ function sideInfoItem(label: string, value: unknown) {
   ])
 }
 
-function vitalField(label: string, value: any, update: (value: string) => void, unit: string, icon: any, type = 'text') {
-  return h('label', { class: 'block rounded-xl border border-slate-200 bg-white p-3 transition focus-within:border-blue-200 focus-within:shadow-sm' }, [
+function vitalField(label: string, value: any, unit: string, icon: any) {
+  const textValue = String(value ?? '').trim()
+  return h('div', { class: 'block rounded-xl border border-slate-200 bg-white p-3' }, [
     h('span', { class: 'flex items-center gap-2 text-xs font-bold text-slate-600' }, [
       h(icon, { class: 'h-4 w-4 text-[#0F52BA]' }),
       label,
     ]),
-    h('span', { class: 'mt-2 flex h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100' }, [
-      h('input', {
-        value,
-        type,
-        class: 'min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400 focus:outline-none focus:ring-0',
-        placeholder: 'Chưa có',
-        onInput: (event: Event) => update((event.target as HTMLInputElement).value),
-      }),
+    h('span', { class: 'mt-2 flex h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3' }, [
+      h('span', { class: ['min-w-0 flex-1 truncate text-sm font-semibold', textValue ? 'text-slate-900' : 'text-slate-400'] }, textValue || 'Chưa có'),
       h('span', { class: 'shrink-0 text-xs font-semibold text-slate-400' }, unit),
     ]),
   ])

@@ -487,11 +487,7 @@
             
             <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
               <div class="flex items-center gap-3">
-                <span :class="['flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border', 
-                  (selectedPrescription.status && String(selectedPrescription.status).toLowerCase().includes('dispensed') || String(selectedPrescription.status).toLowerCase().includes('complete') || String(selectedPrescription.status).toLowerCase().includes('hoàn'))
-                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                    : 'bg-amber-50 text-amber-600 border-amber-100'
-                ]">
+                <span :class="['flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border', isDispensedStatus(selectedPrescription.status) ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100']">
                   <Send class="h-4 w-4" />
                 </span>
                 <div>
@@ -508,11 +504,16 @@
                 <div class="flex justify-between">
                   <span>Trạng thái phát thuốc:</span>
                   <span class="font-semibold text-slate-700">
-                    {{ selectedPrescription.status && (String(selectedPrescription.status).toLowerCase().includes('dispensed') || String(selectedPrescription.status).toLowerCase().includes('completed') || String(selectedPrescription.status).toLowerCase().includes('hoàn') || String(selectedPrescription.status).toLowerCase().includes('cấp'))
-                      ? 'Đã phát hoàn tất lúc ' + formatDateTime(selectedPrescription.sentToPharmacyAt)
-                      : 'Đang chuẩn bị thuốc tại quầy dược'
-                    }}
+                    {{ pharmacyStatusMessage(selectedPrescription) }}
                   </span>
+                </div>
+                <div class="flex justify-between" v-if="selectedPrescription.invoiceStatus">
+                  <span>Trạng thái viện phí:</span>
+                  <span class="font-semibold text-slate-700">{{ invoiceStatusLabel(selectedPrescription.invoiceStatus) }}</span>
+                </div>
+                <div class="flex justify-between" v-if="selectedPrescription.stockStatus">
+                  <span>Trạng thái tồn kho:</span>
+                  <span class="font-semibold text-slate-700">{{ stockStatusLabel(selectedPrescription.stockStatus) }}</span>
                 </div>
               </div>
             </div>
@@ -611,20 +612,11 @@ watch(() => toast.show, (visible) => {
 const stats = computed(() => {
   const total = prescriptions.value.length
   
-  const pending = prescriptions.value.filter(p => {
-    const s = String(p.status || '').toLowerCase()
-    return s.includes('pending') || s.includes('chờ')
-  }).length
+  const pending = prescriptions.value.filter(p => ['pending', 'processing', 'partial', 'outOfStock'].includes(prescriptionStatusBucket(p.status))).length
 
-  const sent = prescriptions.value.filter(p => {
-    const s = String(p.status || '').toLowerCase()
-    return s.includes('sent') || s.includes('gửi')
-  }).length
+  const sent = prescriptions.value.filter(p => ['sent', 'ready'].includes(prescriptionStatusBucket(p.status))).length
 
-  const completed = prescriptions.value.filter(p => {
-    const s = String(p.status || '').toLowerCase()
-    return s.includes('dispensed') || s.includes('completed') || s.includes('hoàn') || s.includes('cấp')
-  }).length
+  const completed = prescriptions.value.filter(p => ['dispensed', 'completed'].includes(prescriptionStatusBucket(p.status))).length
 
   return { total, pending, sent, completed }
 })
@@ -655,12 +647,12 @@ const filteredPrescriptions = computed(() => {
 
     // 2. Status filter
     if (filters.status !== 'ALL') {
-      const s = String(p.status || '').toUpperCase()
-      if (filters.status === 'PENDING' && !s.includes('PENDING') && !s.includes('CHỜ')) return false
-      if (filters.status === 'SENT_TO_PHARMACY' && !s.includes('SENT') && !s.includes('GỬI')) return false
-      if (filters.status === 'DISPENSED' && !s.includes('DISPENSED') && !s.includes('CẤP')) return false
-      if (filters.status === 'COMPLETED' && !s.includes('COMPLETED') && !s.includes('HOÀN')) return false
-      if (filters.status === 'CANCELLED' && !s.includes('CANCEL') && !s.includes('HỦY')) return false
+      const bucket = prescriptionStatusBucket(p.status)
+      if (filters.status === 'PENDING' && !['pending', 'processing', 'partial', 'outOfStock'].includes(bucket)) return false
+      if (filters.status === 'SENT_TO_PHARMACY' && !['sent', 'ready'].includes(bucket)) return false
+      if (filters.status === 'DISPENSED' && bucket !== 'dispensed') return false
+      if (filters.status === 'COMPLETED' && !['completed', 'dispensed'].includes(bucket)) return false
+      if (filters.status === 'CANCELLED' && bucket !== 'cancelled') return false
     }
 
     // 3. Date range filter
@@ -887,10 +879,16 @@ function mergePrescriptions(n2List: Prescription[], n3List: Prescription[]): Pre
       existing.medicalRecordId = existing.medicalRecordId || n3Normalized.medicalRecordId
       existing.medicalRecordCode = existing.medicalRecordCode || n3Normalized.medicalRecordCode
       existing.appointmentId = existing.appointmentId || n3Normalized.appointmentId
-      existing.status = existing.status || n3Normalized.status
+      existing.status = n3Normalized.status || existing.status
+      existing.stockStatus = n3Normalized.stockStatus || existing.stockStatus
+      existing.invoiceStatus = n3Normalized.invoiceStatus || existing.invoiceStatus
+      existing.canApprove = n3Normalized.canApprove ?? existing.canApprove
+      existing.canDispense = n3Normalized.canDispense ?? existing.canDispense
       existing.note = existing.note || n3Normalized.note
-      existing.createdAt = existing.createdAt || n3Normalized.createdAt
-      existing.sentToPharmacyAt = existing.sentToPharmacyAt || n3Normalized.sentToPharmacyAt
+      existing.createdAt = n3Normalized.createdAt || existing.createdAt
+      existing.sentToPharmacyAt = n3Normalized.sentToPharmacyAt || existing.sentToPharmacyAt
+      existing.submittedAt = n3Normalized.submittedAt || existing.submittedAt
+      existing.dispensedAt = n3Normalized.dispensedAt || existing.dispensedAt
 
       const existingItems = existing.items || []
       const n3Items = n3Normalized.items || []
@@ -957,24 +955,79 @@ function formatDateTime(value?: string) {
   return `${day}/${month}/${year} ${hours}:${minutes}`
 }
 
+function prescriptionStatusBucket(status?: string) {
+  const s = String(status || '').trim().toLowerCase()
+  if (!s) return 'unknown'
+  if (s.includes('cancel') || s.includes('hủy')) return 'cancelled'
+  if (s.includes('dispensed') || s.includes('đã phát') || s.includes('da phat') || s.includes('cấp')) return 'dispensed'
+  if (s.includes('readytodispense') || s.includes('ready_to_dispense') || s.includes('ready') || s.includes('sẵn sàng')) return 'ready'
+  if (s.includes('partiallyavailable') || s.includes('partial') || s.includes('một phần')) return 'partial'
+  if (s.includes('outofstock') || s.includes('out_of_stock') || s.includes('thiếu')) return 'outOfStock'
+  if (s.includes('senttopharmacy') || s.includes('sent_to_pharmacy') || s.includes('sent') || s.includes('gửi')) return 'sent'
+  if (s.includes('processing') || s.includes('đang xử')) return 'processing'
+  if (s.includes('completed') || s.includes('complete') || s.includes('hoàn')) return 'completed'
+  if (s.includes('pending') || s.includes('chờ')) return 'pending'
+  return 'unknown'
+}
+
 function statusLabel(status?: string) {
-  const s = String(status || '').toLowerCase()
-  if (s.includes('sent') || s.includes('gửi')) return 'Đã gửi nhà thuốc'
-  if (s.includes('pending') || s.includes('chờ')) return 'Chờ xử lý'
-  if (s.includes('dispensed') || s.includes('cấp')) return 'Đã cấp thuốc'
-  if (s.includes('completed') || s.includes('hoàn')) return 'Hoàn tất'
-  if (s.includes('cancel') || s.includes('hủy')) return 'Đã hủy'
+  const bucket = prescriptionStatusBucket(status)
+  if (bucket === 'sent') return 'Đã gửi nhà thuốc'
+  if (bucket === 'ready') return 'Sẵn sàng phát thuốc'
+  if (bucket === 'pending') return 'Chờ xử lý'
+  if (bucket === 'processing') return 'Đang xử lý'
+  if (bucket === 'partial') return 'Thiếu một phần'
+  if (bucket === 'outOfStock') return 'Thiếu thuốc'
+  if (bucket === 'dispensed') return 'Đã phát thuốc'
+  if (bucket === 'completed') return 'Hoàn tất'
+  if (bucket === 'cancelled') return 'Đã hủy'
   return status || 'Chưa cập nhật'
 }
 
 function statusClass(status?: string) {
-  const s = String(status || '').toLowerCase()
-  if (s.includes('sent') || s.includes('gửi')) return 'bg-emerald-50 text-emerald-700 border-emerald-100'
-  if (s.includes('pending') || s.includes('chờ')) return 'bg-amber-50 text-amber-700 border-amber-100'
-  if (s.includes('dispensed') || s.includes('cấp')) return 'bg-blue-50 text-blue-700 border-blue-100'
-  if (s.includes('completed') || s.includes('hoàn')) return 'bg-emerald-50 text-emerald-700 border-emerald-100'
-  if (s.includes('cancel') || s.includes('hủy')) return 'bg-rose-50 text-rose-700 border-rose-100'
+  const bucket = prescriptionStatusBucket(status)
+  if (bucket === 'sent') return 'bg-cyan-50 text-cyan-700 border-cyan-100'
+  if (bucket === 'ready') return 'bg-sky-50 text-sky-700 border-sky-100'
+  if (bucket === 'pending' || bucket === 'processing') return 'bg-amber-50 text-amber-700 border-amber-100'
+  if (bucket === 'partial' || bucket === 'outOfStock') return 'bg-orange-50 text-orange-700 border-orange-100'
+  if (bucket === 'dispensed' || bucket === 'completed') return 'bg-emerald-50 text-emerald-700 border-emerald-100'
+  if (bucket === 'cancelled') return 'bg-rose-50 text-rose-700 border-rose-100'
   return 'bg-slate-50 text-slate-700 border-slate-100'
+}
+
+function isDispensedStatus(status?: string) {
+  return ['dispensed', 'completed'].includes(prescriptionStatusBucket(status))
+}
+
+function pharmacyStatusMessage(prescription: Prescription) {
+  const bucket = prescriptionStatusBucket(prescription.status)
+  if (bucket === 'dispensed' || bucket === 'completed') {
+    const time = prescription.dispensedAt || prescription.submittedAt || prescription.sentToPharmacyAt
+    return time ? `Đã phát thuốc lúc ${formatDateTime(time)}` : 'Đã phát thuốc'
+  }
+  if (bucket === 'ready') return 'Sẵn sàng phát thuốc tại quầy dược'
+  if (bucket === 'sent') return 'Đã gửi sang nhà thuốc, đang chờ kiểm kho'
+  if (bucket === 'partial') return 'Nhà thuốc thiếu một phần thuốc trong đơn'
+  if (bucket === 'outOfStock') return 'Nhà thuốc đang thiếu thuốc'
+  if (bucket === 'cancelled') return 'Đơn thuốc đã hủy'
+  return 'Chưa phát thuốc'
+}
+
+function invoiceStatusLabel(status?: string) {
+  const s = String(status || '').toLowerCase()
+  if (s.includes('partial')) return 'Thanh toán một phần'
+  if (s.includes('paid') && !s.includes('unpaid')) return 'Đã thanh toán'
+  if (s.includes('cancel')) return 'Đã hủy'
+  if (s.includes('unpaid')) return 'Chưa thanh toán'
+  return status || 'Chưa cập nhật'
+}
+
+function stockStatusLabel(status?: string) {
+  const s = String(status || '').toLowerCase()
+  if (s.includes('available') && !s.includes('partial')) return 'Đủ thuốc'
+  if (s.includes('partial')) return 'Thiếu một phần'
+  if (s.includes('out') || s.includes('shortage')) return 'Thiếu thuốc'
+  return status || 'Chưa cập nhật'
 }
 
 function showToast(title: string, message: string, type: 'success' | 'error' = 'success') {

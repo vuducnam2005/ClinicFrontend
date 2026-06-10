@@ -47,6 +47,7 @@ export interface PrescriptionItem {
   durationDays?: number
   quantity?: number
   usageInstruction?: string
+  note?: string
 }
 
 export interface PrescriptionStockItem extends PrescriptionItem {
@@ -91,6 +92,11 @@ export interface Prescription {
   createdAt?: string
   submittedAt?: string
   sentToPharmacyAt?: string
+  dispensedAt?: string
+  stockStatus?: string
+  invoiceStatus?: string
+  canApprove?: boolean
+  canDispense?: boolean
   items?: PrescriptionItem[]
   prescriptionItems?: PrescriptionItem[]
 }

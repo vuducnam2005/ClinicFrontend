@@ -807,16 +807,18 @@
                   <th class="px-2 py-1.5 border-r border-slate-200">Tên thuốc</th>
                   <th class="px-2 py-1.5 border-r border-slate-200 w-20 text-center">Số lượng</th>
                   <th class="px-2 py-1.5 border-r border-slate-200">Liều dùng</th>
+                  <th class="px-2 py-1.5 border-r border-slate-200 w-20 text-center">Số ngày</th>
                   <th class="px-2 py-1.5">Hướng dẫn</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200 bg-white">
                 <tr v-for="(item, index) in prescriptionItems(activePrescription)" :key="item.id || index">
                   <td class="px-2 py-1.5 border-r border-slate-200 text-center font-medium">{{ index + 1 }}</td>
-                  <td class="px-2 py-1.5 border-r border-slate-200 font-bold text-slate-800">{{ item.medicineNameSnapshot || item.medicineName || 'Chưa cập nhật' }}</td>
-                  <td class="px-2 py-1.5 border-r border-slate-200 text-center font-bold">{{ item.quantity || '-' }} {{ item.unitSnapshot || '' }}</td>
-                  <td class="px-2 py-1.5 border-r border-slate-200 font-medium">{{ item.dosage || 'Chưa cập nhật' }} · {{ item.frequency || 'Chưa cập nhật' }}</td>
-                  <td class="px-2 py-1.5 font-medium">{{ item.usageInstruction || 'Theo dặn dò của bác sĩ' }}</td>
+                  <td class="px-2 py-1.5 border-r border-slate-200 font-bold text-slate-800">{{ prescriptionItemMedicineName(item) }}</td>
+                  <td class="px-2 py-1.5 border-r border-slate-200 text-center font-bold">{{ prescriptionItemQuantity(item) }}</td>
+                  <td class="px-2 py-1.5 border-r border-slate-200 font-medium">{{ prescriptionItemDosage(item) }}</td>
+                  <td class="px-2 py-1.5 border-r border-slate-200 text-center font-medium">{{ prescriptionItemDuration(item) }}</td>
+                  <td class="px-2 py-1.5 font-medium">{{ prescriptionItemInstruction(item) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -932,11 +934,12 @@ const printVitalItems = computed(() => {
   const items = [
     { label: 'Nhiệt độ', value: vitalDisplay(vitals, ['temperature', 'Temperature'], '°C') },
     { label: 'Huyết áp', value: vitalDisplay(vitals, ['bloodPressure', 'BloodPressure']) },
-    { label: 'Nhịp tim', value: vitalDisplay(vitals, ['heartRate', 'HeartRate'], 'lần/phút') },
+    { label: 'Mạch', value: vitalDisplay(vitals, ['heartRate', 'HeartRate'], 'lần/phút') },
     { label: 'Nhịp thở', value: vitalDisplay(vitals, ['respiratoryRate', 'RespiratoryRate'], 'lần/phút') },
-    { label: 'SpO₂', value: vitalDisplay(vitals, ['spo2', 'SpO2', 'SpO₂'], '%') },
+    { label: 'SpO2', value: vitalDisplay(vitals, ['spo2', 'Spo2', 'spO2', 'SpO2', 'SpO₂'], '%') },
     { label: 'Cân nặng', value: vitalDisplay(vitals, ['weight', 'Weight'], 'kg') },
     { label: 'Chiều cao', value: vitalDisplay(vitals, ['height', 'Height'], 'cm') },
+    { label: 'BMI', value: vitalBmiDisplay(vitals) },
   ]
   return items.filter(item => item.value !== '')
 })
@@ -1367,6 +1370,32 @@ function prescriptionItems(prescription?: Prescription | null) {
   return prescription?.items || prescription?.prescriptionItems || []
 }
 
+function prescriptionItemMedicineName(item: Record<string, any>) {
+  return String(readFirst(item, 'medicineNameSnapshot', 'MedicineNameSnapshot', 'medicineName', 'MedicineName') || 'Chưa cập nhật')
+}
+
+function prescriptionItemQuantity(item: Record<string, any>) {
+  const quantity = readFirst(item, 'quantity', 'Quantity')
+  const unit = String(readFirst(item, 'unitSnapshot', 'UnitSnapshot', 'unit', 'Unit') || '').trim()
+  return [quantity || '-', unit].filter(Boolean).join(' ')
+}
+
+function prescriptionItemDosage(item: Record<string, any>) {
+  const dosage = String(readFirst(item, 'dosage', 'Dosage') || '').trim()
+  const frequency = String(readFirst(item, 'frequency', 'Frequency') || '').trim()
+  return [dosage, frequency].filter(Boolean).join(' · ') || 'Chưa cập nhật'
+}
+
+function prescriptionItemDuration(item: Record<string, any>) {
+  const value = readFirst(item, 'durationDays', 'DurationDays')
+  const days = Number(value)
+  return Number.isFinite(days) && days > 0 ? `${days} ngày` : 'Chưa cập nhật'
+}
+
+function prescriptionItemInstruction(item: Record<string, any>) {
+  return String(readFirst(item, 'usageInstruction', 'UsageInstruction', 'note', 'Note') || '').trim() || 'Theo dặn dò của bác sĩ'
+}
+
 function prescriptionMatchesRecord(
   prescription: Prescription,
   recordCode: string | number | undefined,
@@ -1456,6 +1485,14 @@ function vitalDisplay(source: Record<string, any>, keys: string[], unit = '') {
   const value = readFirst(source, ...keys)
   if (value === undefined) return ''
   return `${value}${unit ? ` ${unit}` : ''}`
+}
+
+function vitalBmiDisplay(source: Record<string, any>) {
+  const weight = Number(readFirst(source, 'weight', 'Weight'))
+  const height = Number(readFirst(source, 'height', 'Height'))
+  if (!Number.isFinite(weight) || !Number.isFinite(height) || weight <= 0 || height <= 0) return ''
+  const heightMeters = height / 100
+  return `${(weight / (heightMeters * heightMeters)).toFixed(1)} kg/m²`
 }
 
 function clinicalOrderResult(order: Record<string, any>) {

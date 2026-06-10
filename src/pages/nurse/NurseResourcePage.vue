@@ -417,7 +417,9 @@
           <ul class="mt-2 grid gap-1 sm:grid-cols-2">
             <li>Nhiệt độ: 30-45°C, ví dụ 36.8.</li>
             <li>Huyết áp: dạng 120/80, tối đa 30 ký tự.</li>
-            <li>Nhịp tim: 1-250 lần/phút.</li>
+            <li>Mạch: 1-250 lần/phút.</li>
+            <li>Nhịp thở: 1-100 lần/phút.</li>
+            <li>SpO2: 1-100%.</li>
             <li>Chiều cao: 1-300 cm.</li>
             <li>Cân nặng: 1-500 kg.</li>
             <li class="font-bold text-rose-700">Các trường có dấu * là bắt buộc.</li>
@@ -427,7 +429,9 @@
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <BaseInput v-model.number="vitalsForm.temperature" label="Nhiệt độ (°C)" type="number" min="30" max="45" step="0.1" required />
             <BaseInput v-model="vitalsForm.bloodPressure" label="Huyết áp" placeholder="120/80" maxlength="30" required />
-            <BaseInput v-model.number="vitalsForm.heartRate" label="Nhịp tim" type="number" min="1" max="250" required />
+            <BaseInput v-model.number="vitalsForm.heartRate" label="Mạch (lần/phút)" type="number" min="1" max="250" required />
+            <BaseInput v-model.number="vitalsForm.respiratoryRate" label="Nhịp thở (lần/phút)" type="number" min="1" max="100" required />
+            <BaseInput v-model.number="vitalsForm.spo2" label="SpO2 (%)" type="number" min="1" max="100" required />
             <BaseInput v-model.number="vitalsForm.height" label="Chiều cao (cm)" type="number" min="1" max="300" required />
             <BaseInput v-model.number="vitalsForm.weight" label="Cân nặng (kg)" type="number" min="1" max="500" required />
           </div>
@@ -1111,7 +1115,16 @@ const activeRow = ref<Row | null>(null)
 const activePrescriptionRow = ref<Row | null>(null)
 const stockCheck = ref<PrescriptionStockCheck | null>(null)
 const editingPatientId = ref<string | number | null>(null)
-const vitalsForm = reactive({ temperature: undefined as number | undefined, bloodPressure: '', heartRate: undefined as number | undefined, height: undefined as number | undefined, weight: undefined as number | undefined, note: '' })
+const vitalsForm = reactive({
+  temperature: undefined as number | undefined,
+  bloodPressure: '',
+  heartRate: undefined as number | undefined,
+  respiratoryRate: undefined as number | undefined,
+  spo2: undefined as number | undefined,
+  height: undefined as number | undefined,
+  weight: undefined as number | undefined,
+  note: ''
+})
 const patientForm = reactive({ fullName: '', phoneNumber: '', email: '', dateOfBirth: '', gender: '', address: '', citizenId: '', bloodType: '', allergyNote: '', medicalHistory: '', status: 'Đang hoạt động' })
 const genderOptions = [{ label: 'Nam', value: 'Male' }, { label: 'Nữ', value: 'Female' }]
 const patientStatusOptions = [{ label: 'Đang hoạt động', value: 'Đang hoạt động' }, { label: 'Đã khóa', value: 'Đã khóa' }]
@@ -1938,6 +1951,10 @@ function openVitals(row: Row) {
   vitalsForm.bloodPressure = String(raw.bloodPressure ?? raw.BloodPressure ?? vitals.bloodPressure ?? vitals.BloodPressure ?? '')
   vitalsForm.heartRate = numberOrUndefined(raw.heartRate ?? raw.HeartRate)
     ?? numberOrUndefined(vitals.heartRate ?? vitals.HeartRate)
+  vitalsForm.respiratoryRate = numberOrUndefined(raw.respiratoryRate ?? raw.RespiratoryRate)
+    ?? numberOrUndefined(vitals.respiratoryRate ?? vitals.RespiratoryRate)
+  vitalsForm.spo2 = numberOrUndefined(raw.spo2 ?? raw.Spo2 ?? raw.spO2 ?? raw.SpO2)
+    ?? numberOrUndefined(vitals.spo2 ?? vitals.Spo2 ?? vitals.spO2 ?? vitals.SpO2)
   vitalsForm.height = numberOrUndefined(raw.height ?? raw.Height)
     ?? numberOrUndefined(vitals.height ?? vitals.Height)
   vitalsForm.weight = numberOrUndefined(raw.weight ?? raw.Weight)
@@ -1966,6 +1983,8 @@ async function submitVitals() {
       temperature: emptyToNull(vitalsForm.temperature),
       bloodPressure: vitalsForm.bloodPressure.trim() || null,
       heartRate: emptyToNull(vitalsForm.heartRate),
+      respiratoryRate: emptyToNull(vitalsForm.respiratoryRate),
+      spo2: emptyToNull(vitalsForm.spo2),
       height: emptyToNull(vitalsForm.height),
       weight: emptyToNull(vitalsForm.weight),
       note: vitalsForm.note.trim() || null,
@@ -1989,12 +2008,16 @@ async function submitVitals() {
 function validateVitals() {
   if (!isEnteredNumber(vitalsForm.temperature)) return 'Vui lòng nhập nhiệt độ.'
   if (!vitalsForm.bloodPressure.trim()) return 'Vui lòng nhập huyết áp.'
-  if (!isEnteredNumber(vitalsForm.heartRate)) return 'Vui lòng nhập nhịp tim.'
+  if (!isEnteredNumber(vitalsForm.heartRate)) return 'Vui lòng nhập mạch.'
+  if (!isEnteredNumber(vitalsForm.respiratoryRate)) return 'Vui lòng nhập nhịp thở.'
+  if (!isEnteredNumber(vitalsForm.spo2)) return 'Vui lòng nhập SpO2.'
   if (!isEnteredNumber(vitalsForm.height)) return 'Vui lòng nhập chiều cao.'
   if (!isEnteredNumber(vitalsForm.weight)) return 'Vui lòng nhập cân nặng.'
   if (Number(vitalsForm.temperature) < 30 || Number(vitalsForm.temperature) > 45) return 'Nhiệt độ phải nằm trong khoảng 30-45°C.'
   if (!/^\d{2,3}\s*\/\s*\d{2,3}$/.test(vitalsForm.bloodPressure.trim())) return 'Huyết áp phải có dạng tâm thu/tâm trương, ví dụ 120/80.'
-  if (Number(vitalsForm.heartRate) < 1 || Number(vitalsForm.heartRate) > 250) return 'Nhịp tim phải nằm trong khoảng 1-250.'
+  if (Number(vitalsForm.heartRate) < 1 || Number(vitalsForm.heartRate) > 250) return 'Mạch phải nằm trong khoảng 1-250.'
+  if (Number(vitalsForm.respiratoryRate) < 1 || Number(vitalsForm.respiratoryRate) > 100) return 'Nhịp thở phải nằm trong khoảng 1-100.'
+  if (Number(vitalsForm.spo2) < 1 || Number(vitalsForm.spo2) > 100) return 'SpO2 phải nằm trong khoảng 1-100%.'
   if (Number(vitalsForm.height) < 1 || Number(vitalsForm.height) > 300) return 'Chiều cao phải nằm trong khoảng 1-300 cm.'
   if (Number(vitalsForm.weight) < 1 || Number(vitalsForm.weight) > 500) return 'Cân nặng phải nằm trong khoảng 1-500 kg.'
   if (vitalsForm.bloodPressure.length > 30) return 'Huyết áp tối đa 30 ký tự.'
@@ -2312,6 +2335,8 @@ function hasVitalSigns(raw: Record<string, any>) {
   return [raw.temperature, raw.Temperature, vitals.temperature, vitals.Temperature,
       raw.bloodPressure, raw.BloodPressure, vitals.bloodPressure, vitals.BloodPressure,
       raw.heartRate, raw.HeartRate, vitals.heartRate, vitals.HeartRate,
+      raw.respiratoryRate, raw.RespiratoryRate, vitals.respiratoryRate, vitals.RespiratoryRate,
+      raw.spo2, raw.Spo2, raw.spO2, raw.SpO2, vitals.spo2, vitals.Spo2, vitals.spO2, vitals.SpO2,
       raw.height, raw.Height, vitals.height, vitals.Height,
       raw.weight, raw.Weight, vitals.weight, vitals.Weight]
       .some((value) => value !== undefined && value !== null && String(value).trim() !== '')
