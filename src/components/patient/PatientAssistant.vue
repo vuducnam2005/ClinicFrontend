@@ -4,20 +4,20 @@
     <transition name="chat-fade">
       <div
         v-if="chatOpen"
-        class="mb-3 flex h-[min(480px,calc(100vh-13rem))] w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl transition-all duration-300 pointer-events-auto"
+        class="mb-1 flex h-[min(480px,calc(100vh-13rem))] w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl transition-all duration-300 pointer-events-auto"
       >
         <!-- Header -->
         <div class="flex items-center justify-between bg-[#0F52BA] px-4 py-3.5 text-white">
           <div class="flex items-center gap-3">
             <div>
-              <h3 class="text-sm font-bold leading-tight">Trợ lý Medicare</h3>
-              <p class="text-[10px] font-semibold text-blue-100">Trợ lý ảo Medicare · Đang hoạt động</p>
+              <h3 class="text-sm font-bold leading-tight">Dogky</h3>
+              <p class="text-[10px] font-semibold text-blue-100">Trợ lý hơi cáu · Vẫn đang trực</p>
             </div>
           </div>
           <button
             type="button"
             class="flex h-8 w-8 items-center justify-center rounded-lg text-blue-50 transition hover:bg-white/10"
-            aria-label="Đóng trợ lý Medicare"
+            aria-label="Đóng Dogky"
             @click="chatOpen = false"
           >
             <X class="h-4.5 w-4.5" />
@@ -72,7 +72,7 @@
           <input
             v-model="inputMsg"
             type="text"
-            placeholder="Hỏi trợ lý về dịch vụ..."
+            placeholder="Hỏi Dogky về dịch vụ..."
             class="flex-1 rounded-xl bg-slate-100 px-4 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
           />
           <button
@@ -89,14 +89,15 @@
     <button
       type="button"
       class="group flex flex-col items-center gap-0 rounded-2xl outline-none pointer-events-auto"
-      aria-label="Mở trợ lý Medicare"
-      @click="openChat"
+      aria-label="Mở hoặc đóng Dogky"
+      @click="toggleChat"
     >
       <span
-        class="relative z-10 translate-y-3 rounded-2xl border border-blue-100 bg-white px-4 py-2 text-sm font-bold text-[#003c90] shadow-lg transition group-hover:translate-y-2 group-hover:border-blue-200 group-hover:text-[#0F52BA]"
+        v-if="!chatOpen"
+        class="assistant-speech-bubble relative z-10 px-5 py-2.5 text-sm font-bold text-[#0F52BA]"
       >
-        Tôi có thể giúp gì cho bạn?
-        <span class="absolute -bottom-1.5 right-9 h-3 w-3 rotate-45 border-b border-r border-blue-100 bg-white"></span>
+        <span class="relative z-10">Tôi có thể giúp gì cho bạn?</span>
+        <span class="assistant-speech-tail"></span>
       </span>
       <span class="relative flex h-28 w-28 items-end justify-center drop-shadow-[0_18px_30px_rgba(15,82,186,0.22)] transition duration-200 group-hover:scale-[1.03] sm:h-32 sm:w-32">
         <video
@@ -133,7 +134,7 @@ const messagesRef = ref<HTMLElement | null>(null)
 const messages = ref<Message[]>([
   {
     sender: 'bot',
-    text: 'Xin chào! Tôi là trợ lý ảo Medicare của bạn đây ạ. Bạn có cần tôi giúp gì không?',
+    text: 'Gâu. Tôi là Dogky đây. Bạn cần gì thì hỏi nhanh nhé, tôi đang trực nhưng không có nghĩa là tôi thích chờ đâu. Yên tâm, tôi vẫn giúp bạn đàng hoàng.',
     time: formatTime(new Date()),
   },
 ])
@@ -162,9 +163,9 @@ function scrollToBottom() {
   })
 }
 
-function openChat() {
-  chatOpen.value = true
-  scrollToBottom()
+function toggleChat() {
+  chatOpen.value = !chatOpen.value
+  if (chatOpen.value) scrollToBottom()
 }
 
 watch(messages, () => {
@@ -204,21 +205,21 @@ function sendMessage() {
 function getBotReply(inputText: string): string {
   const query = inputText.toLowerCase()
   if (query.includes('đặt lịch') || query.includes('hẹn') || query.includes('khám') || query.includes('booking')) {
-    return 'Để đặt lịch khám bệnh, bạn vui lòng nhấn vào phần "Đặt lịch khám" ở danh mục bên trái màn hình nhé ạ.'
+    return 'Đặt lịch thì vào mục "Đặt lịch khám" ở menu bên trái. Dễ mà, đừng bắt Dogky phải sủa lần hai nha.'
   }
   if (query.includes('đơn thuốc') || query.includes('thuốc') || query.includes('prescription')) {
-    return 'Bạn có thể xem toàn bộ danh sách đơn thuốc đã kê tại mục "Đơn thuốc" ở danh mục dịch vụ bên trái nha.'
+    return 'Đơn thuốc nằm ở mục "Đơn thuốc" bên trái. Vào đó là thấy danh sách đã kê, gọn gàng hơn cái bàn làm việc của nhiều người.'
   }
   if (query.includes('hóa đơn') || query.includes('viện phí') || query.includes('tiền') || query.includes('bill') || query.includes('thanh toán')) {
-    return 'Các hóa đơn và viện phí của bạn nằm trong mục "Viện phí" ở menu bên trái. Bạn có thể xem chi tiết trạng thái thanh toán tại đó.'
+    return 'Hóa đơn và viện phí nằm trong mục "Viện phí". Vào đó xem trạng thái thanh toán, khỏi đoán già đoán non cho mệt.'
   }
   if (query.includes('bệnh án') || query.includes('hồ sơ') || query.includes('record') || query.includes('lịch sử')) {
-    return 'Hồ sơ sức khỏe của bạn nằm trong phần "Hồ sơ bệnh án" bên trái. Hãy vào đó để xem chi tiết nhé.'
+    return 'Hồ sơ của bạn ở mục "Hồ sơ bệnh án" bên trái. Vào xem chi tiết nhé, Dogky đã chỉ đúng đường rồi đó.'
   }
   if (query.includes('chào') || query.includes('hi') || query.includes('hello')) {
-    return 'Xin chào! Tôi rất vui được gặp bạn. Chúc bạn một ngày nhiều sức khỏe.'
+    return 'Chào. Dogky nghe đây. Hỏi gì thì hỏi, tôi cáu nhẹ thôi chứ vẫn lịch sự.'
   }
-  return 'Tôi chưa hiểu câu hỏi của bạn lắm, nhưng tôi luôn sẵn sàng dẫn đường cho bạn. Bạn có muốn xem mục Đặt lịch khám, Đơn thuốc, hay Viện phí không?'
+  return 'Dogky chưa hiểu câu này. Bạn hỏi rõ hơn một chút đi, hoặc chọn Đặt lịch khám, Đơn thuốc, Viện phí, Hồ sơ bệnh án. Tôi cáu vì mơ hồ, không cáu với bạn.'
 }
 </script>
 
@@ -232,6 +233,95 @@ function getBotReply(inputText: string): string {
 .chat-fade-leave-to {
   opacity: 0;
   transform: translateY(20px) scale(0.95);
+}
+
+.assistant-speech-bubble {
+  min-width: 13.5rem;
+  animation: assistant-speech-cycle 8.5s ease-in-out infinite;
+  background:
+    radial-gradient(ellipse at 58% 44%, rgba(198, 192, 255, 0.48) 0 46%, transparent 47%),
+    #fff;
+  border: 3px solid #4a2a1d;
+  border-radius: 58% 42% 50% 45% / 56% 54% 44% 48%;
+  box-shadow: 0 12px 24px rgba(15, 82, 186, 0.16);
+  transform-origin: 50% 118%;
+  will-change: opacity, transform;
+}
+
+.assistant-speech-tail {
+  position: absolute;
+  bottom: -0.85rem;
+  left: 50%;
+  z-index: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  animation: assistant-speech-tail-cycle 8.5s ease-in-out infinite;
+  background: #fff;
+  border-bottom: 3px solid #4a2a1d;
+  border-right: 3px solid #4a2a1d;
+  border-bottom-right-radius: 0.35rem;
+  transform-origin: center;
+  will-change: opacity, transform;
+}
+
+@keyframes assistant-speech-cycle {
+  0%,
+  38% {
+    opacity: 1;
+    transform: translateY(0.75rem) scale(1);
+  }
+
+  48%,
+  70% {
+    opacity: 0;
+    transform: translate(0.15rem, 4.85rem) scale(0.08);
+  }
+
+  78% {
+    opacity: 0;
+    transform: translate(0.1rem, 4.1rem) scale(0.18);
+  }
+
+  88% {
+    opacity: 1;
+    transform: translateY(0.75rem) scale(1.06);
+  }
+
+  94%,
+  100% {
+    opacity: 1;
+    transform: translateY(0.75rem) scale(1);
+  }
+}
+
+@keyframes assistant-speech-tail-cycle {
+  0%,
+  38% {
+    opacity: 1;
+    transform: translateX(-50%) rotate(45deg) scale(1);
+  }
+
+  48%,
+  70% {
+    opacity: 0;
+    transform: translate(-50%, 0.8rem) rotate(45deg) scale(0.12);
+  }
+
+  78% {
+    opacity: 0;
+    transform: translate(-50%, 0.55rem) rotate(45deg) scale(0.22);
+  }
+
+  88% {
+    opacity: 1;
+    transform: translateX(-50%) rotate(45deg) scale(1.15);
+  }
+
+  94%,
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) rotate(45deg) scale(1);
+  }
 }
 
 </style>
