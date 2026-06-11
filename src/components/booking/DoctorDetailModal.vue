@@ -17,8 +17,7 @@
             </button>
             <div class="flex flex-col gap-5 pr-10 sm:flex-row sm:items-center">
               <div class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/10 text-cyan-100 ring-1 ring-white/15">
-                <img v-if="doctor.avatarUrl" :src="doctor.avatarUrl" :alt="doctorName(doctor)" class="h-full w-full object-cover" />
-                <UserRound v-else class="h-12 w-12" />
+                <img :src="doctorAvatarUrl(doctor)" :alt="doctorName(doctor)" class="h-full w-full object-cover" />
               </div>
               <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-2">
@@ -115,6 +114,7 @@ import {
 } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import type { Doctor } from '@/types/doctor'
+import { doctorAvatarUrl } from '@/utils/doctorAvatar'
 import { displayText } from '@/utils/displayText'
 
 defineProps<{

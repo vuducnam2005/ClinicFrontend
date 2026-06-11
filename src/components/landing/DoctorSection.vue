@@ -18,7 +18,7 @@
           <button class="relative block w-full overflow-hidden rounded-lg text-left" @click="openDoctor(doctor)">
             <img
               class="h-80 w-full object-cover transition duration-500 group-hover:scale-105"
-              :src="doctorImages[index % doctorImages.length]"
+              :src="doctorAvatarUrl(doctor)"
               :alt="displayText(doctor.doctorName)"
             />
             <span class="pulse-soft absolute left-4 top-4 inline-flex items-center gap-1 rounded-full bg-[#1d59c1] px-3 py-1 text-xs font-semibold text-white">
@@ -53,17 +53,12 @@ import DoctorDetailModal from '@/components/booking/DoctorDetailModal.vue'
 import { appointmentApi } from '@/services/appointmentApi'
 import { fallbackDoctors } from '@/services/fallbackData'
 import type { Doctor } from '@/types/doctor'
+import { doctorAvatarUrl } from '@/utils/doctorAvatar'
 import { displayText } from '@/utils/displayText'
 
 const doctors = ref<Doctor[]>([])
 const selectedDoctor = ref<Doctor | null>(null)
 const loading = ref(true)
-const doctorImages = [
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuBGVzisRgPVLFMvREWL90bQypyZHMAf3GyT8T2hrfKkrIp0kQrVWtczQYCzdTSOMg5VM9xYYB6x2hh_80paaY2DDPo3cX9JeJSEJBqqjW0u4OLHLbjKxZRyWAotQALgBNU5xldyTyvvRlgv1797fO950fiD56l2QNq4qBGV4pB-1P5uHghW0wwqUutpImOpsoLMCc5jBonplAZbrpleWtmXl1fDA4J--U5xPDYpZOat5Kk83lYrQSmUFt3_6ycXtdvDwK0wc1k0tzkW',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuDO-8g76IjoBWiFmS0PwzoL06SqdhVJ4GPv1OfMXeoGVjRZMYZS5onhDVriUOKbEZSNrufzx3ozgLiZ5cGVjlnSqRN7N4uTF88wCWG06D2RPT9ez2lPeBKJzbm8c6YmCvm0M7PAiPCm4S65I1NR1QwNj_yrZJkpFpMZc2A-2rZkbo1Vmm2itHfAusCCRcX_vpZ8BCH_cdJlkxOpv6L3drZxtWWtJfMJi2s-clLj_FsNgN3jZLUXoI1x-wT8cymEPdStFhBuxcMACwzD',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuAvqErqUWr4xgq9XWl0Sg_XMl11L3W8Zi0CQOqWlCg6laaNBDY2pDVOqUdvYzWsoGBxAC_oEzHgkVh7sPi2kTyrMk7Z0H8HP4U60VAvbKhFdrAyiCbFo3tDSnh0M2gosT-4gxYbIrg28l1AWWhW0I5Cpk66Y4e6V8TeZc-QrbjAZ77S93825ZRcAGsBJcbc9OMBfxMZywVqigdegIIOLT_kvzyaM67y92RlgUODkV-pp-S6HYfrVP4X2rkbrdxgIKy5qPxM7ZliJ1z2',
-]
-
 onMounted(async () => {
   try {
     const data = await appointmentApi.getDoctors()

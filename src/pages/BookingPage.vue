@@ -137,8 +137,7 @@
           >
             <div class="flex gap-4">
               <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-50 text-[#0F52BA] ring-1 ring-blue-100">
-                <img v-if="item.avatarUrl" :src="item.avatarUrl" :alt="doctorName(item)" class="h-full w-full object-cover" />
-                <UserRound v-else class="h-8 w-8" />
+                <img :src="doctorAvatarUrl(item)" :alt="doctorName(item)" class="h-full w-full object-cover" />
               </div>
               <div class="min-w-0 flex-1">
                 <div class="flex items-start gap-2">
@@ -213,6 +212,7 @@ import { getApiErrorMessage } from '@/services/apiClient'
 import type { CreateAppointmentRequest } from '@/types/appointment'
 import type { Doctor } from '@/types/doctor'
 import type { Specialty } from '@/types/specialty'
+import { doctorAvatarUrl } from '@/utils/doctorAvatar'
 import { displayText } from '@/utils/displayText'
 
 const route = useRoute()

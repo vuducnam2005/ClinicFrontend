@@ -31,8 +31,7 @@
         <BaseCard v-for="doctor in filteredDoctors" :key="doctor.doctorId" class="p-5">
           <button class="group flex w-full gap-4 text-left" type="button" @click="openDoctor(doctor)">
             <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-teal-50 text-teal-700 ring-1 ring-teal-100 transition group-hover:bg-teal-100">
-              <img v-if="doctor.avatarUrl" :src="doctor.avatarUrl" :alt="doctorName(doctor)" class="h-full w-full object-cover" />
-              <UserRound v-else class="h-8 w-8" />
+              <img :src="doctorAvatarUrl(doctor)" :alt="doctorName(doctor)" class="h-full w-full object-cover" />
             </div>
             <div class="min-w-0">
               <h2 class="truncate text-lg font-semibold text-slate-950 transition group-hover:text-teal-700">
@@ -69,7 +68,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { CalendarPlus, SearchX, UserRound } from 'lucide-vue-next'
+import { CalendarPlus, SearchX } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseCard from '@/components/ui/BaseCard.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
@@ -80,6 +79,7 @@ import { appointmentApi } from '@/services/appointmentApi'
 import { fallbackDoctors, fallbackSpecialties } from '@/services/fallbackData'
 import type { Doctor } from '@/types/doctor'
 import type { Specialty } from '@/types/specialty'
+import { doctorAvatarUrl } from '@/utils/doctorAvatar'
 import { displayText } from '@/utils/displayText'
 
 const doctors = ref<Doctor[]>([])

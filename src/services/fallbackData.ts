@@ -18,6 +18,7 @@ export const fallbackDoctors: Doctor[] = [
     specialtyName: 'Tim mạch',
     degree: 'Thạc sĩ, Bác sĩ CKI',
     examFee: 150000,
+    gender: 'Male',
     isActive: true,
   },
   {
@@ -27,6 +28,7 @@ export const fallbackDoctors: Doctor[] = [
     specialtyName: 'Nhi khoa',
     degree: 'Bác sĩ CKII',
     examFee: 120000,
+    gender: 'Female',
     isActive: true,
   },
   {
@@ -36,6 +38,7 @@ export const fallbackDoctors: Doctor[] = [
     specialtyName: 'Da liễu',
     degree: 'Bác sĩ Da liễu',
     examFee: 100000,
+    gender: 'Male',
     isActive: true,
   },
 ]
