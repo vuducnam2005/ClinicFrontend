@@ -12,7 +12,7 @@
           </button>
           <div>
             <h1 class="text-2xl font-bold text-slate-950">Chi tiết lượt khám</h1>
-            <p class="mt-1 text-sm text-slate-500">Dữ liệu lấy trực tiếp từ lịch hẹn N1, lượt khám và hồ sơ N2.</p>
+            <p class="mt-1 text-sm text-slate-500">Dữ liệu hồ sơ lịch hẹn, lượt khám và thông tin bệnh án của bệnh nhân.</p>
           </div>
         </div>
         <StatusChip :status="activeVisit?.status || selectedRow?.status" />
@@ -29,9 +29,9 @@
             <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
               Bác sĩ: {{ doctorName }}
             </span>
-            <span class="rounded-full bg-blue-50 px-3 py-1 font-mono text-xs font-semibold text-blue-700">
+            <!-- <span class="rounded-full bg-blue-50 px-3 py-1 font-mono text-xs font-semibold text-blue-700">
               {{ config.endpoint }}
-            </span>
+            </span> -->
           </div>
         </div>
 
@@ -145,7 +145,7 @@
             </div>
           </button>
         </div>
-        <EmptyState v-else title="Không có lượt khám phù hợp" text="N2 chưa có visit hôm nay cho bác sĩ này hoặc bệnh nhân chưa được check-in." />
+        <EmptyState v-else title="Không có lượt khám phù hợp" text="Chưa có lượt khám hôm nay cho bác sĩ này hoặc bệnh nhân chưa được làm thủ tục tiếp nhận." />
       </div>
 
       <ExaminationWorkspace
@@ -516,7 +516,7 @@ function icdOptionValue(item: IcdCodeOption) {
 
 const configs: Record<Resource, Config> = {
   appointments: {
-    kicker: 'N1 Appointments',
+    kicker: 'Lịch khám',
     title: 'Lịch hẹn',
     description: 'Quản lý lịch khám, bao gồm lịch hôm nay và các lịch sắp tới của bác sĩ đang đăng nhập.',
     endpoint: 'GET /appointment/api/appointments/doctor/{doctorId}',
@@ -529,7 +529,7 @@ const configs: Record<Resource, Config> = {
     columns: cols(['id', 'Mã lịch hẹn'], ['patientName', 'Bệnh nhân', true], ['timeLabel', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái']),
   },
   queue: {
-    kicker: 'N1 / N2 Queue',
+    kicker: 'Hàng chờ',
     title: 'Hàng đợi khám',
     description: 'Theo dõi bệnh nhân đang chờ và điều phối quá trình khám.',
     endpoint: 'GET /appointment/api/waiting-queue?date=YYYY-MM-DD',
@@ -542,7 +542,7 @@ const configs: Record<Resource, Config> = {
     columns: cols(['id', 'STT'], ['patientName', 'Bệnh nhân', true], ['timeLabel', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái']),
   },
   examine: {
-    kicker: 'N2 Clinical Flow',
+    kicker: 'Lâm sàng',
     title: 'Khám & kê đơn',
     description: 'Mở lượt khám đã check-in, ghi bệnh án, tạo chỉ định, kê đơn và hoàn tất lượt khám.',
     endpoint: 'GET /medical/api/v1/medical/visits/today?doctorId=...',
@@ -550,18 +550,18 @@ const configs: Record<Resource, Config> = {
     tableTitle: 'Lượt khám',
     tableSubtitle: 'Chọn một lượt khám để thao tác.',
     emptyTitle: 'Không có lượt khám phù hợp',
-    emptyText: 'N2 chưa có visit hôm nay cho bác sĩ này.',
+    emptyText: 'Chưa có lượt khám hôm nay cho bác sĩ này.',
     detailTitle: 'Chi tiết lượt khám',
     columns: cols(['id', 'Visit'], ['patientName', 'Bệnh nhân', true], ['timeLabel', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái']),
   },
   records: {
-    kicker: 'N2 Medical Records',
+    kicker: 'Bệnh án',
     title: 'Lịch sử bệnh án',
     description: 'Tra cứu bệnh án, chẩn đoán và ghi chú điều trị đã lưu theo bác sĩ đang đăng nhập.',
     endpoint: 'GET /medical/api/v1/medical/patients/{id}/history',
     searchPlaceholder: 'Tìm mã bệnh án, bệnh nhân, mã ICD, chẩn đoán...',
     tableTitle: 'Danh sách bệnh án',
-    tableSubtitle: 'Dữ liệu được đọc từ lịch sử bệnh nhân N2.',
+    tableSubtitle: 'Dữ liệu được hiển thị từ lịch sử khám bệnh án của bệnh nhân.',
     emptyTitle: 'Chưa có bệnh án phù hợp',
     emptyText: 'Không tìm thấy bệnh án của bác sĩ này trong bộ lọc hiện tại.',
     detailTitle: 'Chi tiết bệnh án',
@@ -577,7 +577,7 @@ const configs: Record<Resource, Config> = {
     ),
   },
   schedule: {
-    kicker: 'N1 Doctor Schedule',
+    kicker: 'Lịch trực',
     title: 'Lịch làm việc',
     description: 'Theo dõi ca làm, thời gian bắt đầu-kết thúc và trạng thái nhận lịch của bác sĩ.',
     endpoint: 'GET /appointment/api/doctor-schedules/doctor/{doctorId}',
@@ -585,7 +585,7 @@ const configs: Record<Resource, Config> = {
     tableTitle: 'Lịch làm việc cá nhân',
     tableSubtitle: 'Dữ liệu lịch trực theo bác sĩ đang đăng nhập.',
     emptyTitle: 'Chưa có lịch làm việc',
-    emptyText: 'N1 chưa trả lịch làm việc phù hợp với bộ lọc hiện tại.',
+    emptyText: 'Không tìm thấy lịch làm việc phù hợp với bộ lọc hiện tại.',
     detailTitle: 'Chi tiết lịch làm việc',
     columns: cols(['timeLabel', 'Ngày'], ['timeRange', 'Ca làm', true], ['room', 'Phòng'], ['slotInfo', 'Slot'], ['status', 'Trạng thái']),
   },
@@ -709,7 +709,7 @@ async function loadVisitRows() {
     }
     return visitRows
   } catch (apiError) {
-    note.value = `N2 /visits/today đang lỗi (${getApiErrorMessage(apiError)}). Đang hiển thị hàng chờ N1 để đối chiếu, chỉ dòng có Visit N2 mới khám được.`
+    note.value = `Không thể kết nối đến máy chủ lâm sàng (${getApiErrorMessage(apiError)}). Hệ thống tự động chuyển sang hiển thị hàng chờ tiếp nhận.`
     const queueRows = await loadQueueRows()
     return queueRows
   }
@@ -799,7 +799,7 @@ async function checkInAndOpenExam(row: Row) {
   try {
     const visit = await medicalRecordApi.getVisitByAppointment(appointmentId).catch(() => null)
     if (!visit?.visitId && !visit?.id) {
-      throw new Error('Lịch hẹn chưa được check-in hoặc N2 chưa tạo lượt khám. Vui lòng chuyển bệnh nhân qua y tá tiếp nhận trước.')
+      throw new Error('Lịch hẹn chưa được check-in hoặc chưa tạo lượt khám lâm sàng. Vui lòng chuyển bệnh nhân qua y tá tiếp nhận trước.')
     }
     showToast('Đã tạo lượt khám', 'Bệnh nhân đã được check-in và có thể khám trong màn Khám & kê đơn.', 'success')
     await router.push({
@@ -835,7 +835,7 @@ async function selectVisit(row: Row) {
       : row.appointmentId
         ? await medicalRecordApi.getVisitByAppointment(row.appointmentId)
         : null
-    if (!visit?.visitId) throw new Error('Lịch hẹn chưa được check-in hoặc N2 chưa tạo lượt khám.')
+    if (!visit?.visitId) throw new Error('Lịch hẹn chưa được check-in hoặc chưa tạo lượt khám lâm sàng.')
     activeVisit.value = visit
     await hydrateSelectedRowFromAppointment(visit.appointmentId || row.appointmentId)
     await hydrateSelectedRowFromDoctor(selectedRow.value?.doctorId || visit.doctorId || row.doctorId)
@@ -890,7 +890,7 @@ async function hydrateSelectedRowFromDoctor(doctorIdValue?: number | string) {
 }
 
 async function startVisit() {
-  if (!activeVisit.value?.visitId) return showToast('Thiếu lượt khám', 'Lịch hẹn chưa được check-in hoặc N2 chưa tạo lượt khám.', 'error')
+  if (!activeVisit.value?.visitId) return showToast('Thiếu lượt khám', 'Lịch hẹn chưa được check-in hoặc chưa tạo lượt khám lâm sàng.', 'error')
   if (!examForm.chiefComplaint.trim()) return showToast('Thiếu lý do khám', 'Vui lòng nhập lý do khám trước khi bắt đầu lượt khám.', 'error')
   savingExam.value = true
   try {
@@ -907,7 +907,7 @@ async function startVisit() {
 
 async function saveMedicalRecord() {
   if (!activeVisit.value?.visitId) {
-    showToast('Thiếu lượt khám', 'Cần có Visit N2 trước khi lưu bệnh án.', 'error')
+    showToast('Thiếu lượt khám', 'Cần có lượt khám lâm sàng trước khi lưu bệnh án.', 'error')
     return false
   }
   if (!examForm.diagnosis.trim()) {
@@ -960,7 +960,7 @@ async function addClinicalOrder() {
     orderForm.reason = ''
     Object.assign(clinicalChecklist, { bloodTest: false, urineTest: false, ultrasound: false, xray: false, ecg: false })
     await loadClinicalOrders()
-    showToast('Đã tạo chỉ định', 'Chỉ định đã lưu vào N2.', 'success')
+    showToast('Đã tạo chỉ định', 'Chỉ định lâm sàng đã được ghi nhận thành công.', 'success')
   } catch (apiError) {
     showToast('Tạo chỉ định thất bại', businessError(apiError), 'error')
   } finally {
@@ -983,7 +983,7 @@ async function saveClinicalOrderResult(order: Record<string, any>) {
       resultedBy: doctorName.value,
     })
     await loadClinicalOrders()
-    showToast('Đã lưu kết quả', 'Kết quả cận lâm sàng đã được cập nhật vào N2.', 'success')
+    showToast('Đã lưu kết quả', 'Kết quả cận lâm sàng đã được cập nhật vào hồ sơ.', 'success')
   } catch (apiError) {
     showToast('Lưu kết quả thất bại', businessError(apiError), 'error')
   } finally {
@@ -1002,7 +1002,7 @@ function selectedClinicalOrderNames() {
 }
 
 async function submitExamination() {
-  if (!activeVisit.value?.visitId) return showToast('Thiếu lượt khám', 'Cần mở lượt khám N2 trước khi hoàn tất.', 'error')
+  if (!activeVisit.value?.visitId) return showToast('Thiếu lượt khám', 'Cần mở lượt khám lâm sàng trước khi hoàn tất.', 'error')
   savingExam.value = true
   try {
     const saved = await saveMedicalRecord()
@@ -1024,7 +1024,7 @@ async function submitExamination() {
     showToast(
       'Hoàn tất khám',
       prescriptionItems.value.length
-        ? 'Đơn thuốc đã chốt qua N2. N3 sẽ tự tạo viện phí qua event prescription.created.'
+        ? 'Đơn thuốc đã được chốt và cập nhật thành công vào hồ sơ bệnh án.'
         : 'Bệnh án và lượt khám đã hoàn tất.',
       'success',
     )
@@ -1095,7 +1095,7 @@ async function loadExistingRecord() {
 
 async function saveVitals(showSuccess = true) {
   if (!activeVisit.value?.visitId) {
-    if (showSuccess) showToast('Thiếu lượt khám', 'Cần mở lượt khám N2 trước khi lưu sinh hiệu.', 'error')
+    if (showSuccess) showToast('Thiếu lượt khám', 'Cần mở lượt khám lâm sàng trước khi lưu sinh hiệu.', 'error')
     return false
   }
 
@@ -1124,7 +1124,7 @@ async function saveVitals(showSuccess = true) {
     })
     activeVisit.value = await medicalRecordApi.getVisit(activeVisit.value.visitId)
     hydrateVitalsFromVisit(activeVisit.value)
-    if (showSuccess) showToast('Đã lưu sinh hiệu', 'Sinh hiệu được cập nhật trực tiếp vào N2.', 'success')
+    if (showSuccess) showToast('Đã lưu sinh hiệu', 'Sinh hiệu đã được cập nhật thành công.', 'success')
     return true
   } catch (apiError) {
     if (!showSuccess) throw apiError
@@ -1156,7 +1156,7 @@ async function savePatientHistory() {
 }
 
 async function saveDraft() {
-  if (!activeVisit.value?.visitId) return showToast('Thiếu lượt khám', 'Cần mở lượt khám N2 trước khi lưu nháp.', 'error')
+  if (!activeVisit.value?.visitId) return showToast('Thiếu lượt khám', 'Cần mở lượt khám lâm sàng trước khi lưu nháp.', 'error')
   savingExam.value = true
   try {
     await savePatientHistory()
@@ -1188,7 +1188,7 @@ async function loadMedicines() {
     ])
     medicines.value = uniqueMedicinesById([...n3Medicines, ...n2Medicines]) as any
     if (!medicines.value.length) {
-      showToast('Chưa có thuốc', 'Không tải được danh mục thuốc từ N2/N3. Kiểm tra Kho thuốc hoặc thử tải lại.', 'error')
+      showToast('Chưa có thuốc', 'Không tải được danh mục thuốc từ máy chủ. Kiểm tra Kho thuốc hoặc thử tải lại.', 'error')
     }
   } finally {
     medicineLoading.value = false
@@ -1753,7 +1753,7 @@ function patientCitizenId(patient?: (Patient & Record<string, any>) | null) {
 function businessError(apiError: unknown) {
   const message = getApiErrorMessage(apiError)
   const normalized = normalize(message)
-  if (normalized.includes('visit') || normalized.includes('luot kham') || normalized.includes('by-appointment')) return 'Lịch hẹn chưa được check-in hoặc N2 chưa tạo lượt khám.'
+  if (normalized.includes('visit') || normalized.includes('luot kham') || normalized.includes('by-appointment')) return 'Lịch hẹn chưa được check-in hoặc chưa tạo lượt khám lâm sàng.'
   if (normalized.includes('record') && normalized.includes('complete')) return 'Cần hoàn tất bệnh án trước khi hoàn tất lượt khám.'
   if (normalized.includes('diagnosis')) return 'Vui lòng nhập chẩn đoán hợp lệ trước khi lưu bệnh án.'
   return message
@@ -2061,7 +2061,7 @@ function renderMedicalRecordCard(props: any) {
           )),
           props.medicines.length
             ? null
-            : h('p', { class: 'border-t border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800' }, 'Chưa tải được danh mục thuốc. Bấm Tải lại hoặc kiểm tra Kho thuốc N3.'),
+            : h('p', { class: 'border-t border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800' }, 'Chưa tải được danh mục thuốc. Vui lòng bấm nút Tải lại thuốc bên dưới hoặc kiểm tra kết nối hệ thống.'),
         ]),
       ]),
     ]),

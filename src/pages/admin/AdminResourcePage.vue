@@ -8,9 +8,7 @@
           </span>
           <div>
             <p class="text-sm font-semibold uppercase tracking-wide text-teal-700">{{ config.service }}</p>
-            <h1 class="mt-2 text-2xl font-bold text-slate-950 sm:text-3xl">{{ config.title }}</h1>
             <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{{ config.description }}</p>
-            <p class="mt-4 rounded-lg bg-slate-50 px-3 py-2 font-mono text-xs font-semibold text-slate-500">{{ config.endpoint }}</p>
           </div>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -816,17 +814,17 @@ const specialtyOptions = ref<SelectOption[]>(fallbackSpecialties.map((s) => ({ l
 const doctorOptions = ref<SelectOption[]>(fallbackDoctors.map((d) => ({ label: d.doctorName, value: d.doctorId })))
 
 const configs: Record<Key, Config> = {
-  doctors: cfg('Quản lý bác sĩ', 'N1 Appointment', 'Thêm, sửa, xóa bác sĩ thuộc Appointment Service.', 'GET/POST/PUT/DELETE /api/doctors', Stethoscope, cols(['id','ID'], ['name','Bác sĩ', false, false, true], ['specialty','Chuyên khoa'], ['degree','Học vị'], ['fee','Phí khám', true], ['phone','SĐT'], ['email','Email'], ['roomNumber','Phòng'], ['status','Trạng thái', false, true])),
-  specialties: cfg('Quản lý chuyên khoa', 'N1 Appointment', 'Thêm, sửa, xóa chuyên khoa.', 'GET/POST/PUT/DELETE /api/specialties', Settings, cols(['id','ID'], ['name','Chuyên khoa', false, false, true], ['status','Trạng thái', false, true])),
-  schedules: cfg('Lịch làm việc', 'N1 Appointment', 'Điều phối ca làm, slot khám và trạng thái nhận lịch của bác sĩ.', 'GET/POST/PUT/DELETE /api/doctor-schedules', CalendarDays, cols(['id','Mã'], ['doctorName','Bác sĩ', false, false, true], ['specialtyName','Chuyên khoa'], ['workDate','Ngày'], ['weekdayLabel','Thứ'], ['timeRange','Ca'], ['duration','Thời lượng slot', true], ['slotCountLabel','Số slot', true], ['status','Trạng thái', false, true])),
-  patients: cfg('Quản lý bệnh nhân', 'N2 Medical Record', 'Thêm, sửa, xóa thật hồ sơ bệnh nhân.', 'GET/POST/PUT/DELETE /api/patients', UserRound, cols(['patientCode','Mã BN'], ['name','Bệnh nhân', false, false, true], ['phone','SĐT'], ['gender','Giới tính'], ['history','Tiền sử'])),
-  appointments: cfg('Quản lý lịch hẹn', 'N1 Appointment', 'Xác nhận, hủy và hoàn tất lịch hẹn. Hóa đơn được N3 tạo sau event prescription.created.', 'GET /api/appointments', ClipboardList, cols(['id','Mã'], ['patientName','Bệnh nhân', false, false, true], ['doctorName','Bác sĩ'], ['dateTime','Ngày giờ'], ['status','Trạng thái', false, true])),
-  medicines: cfg('Kho thuốc', 'N3 Pharmacy', 'Tìm kiếm nhanh theo ký tự đầu, lọc theo chuyên khoa/nhóm thuốc, thêm sửa xóa thuốc và tồn kho.', 'GET/POST/PUT/DELETE /api/medicines', Pill, cols(['id','ID'], ['name','Tên thuốc', false, false, true], ['activeIngredient','Hoạt chất'], ['medicineType','Chuyên khoa'], ['unit','Đơn vị'], ['price','Đơn giá', true], ['stock','Tồn', true], ['minStockLevel','Cảnh báo', true], ['expiryDate','Hạn dùng'], ['stockStatus','Trạng thái', false, true])),
-  prescriptions: cfg('Đơn thuốc', 'N2 Medical Record', 'Theo dõi ghi chú kê đơn từ bệnh án.', 'GET /api/medical-records', FileHeart, cols(['id','Mã BA'], ['patientId','Bệnh nhân', false, false, true], ['diagnosis','Chẩn đoán'], ['doctorNotes','Ghi chú'], ['status','Trạng thái', false, true])),
-  bills: cfg('Hóa đơn viện phí', 'N3 Billing', 'Theo dõi và thu tiền hóa đơn.', 'GET /api/billing/invoices', CreditCard, cols(['id','Mã HĐ'], ['patientId','Bệnh nhân'], ['appointmentId','Lịch hẹn'], ['amount','Số tiền', true], ['status','Trạng thái', false, true])),
-  accounts: cfg('Tài khoản hệ thống', 'N3 Auth', 'Thêm, sửa, xóa tài khoản người dùng.', 'GET/POST/PUT/DELETE /api/auth/users', UserCog, cols(['id','ID'], ['fullName','Họ tên', false, false, true], ['username','Username'], ['email','Email'], ['phoneNumber','SĐT'], ['roleName','Vai trò', false, true], ['status','Trạng thái', false, true])),
-  nurses: cfg('Quản lý y tá', 'N3 Auth', 'Thêm, sửa, xóa tài khoản y tá.', 'GET /api/auth/users/nurses · POST/PUT/DELETE /api/auth/users', Users, cols(['id','ID'], ['fullName','Họ tên', false, false, true], ['username','Username'], ['email','Email'], ['phoneNumber','SĐT'], ['roleName','Vai trò', false, true], ['status','Trạng thái', false, true])),
-  reports: cfg('Báo cáo vận hành', 'N1 + N2 + N3', 'Tổng hợp dữ liệu vận hành từ các service.', 'N1/N2/N3 health data', ClipboardList, cols(['metric','Chỉ số', false, false, true], ['value','Giá trị', true], ['source','Nguồn'], ['status','Trạng thái', false, true])),
+  doctors: cfg('Quản lý bác sĩ', 'Lịch hẹn & Ca khám', 'Thêm, sửa, xóa thông tin hồ sơ và phòng khám của các bác sĩ.', 'GET/POST/PUT/DELETE /api/doctors', Stethoscope, cols(['id','ID'], ['name','Bác sĩ', false, false, true], ['specialty','Chuyên khoa'], ['degree','Học vị'], ['fee','Phí khám', true], ['phone','SĐT'], ['email','Email'], ['roomNumber','Phòng'], ['status','Trạng thái', false, true])),
+  specialties: cfg('Quản lý chuyên khoa', 'Lịch hẹn & Ca khám', 'Quản lý danh sách các chuyên khoa khám chữa bệnh.', 'GET/POST/PUT/DELETE /api/specialties', Settings, cols(['id','ID'], ['name','Chuyên khoa', false, false, true], ['status','Trạng thái', false, true])),
+  schedules: cfg('Lịch làm việc', 'Lịch hẹn & Ca khám', 'Điều phối ca làm việc, slot khám và trạng thái nhận lịch của bác sĩ.', 'GET/POST/PUT/DELETE /api/doctor-schedules', CalendarDays, cols(['id','Mã'], ['doctorName','Bác sĩ', false, false, true], ['specialtyName','Chuyên khoa'], ['workDate','Ngày'], ['weekdayLabel','Thứ'], ['timeRange','Ca'], ['duration','Thời lượng slot', true], ['slotCountLabel','Số slot', true], ['status','Trạng thái', false, true])),
+  patients: cfg('Quản lý bệnh nhân', 'Hồ sơ bệnh án', 'Quản lý hồ sơ thông tin cơ bản và tiền sử của bệnh nhân.', 'GET/POST/PUT/DELETE /api/patients', UserRound, cols(['patientCode','Mã BN'], ['name','Bệnh nhân', false, false, true], ['phone','SĐT'], ['gender','Giới tính'], ['history','Tiền sử'])),
+  appointments: cfg('Quản lý lịch hẹn', 'Lịch hẹn & Ca khám', 'Xác nhận, hủy và hoàn tất lịch hẹn khám của bệnh nhân.', 'GET /api/appointments', ClipboardList, cols(['id','Mã'], ['patientName','Bệnh nhân', false, false, true], ['doctorName','Bác sĩ'], ['dateTime','Ngày giờ'], ['status','Trạng thái', false, true])),
+  medicines: cfg('Kho thuốc', 'Kho dược phẩm', 'Quản lý danh mục thuốc, hoạt chất, chuyên khoa, đơn giá và tồn kho.', 'GET/POST/PUT/DELETE /api/medicines', Pill, cols(['id','ID'], ['name','Tên thuốc', false, false, true], ['activeIngredient','Hoạt chất'], ['medicineType','Chuyên khoa'], ['unit','Đơn vị'], ['price','Đơn giá', true], ['stock','Tồn', true], ['minStockLevel','Cảnh báo', true], ['expiryDate','Hạn dùng'], ['stockStatus','Trạng thái', false, true])),
+  prescriptions: cfg('Đơn thuốc', 'Hồ sơ bệnh án', 'Theo dõi bệnh án và ghi chú kê đơn của bác sĩ.', 'GET /api/medical-records', FileHeart, cols(['id','Mã BA'], ['patientId','Bệnh nhân', false, false, true], ['diagnosis','Chẩn đoán'], ['doctorNotes','Ghi chú'], ['status','Trạng thái', false, true])),
+  bills: cfg('Hóa đơn viện phí', 'Thanh toán viện phí', 'Theo dõi trạng thái thanh toán và thu viện phí của bệnh nhân.', 'GET /api/billing/invoices', CreditCard, cols(['id','Mã HĐ'], ['patientId','Bệnh nhân'], ['appointmentId','Lịch hẹn'], ['amount','Số tiền', true], ['status','Trạng thái', false, true])),
+  accounts: cfg('Tài khoản hệ thống', 'Hệ thống', 'Quản lý danh sách và phân quyền tài khoản người dùng hệ thống.', 'GET/POST/PUT/DELETE /api/auth/users', UserCog, cols(['id','ID'], ['fullName','Họ tên', false, false, true], ['username','Username'], ['email','Email'], ['phoneNumber','SĐT'], ['roleName','Vai trò', false, true], ['status','Trạng thái', false, true])),
+  nurses: cfg('Quản lý y tá', 'Hệ thống', 'Quản lý thông tin tài khoản của nhân viên y tá.', 'GET /api/auth/users/nurses · POST/PUT/DELETE /api/auth/users', Users, cols(['id','ID'], ['fullName','Họ tên', false, false, true], ['username','Username'], ['email','Email'], ['phoneNumber','SĐT'], ['roleName','Vai trò', false, true], ['status','Trạng thái', false, true])),
+  reports: cfg('Báo cáo vận hành', 'Báo cáo chung', 'Tổng hợp và thống kê số liệu hoạt động thực tế trên toàn hệ thống phòng khám.', 'N1/N2/N3 health data', ClipboardList, cols(['metric','Chỉ số', false, false, true], ['value','Giá trị', true], ['source','Nguồn'], ['status','Trạng thái', false, true])),
 }
 
 const schedulePresets: SchedulePreset[] = [
@@ -984,7 +982,7 @@ async function loadData() {
       const [doctors, specialties] = await Promise.all([
         appointmentApi.getDoctors(),
         appointmentApi.getSpecialties().catch(() => {
-          note.value = 'Không tải được danh sách chuyên khoa; đang dùng dữ liệu mẫu cho bộ chọn.'
+          note.value = 'Đang hiển thị danh mục chuyên khoa mặc định do lỗi kết nối máy chủ.'
           return fallbackSpecialties
         }),
       ])
@@ -1007,14 +1005,14 @@ async function loadData() {
       const remoteRows = (await medicalRecordApi.getMedicalRecords().catch(() => [])).map(mapPrescription)
       rows.value = uniqueRows(remoteRows)
       if (!rows.value.length) {
-        note.value = 'API chưa có dữ liệu đơn thuốc; đang hiển thị dữ liệu mẫu an toàn.'
+        note.value = 'Hệ thống hiện chưa có dữ liệu đơn thuốc được ghi nhận.'
         rows.value = fallbackRecords.map(mapPrescription)
       }
     } else if (key.value === 'bills') {
       const remoteRows = (await billingApi.getInvoices().catch(() => [])).map(mapInvoice)
       rows.value = uniqueRows(remoteRows)
       if (!rows.value.length) {
-        note.value = 'API chưa có dữ liệu hóa đơn; đang hiển thị dữ liệu mẫu an toàn.'
+        note.value = 'Hệ thống hiện chưa có dữ liệu hóa đơn được ghi nhận.'
         rows.value = fallbackInvoices.map(mapInvoice)
       }
     } else if (key.value === 'accounts') {
@@ -1043,13 +1041,13 @@ async function loadScheduleData() {
   if (doctorResult.status === 'fulfilled') updateDoctorCatalog(doctorResult.value)
   else {
     updateDoctorCatalog(fallbackDoctors)
-    warnings.push('Không tải được danh sách bác sĩ; đang dùng dữ liệu mẫu cho bộ chọn.')
+    warnings.push('Đang hiển thị danh sách bác sĩ mặc định do lỗi kết nối máy chủ.')
   }
 
   if (specialtyResult.status === 'fulfilled') updateSpecialtyCatalog(specialtyResult.value)
   else {
     updateSpecialtyCatalog(fallbackSpecialties)
-    warnings.push('Không tải được danh sách chuyên khoa; đang dùng dữ liệu mẫu cho bộ lọc.')
+    warnings.push('Đang hiển thị danh mục chuyên khoa mặc định do lỗi kết nối máy chủ.')
   }
 
   if (scheduleResult.status === 'rejected') throw scheduleResult.reason
@@ -1059,7 +1057,7 @@ async function loadScheduleData() {
 
 function mapList<T>(data: T[], fallback: T[], mapper: (item: T) => Row) {
   if (data.length) return data.map(mapper)
-  if (fallback.length) note.value = 'API chưa có dữ liệu; đang hiển thị dữ liệu mẫu an toàn.'
+  if (fallback.length) note.value = 'Hệ thống hiện chưa có dữ liệu được ghi nhận. Dữ liệu đang hiển thị ở chế độ mặc định.'
   return (data.length ? data : fallback).map(mapper)
 }
 function fallbackRows(k: Key) {
@@ -1077,7 +1075,7 @@ function fallbackRows(k: Key) {
     reports: [],
   } as Record<Key, Row[]>)[k]
 }
-async function loadReports() { const [doctors, appointments, patients, invoices] = await Promise.all([appointmentApi.getDoctors().catch(() => fallbackDoctors), appointmentApi.getAppointments().catch(() => fallbackAppointments), medicalRecordApi.getPatients().catch(() => fallbackPatients), billingApi.getInvoices().catch(() => fallbackInvoices)]); return [{ id: 'R1', metric: 'Bác sĩ', value: doctors.length, source: 'N1', status: 'OK' }, { id: 'R2', metric: 'Lịch hẹn', value: appointments.length, source: 'N1', status: 'OK' }, { id: 'R3', metric: 'Bệnh nhân', value: patients.length, source: 'N2', status: 'OK' }, { id: 'R4', metric: 'Hóa đơn', value: invoices.length, source: 'N3', status: 'OK' }] }
+async function loadReports() { const [doctors, appointments, patients, invoices] = await Promise.all([appointmentApi.getDoctors().catch(() => fallbackDoctors), appointmentApi.getAppointments().catch(() => fallbackAppointments), medicalRecordApi.getPatients().catch(() => fallbackPatients), billingApi.getInvoices().catch(() => fallbackInvoices)]); return [{ id: 'R1', metric: 'Bác sĩ', value: doctors.length, source: 'Đặt lịch khám', status: 'OK' }, { id: 'R2', metric: 'Lịch hẹn', value: appointments.length, source: 'Đặt lịch khám', status: 'OK' }, { id: 'R3', metric: 'Bệnh nhân', value: patients.length, source: 'Hồ sơ bệnh án', status: 'OK' }, { id: 'R4', metric: 'Hóa đơn', value: invoices.length, source: 'Dược & Viện phí', status: 'OK' }] }
 
 function updateDoctorCatalog(doctors: Doctor[]) {
   doctorCatalog.value = doctors
@@ -1267,9 +1265,9 @@ async function runAction(action: Action, row: Row) {
     if (action === 'complete') await appointmentApi.completeAppointmentSafely(id, String(row.raw?.appointmentDate || row.appointmentDate || ''))
     if (action === 'pay') await billingApi.payInvoice(id, row.amountValue)
     await loadData()
-    if (action === 'delete') note.value = key.value === 'schedules' ? 'Đã xóa lịch làm việc khỏi database.' : 'Đã xóa dữ liệu thành công khỏi database.'
+    if (action === 'delete') note.value = key.value === 'schedules' ? 'Đã xóa lịch làm việc thành công.' : 'Đã xóa dữ liệu thành công.'
     if (action === 'toggle') note.value = wasAvailable ? 'Đã tạm ngưng lịch làm việc.' : 'Đã mở lại lịch làm việc.'
-    if (action === 'pay') note.value = 'Đã gửi yêu cầu thanh toán sang N3.'
+    if (action === 'pay') note.value = 'Đã gửi yêu cầu thanh toán thành công.'
   } catch(e) {
     const message = getApiErrorMessage(e)
     error.value = key.value === 'schedules' && action === 'delete' ? scheduleDeleteErrorMessage(message) : message

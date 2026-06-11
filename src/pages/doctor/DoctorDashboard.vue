@@ -15,7 +15,7 @@
             Xin chào, {{ doctorName }}
           </h1>
           <p class="mt-4 max-w-3xl text-base leading-7 text-slate-600">
-            Theo dõi lịch khám, hàng chờ và bệnh án cần xử lý trong ngày. Dữ liệu được lọc theo bác sĩ đang đăng nhập để tester đối chiếu nhanh và sạch.
+            Theo dõi lịch khám, hàng chờ và bệnh án cần xử lý trong ngày của bác sĩ.
           </p>
 
           <div class="mt-7 flex flex-wrap gap-3">
@@ -175,10 +175,10 @@ const prescriptionsCount = computed(() => records.value.filter((item: any) => Nu
 
 const stats = computed(() => [
   { label: 'Lịch hẹn hôm nay', value: todayAppointments.value.length, note: 'Theo ngày hiện tại', to: '/doctor/appointments', icon: CalendarClock, iconClass: 'bg-blue-50 text-blue-700' },
-  { label: 'Đang chờ khám', value: activeQueue.value.filter((item) => isWaiting(item.status)).length, note: 'Từ hàng chờ N1', to: '/doctor/queue', icon: Users, iconClass: 'bg-amber-50 text-amber-700' },
-  { label: 'Đang khám', value: inProgressVisits.value.length, note: 'Lượt khám N2', to: '/doctor/examine', icon: Stethoscope, iconClass: 'bg-cyan-50 text-cyan-700' },
-  { label: 'Đã hoàn tất', value: completedVisits.value.length, note: 'Hoàn tất trong N2', to: '/doctor/records', icon: CheckCircle2, iconClass: 'bg-emerald-50 text-emerald-700' },
-  { label: 'Đơn thuốc đã kê', value: prescriptionsCount.value, note: 'Theo bệnh án tải được', to: '/doctor/records', icon: ClipboardList, iconClass: 'bg-indigo-50 text-indigo-700' },
+  { label: 'Đang chờ khám', value: activeQueue.value.filter((item) => isWaiting(item.status)).length, note: 'Hàng chờ khám bệnh', to: '/doctor/queue', icon: Users, iconClass: 'bg-amber-50 text-amber-700' },
+  { label: 'Đang khám', value: inProgressVisits.value.length, note: 'Lượt khám trong ngày', to: '/doctor/examine', icon: Stethoscope, iconClass: 'bg-cyan-50 text-cyan-700' },
+  { label: 'Đã hoàn tất', value: completedVisits.value.length, note: 'Lượt khám đã hoàn tất', to: '/doctor/records', icon: CheckCircle2, iconClass: 'bg-emerald-50 text-emerald-700' },
+  { label: 'Đơn thuốc đã kê', value: prescriptionsCount.value, note: 'Hồ sơ bệnh án đã kê đơn', to: '/doctor/records', icon: ClipboardList, iconClass: 'bg-indigo-50 text-indigo-700' },
 ])
 
 const appointmentRows = computed<SummaryRow[]>(() => todayAppointments.value.map((item) => ({
@@ -311,7 +311,7 @@ async function loadData() {
   records.value = readList(results[3])
 
   const failed = results.find((item) => item.status === 'rejected') as PromiseRejectedResult | undefined
-  if (failed) error.value = `Một số API chưa phản hồi: ${getApiErrorMessage(failed.reason)}. Các phần còn lại vẫn hiển thị theo dữ liệu tải được.`
+  if (failed) error.value = `Kết nối đến máy chủ bị gián đoạn: ${getApiErrorMessage(failed.reason)}. Hệ thống đang hiển thị dữ liệu lưu trữ tạm thời.`
   loading.value = false
 }
 

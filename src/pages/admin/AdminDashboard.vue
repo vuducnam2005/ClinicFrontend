@@ -3,10 +3,9 @@
  <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-card sm:p-8">
  <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
  <div>
- <p class="text-sm font-semibold uppercase tracking-wide text-teal-700">Admin workspace</p>
  <h1 class="mt-2 text-3xl font-bold tracking-normal text-slate-950">Tổng quan vận hành ClinicCare</h1>
  <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base">
- Theo dõi nhanh dữ liệu N1 Appointment, N2 Medical Record và N3 Pharmacy & Billing. Nếu service chưa trả dữ liệu, giao diện vẫn hiển thị dữ liệu mẫu có ghi chú để không bị trắng trang.
+ Tổng quan hoạt động nghiệp vụ, lịch hẹn khám và quản lý dược phẩm của hệ thống ClinicCare.
  </p>
  </div>
  <BaseButton variant="outline" :disabled="loading" @click="loadDashboard">
@@ -45,37 +44,12 @@
  </RouterLink>
  </div>
 
- <div class="grid gap-4 lg:grid-cols-3">
- <div
- v-for="service in serviceCards"
-:key="service.name"
- class="rounded-2xl border border-slate-200 bg-white p-5 shadow-card"
- >
- <div class="flex items-start justify-between gap-4">
- <div class="flex items-center gap-3">
- <span :class="['flex h-11 w-11 items-center justify-center rounded-xl', service.iconClass]">
- <component :is="service.icon" class="h-5 w-5" />
- </span>
- <div>
- <h2 class="font-semibold text-slate-950">{{ service.name }}</h2>
- <p class="mt-1 text-xs font-medium text-slate-500">{{ service.scope }}</p>
- </div>
- </div>
- <span :class="['rounded-full px-3 py-1 text-xs font-semibold', serviceStatusClass(service.status)]">
- {{ serviceStatusLabel(service.status) }}
- </span>
- </div>
- <p class="mt-4 text-sm leading-6 text-slate-600">{{ service.description }}</p>
- <p class="mt-4 rounded-lg bg-slate-50 px-3 py-2 font-mono text-xs text-slate-500">{{ service.endpoints }}</p>
- </div>
- </div>
-
  <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
  <div class="rounded-2xl border border-slate-200 bg-white shadow-card">
  <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
  <div>
  <h2 class="font-semibold text-slate-950">Lịch hẹn gần đây</h2>
- <p class="mt-1 text-sm text-slate-500">Nguồn N1 - Appointment Service</p>
+ <p class="mt-1 text-sm text-slate-500">Danh sách lịch hẹn mới đăng ký</p>
  </div>
  <RouterLink to="/admin/appointments" class="text-sm font-semibold text-teal-700 hover:text-teal-800">Xem tất cả</RouterLink>
  </div>
@@ -113,7 +87,7 @@
  <div class="flex items-center justify-between">
  <div>
  <h2 class="font-semibold text-slate-950">Cảnh báo kho thuốc</h2>
- <p class="mt-1 text-sm text-slate-500">Nguồn N3 - Pharmacy & Billing</p>
+ <p class="mt-1 text-sm text-slate-500">Danh sách thuốc sắp hết hoặc hết hàng</p>
  </div>
  <Pill class="h-5 w-5 text-teal-600" />
  </div>
@@ -135,7 +109,7 @@
  <div class="flex items-center justify-between">
  <div>
  <h2 class="font-semibold text-slate-950">Bệnh nhân mới</h2>
- <p class="mt-1 text-sm text-slate-500">Nguồn N2 - Medical Record</p>
+ <p class="mt-1 text-sm text-slate-500">Bệnh nhân mới đăng ký gần đây</p>
  </div>
  <UsersRound class="h-5 w-5 text-cyan-600" />
  </div>
@@ -237,10 +211,10 @@ const fallbackInvoices: Invoice[] = [
 ]
 
 const statCards = computed<StatCard[]>(() => [
- { label: 'Bác sĩ', value: doctors.value.length, note: 'Hồ sơ bác sĩ từ N1', to: '/admin/doctors', icon: Stethoscope, iconClass: 'bg-teal-50 text-teal-700' },
- { label: 'Lịch hẹn', value: appointments.value.length, note: 'Đặt lịch và hàng chờ', to: '/admin/appointments', icon: CalendarCheck, iconClass: 'bg-cyan-50 text-cyan-700' },
- { label: 'Bệnh nhân', value: patients.value.length, note: 'Hồ sơ bệnh nhân từ N2', to: '/admin/patients', icon: UsersRound, iconClass: 'bg-blue-50 text-blue-700' },
- { label: 'Doanh thu tạm tính', value: formatCurrency(totalRevenue.value), note: 'Hóa đơn đã thanh toán từ N3', to: '/admin/bills', icon: CreditCard, iconClass: 'bg-emerald-50 text-emerald-700' },
+  { label: 'Bác sĩ', value: doctors.value.length, note: 'Tổng số hồ sơ bác sĩ', to: '/admin/doctors', icon: Stethoscope, iconClass: 'bg-teal-50 text-teal-700' },
+  { label: 'Lịch hẹn', value: appointments.value.length, note: 'Tổng số lịch hẹn hôm nay', to: '/admin/appointments', icon: CalendarCheck, iconClass: 'bg-cyan-50 text-cyan-700' },
+  { label: 'Bệnh nhân', value: patients.value.length, note: 'Tổng số hồ sơ bệnh nhân', to: '/admin/patients', icon: UsersRound, iconClass: 'bg-blue-50 text-blue-700' },
+  { label: 'Doanh thu tạm tính', value: formatCurrency(totalRevenue.value), note: 'Tổng doanh thu đã thanh toán', to: '/admin/bills', icon: CreditCard, iconClass: 'bg-emerald-50 text-emerald-700' },
 ])
 
 const totalRevenue = computed(() =>
@@ -314,10 +288,10 @@ async function loadDashboard() {
  serviceStatuses.value.n2 = hasFulfilledData(results.slice(4, 6)) ? 'online' : 'fallback'
  serviceStatuses.value.n3 = hasFulfilledData(results.slice(6, 8)) ? 'online' : 'fallback'
 
- const firstError = results.find((result) => result.status === 'rejected') as PromiseRejectedResult | undefined
- if (firstError) {
- error.value = `Một số API chưa phản hồi ổn định: ${getApiErrorMessage(firstError.reason)}. Dashboard đang dùng fallback cho phần thiếu dữ liệu.`
- }
+  const firstError = results.find((result) => result.status === 'rejected') as PromiseRejectedResult | undefined
+  if (firstError) {
+    error.value = `Không thể kết nối đến máy chủ để lấy một số dữ liệu: ${getApiErrorMessage(firstError.reason)}. Hệ thống đang hiển thị dữ liệu lưu trữ tạm thời.`
+  }
 
  loading.value = false
 }
