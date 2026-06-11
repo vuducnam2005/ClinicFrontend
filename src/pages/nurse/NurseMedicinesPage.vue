@@ -7,13 +7,12 @@
             <PackageOpen class="h-6 w-6" />
           </span>
           <div>
-            <p class="text-sm font-bold uppercase tracking-[0.16em] text-emerald-700">N3 Pharmacy</p>
+            <p class="text-sm font-bold uppercase tracking-[0.16em] text-emerald-700">Quản lý kho dược</p>
             <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-950">Kho thuốc</h1>
             <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
               Quản lý thuốc, hoạt chất, nhóm thuốc, đơn vị, giá bán, tồn kho, ngưỡng cảnh báo, hạn dùng và trạng thái phát thuốc.
             </p>
             <div class="mt-4 flex flex-wrap gap-2">
-              <span class="rounded-full bg-slate-100 px-3 py-1 font-mono text-xs font-semibold text-slate-600">GET/POST/PUT/DELETE /pharmacy/api/medicines</span>
               <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Role Nurse</span>
             </div>
           </div>
@@ -82,7 +81,7 @@
       <div class="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/70 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p class="text-sm font-bold text-slate-900">Danh mục thuốc</p>
-          <p class="mt-1 text-xs font-medium text-slate-500">Hiển thị đầy đủ các trường chính trong bảng Medicines của N3.</p>
+          <p class="mt-1 text-xs font-medium text-slate-500">Hiển thị thông tin chi tiết và số lượng tồn kho của từng loại thuốc.</p>
         </div>
         <span class="rounded-xl bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">{{ filteredMedicines.length }} thuốc</span>
       </div>
@@ -186,7 +185,7 @@
       <div v-else class="p-10 text-center">
         <SearchX class="mx-auto h-10 w-10 text-slate-300" />
         <h2 class="mt-4 text-lg font-bold text-slate-950">Không có thuốc phù hợp</h2>
-        <p class="mt-2 text-sm text-slate-500">Thử đổi bộ lọc hoặc thêm thuốc mới vào kho N3.</p>
+        <p class="mt-2 text-sm text-slate-500">Thử đổi bộ lọc hoặc thêm thuốc mới vào kho.</p>
       </div>
     </div>
 
@@ -197,7 +196,7 @@
             <div>
               <p class="text-sm font-bold uppercase tracking-[0.16em] text-emerald-700">{{ editingMedicine ? 'Cập nhật thuốc' : 'Thêm thuốc mới' }}</p>
               <h2 class="mt-1 text-2xl font-bold text-slate-950">{{ form.medicineName || 'Thông tin thuốc' }}</h2>
-              <p class="mt-2 text-sm text-slate-500">Nhập đủ thông tin để đồng bộ với database Medicines của N3.</p>
+              <p class="mt-2 text-sm text-slate-500">Nhập đầy đủ thông tin thuốc để lưu vào hệ thống.</p>
             </div>
             <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" @click="closeForm">
               <X class="h-5 w-5" />
@@ -388,7 +387,7 @@ const pageStart = computed(() => filteredMedicines.value.length ? (currentPage.v
 const pageEnd = computed(() => Math.min(filteredMedicines.value.length, currentPage.value * Number(itemsPerPage.value || 10)))
 
 const metrics = computed(() => [
-  { label: 'Tổng thuốc', value: medicines.value.length, note: 'Danh mục N3', icon: PackageOpen, className: 'bg-blue-50 text-blue-700' },
+  { label: 'Tổng thuốc', value: medicines.value.length, note: 'Danh mục hệ thống', icon: PackageOpen, className: 'bg-blue-50 text-blue-700' },
   { label: 'Đang hoạt động', value: medicines.value.filter((item) => medicineStatus(item).toLowerCase() === 'active').length, note: 'Có thể cấp phát', icon: CheckCircle2, className: 'bg-emerald-50 text-emerald-700' },
   { label: 'Cần bổ sung', value: medicines.value.filter((item) => ['out', 'low'].includes(alertKey(item))).length, note: 'Hết hàng hoặc dưới ngưỡng', icon: AlertTriangle, className: 'bg-amber-50 text-amber-700' },
   { label: 'Cận hạn', value: medicines.value.filter((item) => ['expired', 'expiring'].includes(expiryKey(item))).length, note: 'Hết hạn hoặc trong 60 ngày', icon: Clock3, className: 'bg-rose-50 text-rose-700' },

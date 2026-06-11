@@ -14,7 +14,7 @@
             Bảng điều khiển y tá / lễ tân
           </h1>
           <p class="mt-4 max-w-3xl text-base leading-7 text-slate-600">
-            Theo dõi lịch hẹn, tiếp nhận bệnh nhân, hàng đợi khám, viện phí và phát thuốc từ N1, N2, N3 qua API Gateway.
+            Theo dõi lịch hẹn, tiếp nhận bệnh nhân, hàng đợi khám, viện phí và cấp phát thuốc trên hệ thống.
           </p>
           <div class="mt-7 flex flex-wrap gap-3">
             <RouterLink to="/nurse/appointments" class="inline-flex h-12 items-center gap-2 rounded-xl bg-blue-700 px-5 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition hover:bg-blue-800">
@@ -75,7 +75,7 @@
     </div>
 
     <div class="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-      <DataPanel title="Lịch hẹn cần xử lý" subtitle="Nguồn N1 - Appointment">
+      <DataPanel title="Lịch hẹn cần xử lý" subtitle="Hệ thống Quản lý Lịch hẹn">
         <div v-if="pendingAppointments.length" class="divide-y divide-slate-100">
           <div v-for="item in pendingAppointments.slice(0, 6)" :key="item.appointmentId" class="flex items-center justify-between gap-4 px-5 py-4">
             <div class="min-w-0">
@@ -85,10 +85,10 @@
             <span :class="['shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold', statusClass(item.status)]">{{ statusText(item.status) }}</span>
           </div>
         </div>
-        <EmptyState v-else title="Không có lịch cần xử lý" text="N1 chưa có lịch hẹn chờ tiếp nhận hoặc xác nhận." />
+        <EmptyState v-else title="Không có lịch cần xử lý" text="Không có lịch hẹn nào đang chờ tiếp nhận hoặc xác nhận." />
       </DataPanel>
 
-      <DataPanel title="Hóa đơn chưa thanh toán" subtitle="Nguồn N3 - Billing">
+      <DataPanel title="Hóa đơn chưa thanh toán" subtitle="Hệ thống Quản lý Thanh toán">
         <div v-if="unpaidInvoices.length" class="divide-y divide-slate-100">
           <div v-for="item in unpaidInvoices.slice(0, 6)" :key="item.invoiceId" class="flex items-center justify-between gap-4 px-5 py-4">
             <div>
@@ -98,11 +98,11 @@
             <span :class="['rounded-full px-2.5 py-1 text-xs font-semibold', statusClass(item.status)]">{{ statusText(item.status) }}</span>
           </div>
         </div>
-        <EmptyState v-else title="Chưa có hóa đơn cần thu" text="N3 không trả hóa đơn chưa thanh toán." />
+        <EmptyState v-else title="Chưa có hóa đơn cần thu" text="Hiện tại không có hóa đơn nào chưa thanh toán." />
       </DataPanel>
     </div>
 
-    <DataPanel title="Hàng đợi khám trong ngày" subtitle="Nguồn N1 - Waiting Queue">
+    <DataPanel title="Hàng đợi khám trong ngày" subtitle="Danh sách bệnh nhân chờ khám trong ngày">
       <div v-if="queue.length" class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-100 text-sm">
           <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -161,10 +161,10 @@ const pendingAppointments = computed(() => appointments.value.filter((item) => {
   return status.includes('pending') || status.includes('waiting') || status.includes('confirmed')
 }))
 const stats = computed<Stat[]>(() => [
-  { label: 'Lịch hẹn', value: appointments.value.length, note: 'Nguồn N1', to: '/nurse/appointments', icon: CalendarCheck, iconClass: 'bg-blue-50 text-blue-700' },
-  { label: 'Bệnh nhân', value: patients.value.length, note: 'Hồ sơ N2', to: '/nurse/patients', icon: Users, iconClass: 'bg-cyan-50 text-cyan-700' },
+  { label: 'Lịch hẹn', value: appointments.value.length, note: 'Hôm nay', to: '/nurse/appointments', icon: CalendarCheck, iconClass: 'bg-blue-50 text-blue-700' },
+  { label: 'Bệnh nhân', value: patients.value.length, note: 'Quản lý hồ sơ', to: '/nurse/patients', icon: Users, iconClass: 'bg-cyan-50 text-cyan-700' },
   { label: 'Hàng đợi', value: queue.value.length, note: 'Trong ngày', to: '/nurse/queue', icon: Users, iconClass: 'bg-indigo-50 text-indigo-700' },
-  { label: 'Đơn thuốc', value: prescriptions.value.length, note: 'Nguồn N3', to: '/nurse/prescriptions', icon: Pill, iconClass: 'bg-emerald-50 text-emerald-700' },
+  { label: 'Đơn thuốc', value: prescriptions.value.length, note: 'Danh sách đơn thuốc', to: '/nurse/prescriptions', icon: Pill, iconClass: 'bg-emerald-50 text-emerald-700' },
 ])
 
 const DataPanel = defineComponent({
@@ -209,7 +209,7 @@ async function loadData() {
   invoices.value = readList(results[3])
   prescriptions.value = readList(results[4])
   const firstError = results.find((item) => item.status === 'rejected') as PromiseRejectedResult | undefined
-  if (firstError) error.value = `Một số API chưa phản hồi: ${getApiErrorMessage(firstError.reason)}. Giao diện vẫn hiển thị phần dữ liệu đã tải được.`
+  if (firstError) error.value = `Không thể kết nối đến máy chủ: ${getApiErrorMessage(firstError.reason)}. Giao diện vẫn hiển thị phần dữ liệu đã tải được.`
   loading.value = false
 }
 
