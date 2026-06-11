@@ -22,20 +22,8 @@
 
     <div class="grid gap-6 xl:grid-cols-[1fr_420px]">
       <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_220px]">
           <BaseSelect v-model="selectedSpecialty" label="Chuyên khoa" :options="specialtyOptions" placeholder="Chọn chuyên khoa" />
-          <div class="space-y-2">
-            <BaseSelect v-model="selectedDoctor" label="Bác sĩ" :options="doctorOptions" placeholder="Xem bác sĩ" required />
-            <button
-              type="button"
-              class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-[#0F52BA] transition duration-200 hover:border-blue-200 hover:bg-blue-100 hover:text-[#003c90] focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="loadingCatalog"
-              @click="catalogModalOpen = true"
-            >
-              <Eye class="h-4 w-4" />
-              Xem bác sĩ
-            </button>
-          </div>
           <BaseInput v-model="selectedDate" label="Ngày khám" type="date" :min="today" />
           <div class="flex items-end">
             <BaseButton class="w-full" size="lg" :loading="loadingSlots" :disabled="!selectedDoctor || !selectedDate" @click="findSlots">
@@ -59,7 +47,7 @@
           {{ apiMessage }}
         </div>
 
-        <div v-if="isPatientBookingRoute" class="mt-5 border-t border-slate-100 pt-5">
+        <div class="mt-5 border-t border-slate-100 pt-5">
           <AppointmentForm
             layout="inline"
             :doctorId="doctor?.doctorId || 0"
@@ -74,52 +62,85 @@
         </div>
       </div>
 
-      <aside class="space-y-6">
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div class="flex items-center justify-between gap-4">
-            <div>
-              <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Tóm tắt lịch khám</p>
-              <h2 class="mt-2 text-lg font-bold text-slate-950">{{ displayText(doctor?.doctorName) || 'Chưa chọn bác sĩ' }}</h2>
-              <button
-                v-if="doctor"
-                type="button"
-                class="mt-2 text-sm font-semibold text-[#0F52BA] transition hover:text-[#003c90]"
-                @click="doctorDetailOpen = true"
-              >
-                Xem hồ sơ bác sĩ
-              </button>
-            </div>
-            <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[#0F52BA]">
-              <Stethoscope class="h-5 w-5" />
-            </span>
+      <aside class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Thông tin sơ bộ bác sĩ</p>
+            <h2 class="mt-2 text-lg font-bold text-slate-950">{{ selectedSpecialty ? catalogSpecialtyName : 'Chọn chuyên khoa để xem bác sĩ' }}</h2>
           </div>
-          <dl class="mt-5 space-y-4 text-sm">
-            <div class="rounded-xl bg-slate-50 p-3">
-              <dt class="text-slate-500">Chuyên khoa</dt>
-              <dd class="mt-1 font-bold text-slate-950">{{ displayText(doctor?.specialtyName) || 'Chưa chọn' }}</dd>
-            </div>
-            <div class="rounded-xl bg-slate-50 p-3">
-              <dt class="text-slate-500">Ngày giờ</dt>
-              <dd class="mt-1 font-bold text-slate-950">{{ selectedDate || 'Chưa chọn' }} - {{ selectedSlot || 'Chưa chọn' }}</dd>
-            </div>
-            <div class="rounded-xl bg-slate-50 p-3">
-              <dt class="text-slate-500">Phí khám</dt>
-              <dd class="mt-1 font-bold text-[#003c90]">{{ formatCurrency(doctor?.examFee || 0) }}</dd>
-            </div>
-          </dl>
+          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[#0F52BA]">
+            <Stethoscope class="h-5 w-5" />
+          </span>
         </div>
 
-        <div v-if="!isPatientBookingRoute" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <AppointmentForm
-            :doctorId="doctor?.doctorId || 0"
-            :appointmentDate="selectedDate"
-            :slotTime="selectedSlot"
-            :loading="submitting"
-            :initialPatientId="bookingPatientId"
-            :initialPatientName="bookingPatientName"
-            :initialPatientPhone="bookingPatientPhone"
-            @submit="submitBooking"
-          />
+        <p class="mt-3 flex items-center gap-2 text-sm text-slate-500">
+          <Info class="h-4 w-4" />
+          Chỉ hiển thị khi đã chọn chuyên khoa
+        </p>
+
+        <div
+          v-if="selectedSpecialty"
+          class="mt-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-[#003c90]"
+        >
+          Đã chọn chuyên khoa: {{ catalogSpecialtyName }} · {{ specialtyDoctors.length }} bác sĩ phù hợp
+        </div>
+
+        <div v-if="!selectedSpecialty" class="mt-5 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center">
+          <UserRound class="mx-auto h-10 w-10 text-slate-300" />
+          <p class="mt-3 font-semibold text-slate-900">Chưa chọn chuyên khoa</p>
+          <p class="mt-1 text-sm text-slate-500">Danh sách bác sĩ sẽ xuất hiện sau khi bạn chọn chuyên khoa ở form bên trái.</p>
+        </div>
+
+        <div v-else-if="specialtyDoctors.length" class="mt-5 space-y-4 xl:max-h-[calc(100vh-15rem)] xl:overflow-y-auto xl:pr-1">
+          <article
+            v-for="item in specialtyDoctors"
+            :key="item.doctorId"
+            :class="[
+              'rounded-xl border bg-white p-4 shadow-sm transition duration-200',
+              isSelectedDoctor(item) ? 'border-[#0F52BA] ring-4 ring-blue-100' : 'border-slate-200 hover:border-blue-200 hover:shadow-card',
+            ]"
+          >
+            <div class="flex gap-4">
+              <div class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-50 text-[#0F52BA] ring-1 ring-blue-100">
+                <img v-if="item.avatarUrl" :src="item.avatarUrl" :alt="doctorName(item)" class="h-full w-full object-cover" />
+                <UserRound v-else class="h-10 w-10" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <h3 class="truncate text-base font-bold text-slate-950">{{ displayDoctorTitle(item) }}</h3>
+                <div class="mt-3 space-y-2 text-sm text-slate-600">
+                  <p class="flex items-start gap-2">
+                    <BadgeCheck class="mt-0.5 h-4 w-4 shrink-0 text-[#0F52BA]" />
+                    <span>{{ item.experienceYears ? `${item.experienceYears} năm kinh nghiệm` : 'Kinh nghiệm đang cập nhật' }}</span>
+                  </p>
+                  <p class="flex items-start gap-2">
+                    <GraduationCap class="mt-0.5 h-4 w-4 shrink-0 text-[#0F52BA]" />
+                    <span>{{ item.degree || 'Bác sĩ chuyên khoa' }}</span>
+                  </p>
+                  <p class="flex items-start gap-2">
+                    <Star class="mt-0.5 h-4 w-4 shrink-0 text-[#0F52BA]" />
+                    <span>{{ item.description || `Chuyên khoa ${displayText(item.specialtyName)}` }}</span>
+                  </p>
+                </div>
+                <p class="mt-3 text-sm font-bold text-[#003c90]">Phí khám: {{ formatCurrency(item.examFee || 0) }}</p>
+              </div>
+            </div>
+
+            <BaseButton
+              class="mt-4 w-full"
+              :variant="isSelectedDoctor(item) ? 'primary' : 'outline'"
+              size="sm"
+              @click="selectDoctorForSchedule(item)"
+            >
+              <template #icon><CalendarPlus class="h-4 w-4" /></template>
+              {{ isSelectedDoctor(item) ? 'Đã chọn bác sĩ này' : 'Chọn lịch với BS này' }}
+            </BaseButton>
+          </article>
+        </div>
+
+        <div v-else class="mt-5 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center">
+          <UserRound class="mx-auto h-10 w-10 text-slate-300" />
+          <p class="mt-3 font-semibold text-slate-900">Chưa có bác sĩ phù hợp</p>
+          <p class="mt-1 text-sm text-slate-500">Vui lòng chọn chuyên khoa khác hoặc quay lại sau.</p>
         </div>
       </aside>
     </div>
@@ -131,99 +152,14 @@
       :type="toast.type"
       @close="toast.show = false"
     />
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition duration-200 ease-out"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
-        <div
-          v-if="catalogModalOpen"
-          class="fixed inset-0 z-[60] overflow-y-auto bg-slate-950/45 px-4 py-6 backdrop-blur-sm"
-          @click.self="catalogModalOpen = false"
-        >
-          <div class="mx-auto w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-soft">
-            <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-6">
-              <div>
-                <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Doctor Catalog</p>
-                <h2 class="mt-1 text-xl font-bold tracking-normal text-slate-950">
-                  Danh sách bác sĩ - {{ catalogSpecialtyName }}
-                </h2>
-              </div>
-              <button
-                type="button"
-                class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-4 focus:ring-slate-100"
-                aria-label="Đóng danh sách bác sĩ"
-                @click="catalogModalOpen = false"
-              >
-                <X class="h-5 w-5" />
-              </button>
-            </div>
-
-            <div class="max-h-[72vh] overflow-y-auto p-5 sm:p-6">
-              <div v-if="filteredDoctors.length" class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <article
-                  v-for="item in filteredDoctors"
-                  :key="item.doctorId"
-                  class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition duration-200 hover:border-blue-200 hover:shadow-card"
-                >
-                  <div class="flex gap-4">
-                    <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-[#0F52BA] ring-1 ring-blue-100">
-                      <img v-if="item.avatarUrl" :src="item.avatarUrl" :alt="doctorName(item)" class="h-full w-full object-cover" />
-                      <UserRound v-else class="h-8 w-8" />
-                    </div>
-                    <div class="min-w-0 flex-1">
-                      <h3 class="truncate text-base font-bold text-slate-950">{{ doctorName(item) }}</h3>
-                      <p class="mt-1 text-sm font-semibold text-[#0F52BA]">{{ item.degree || 'Bác sĩ chuyên khoa' }}</p>
-                      <div class="mt-3 grid gap-2 text-sm text-slate-600">
-                        <p class="flex items-center gap-2">
-                          <Stethoscope class="h-4 w-4 text-slate-400" />
-                          <span class="truncate">{{ displayText(item.specialtyName) }}</span>
-                        </p>
-                        <p class="flex items-center gap-2">
-                          <BadgeCheck class="h-4 w-4 text-slate-400" />
-                          <span>{{ item.experienceYears ? `${item.experienceYears} năm kinh nghiệm` : 'Kinh nghiệm đang cập nhật' }}</span>
-                        </p>
-                      </div>
-                      <p class="mt-3 text-sm font-bold text-[#003c90]">{{ formatCurrency(item.examFee || 0) }}</p>
-                    </div>
-                  </div>
-
-                  <div class="mt-4 grid gap-2 sm:grid-cols-2">
-                    <BaseButton variant="outline" size="sm" @click="openDoctorDetail(item)">
-                      <template #icon><Eye class="h-4 w-4" /></template>
-                      Hồ sơ chi tiết
-                    </BaseButton>
-                    <BaseButton size="sm" @click="selectDoctorFromCatalog(item)">
-                      Chọn bác sĩ này
-                    </BaseButton>
-                  </div>
-                </article>
-              </div>
-
-              <div v-else class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center">
-                <UserRound class="mx-auto h-10 w-10 text-slate-300" />
-                <p class="mt-3 font-semibold text-slate-900">Chưa có bác sĩ phù hợp</p>
-                <p class="mt-1 text-sm text-slate-500">Vui lòng chọn chuyên khoa khác hoặc quay lại sau.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-    <DoctorDetailModal :doctor="activeDetailDoctor" @close="closeDoctorDetail" />
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { BadgeCheck, Eye, Search, Stethoscope, UserRound, X } from 'lucide-vue-next'
+import { BadgeCheck, CalendarPlus, GraduationCap, Info, Search, Star, Stethoscope, UserRound } from 'lucide-vue-next'
 import AppointmentForm from '@/components/booking/AppointmentForm.vue'
-import DoctorDetailModal from '@/components/booking/DoctorDetailModal.vue'
 import SlotPicker from '@/components/booking/SlotPicker.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
@@ -251,9 +187,6 @@ const loadingSlots = ref(false)
 const loadingCatalog = ref(false)
 const submitting = ref(false)
 const apiMessage = ref('')
-const catalogModalOpen = ref(false)
-const doctorDetailOpen = ref(false)
-const catalogDetailDoctor = ref<Doctor | null>(null)
 const today = new Date().toISOString().slice(0, 10)
 const toast = reactive({
   show: false,
@@ -284,20 +217,13 @@ const filteredDoctors = computed(() =>
     : doctors.value,
 )
 
-const doctorOptions = computed(() =>
-  filteredDoctors.value.map((doctor) => ({
-    label: `${displayText(doctor.doctorName)} - ${displayText(doctor.specialtyName)}`,
-    value: doctor.doctorId,
-  })),
-)
-
+const specialtyDoctors = computed(() => selectedSpecialty.value ? filteredDoctors.value : [])
 const doctor = computed(() => doctors.value.find((item) => item.doctorId === Number(selectedDoctor.value)))
 const catalogSpecialtyName = computed(() => {
   if (!selectedSpecialty.value) return 'Tất cả chuyên khoa'
   return displayText(specialties.value.find((item) => item.specialtyId === Number(selectedSpecialty.value))?.specialtyName)
     || 'Tất cả chuyên khoa'
 })
-const activeDetailDoctor = computed(() => catalogDetailDoctor.value || (doctorDetailOpen.value ? doctor.value || null : null))
 const displaySlots = computed(() => mergeSlots(slots.value, bookedSlots.value))
 const bookingPatientId = computed(() => authStore.isPatient ? authStore.user?.patientId : undefined)
 const bookingPatientName = computed(() => authStore.isPatient ? authStore.user?.fullName : '')
@@ -407,19 +333,18 @@ function doctorName(item?: Doctor | null) {
   return displayText(item?.doctorName || item?.fullName || '')
 }
 
-function openDoctorDetail(item: Doctor) {
-  catalogDetailDoctor.value = item
+function displayDoctorTitle(item?: Doctor | null) {
+  const name = doctorName(item)
+  if (!name) return 'Bác sĩ chưa cập nhật'
+  return name.toLowerCase().startsWith('bs') ? name : `BS. ${name}`
 }
 
-function closeDoctorDetail() {
-  doctorDetailOpen.value = false
-  catalogDetailDoctor.value = null
+function isSelectedDoctor(item: Doctor) {
+  return Number(selectedDoctor.value) === item.doctorId
 }
 
-function selectDoctorFromCatalog(item: Doctor) {
+function selectDoctorForSchedule(item: Doctor) {
   selectedDoctor.value = String(item.doctorId)
-  catalogModalOpen.value = false
-  closeDoctorDetail()
 }
 
 function mergeSlots(...groups: string[][]) {
