@@ -24,7 +24,18 @@
       <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <BaseSelect v-model="selectedSpecialty" label="Chuyên khoa" :options="specialtyOptions" placeholder="Chọn chuyên khoa" />
-          <BaseSelect v-model="selectedDoctor" label="Bác sĩ" :options="doctorOptions" placeholder="Chọn bác sĩ" required />
+          <div class="space-y-2">
+            <BaseSelect v-model="selectedDoctor" label="Bác sĩ" :options="doctorOptions" placeholder="Chọn bác sĩ" required />
+            <button
+              type="button"
+              class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-[#0F52BA] transition duration-200 hover:border-blue-200 hover:bg-blue-100 hover:text-[#003c90] focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="loadingCatalog"
+              @click="catalogModalOpen = true"
+            >
+              <Eye class="h-4 w-4" />
+              Xem danh sách bác sĩ
+            </button>
+          </div>
           <BaseInput v-model="selectedDate" label="Ngày khám" type="date" :min="today" />
           <div class="flex items-end">
             <BaseButton class="w-full" size="lg" :loading="loadingSlots" :disabled="!selectedDoctor || !selectedDate" @click="findSlots">
@@ -120,14 +131,97 @@
       :type="toast.type"
       @close="toast.show = false"
     />
-    <DoctorDetailModal :doctor="doctorDetailOpen ? doctor || null : null" @close="doctorDetailOpen = false" />
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="catalogModalOpen"
+          class="fixed inset-0 z-[60] overflow-y-auto bg-slate-950/45 px-4 py-6 backdrop-blur-sm"
+          @click.self="catalogModalOpen = false"
+        >
+          <div class="mx-auto w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-soft">
+            <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-6">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Doctor Catalog</p>
+                <h2 class="mt-1 text-xl font-bold tracking-normal text-slate-950">
+                  Danh sách bác sĩ - {{ catalogSpecialtyName }}
+                </h2>
+              </div>
+              <button
+                type="button"
+                class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus:ring-4 focus:ring-slate-100"
+                aria-label="Đóng danh sách bác sĩ"
+                @click="catalogModalOpen = false"
+              >
+                <X class="h-5 w-5" />
+              </button>
+            </div>
+
+            <div class="max-h-[72vh] overflow-y-auto p-5 sm:p-6">
+              <div v-if="filteredDoctors.length" class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <article
+                  v-for="item in filteredDoctors"
+                  :key="item.doctorId"
+                  class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition duration-200 hover:border-blue-200 hover:shadow-card"
+                >
+                  <div class="flex gap-4">
+                    <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-[#0F52BA] ring-1 ring-blue-100">
+                      <img v-if="item.avatarUrl" :src="item.avatarUrl" :alt="doctorName(item)" class="h-full w-full object-cover" />
+                      <UserRound v-else class="h-8 w-8" />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <h3 class="truncate text-base font-bold text-slate-950">{{ doctorName(item) }}</h3>
+                      <p class="mt-1 text-sm font-semibold text-[#0F52BA]">{{ item.degree || 'Bác sĩ chuyên khoa' }}</p>
+                      <div class="mt-3 grid gap-2 text-sm text-slate-600">
+                        <p class="flex items-center gap-2">
+                          <Stethoscope class="h-4 w-4 text-slate-400" />
+                          <span class="truncate">{{ displayText(item.specialtyName) }}</span>
+                        </p>
+                        <p class="flex items-center gap-2">
+                          <BadgeCheck class="h-4 w-4 text-slate-400" />
+                          <span>{{ item.experienceYears ? `${item.experienceYears} năm kinh nghiệm` : 'Kinh nghiệm đang cập nhật' }}</span>
+                        </p>
+                      </div>
+                      <p class="mt-3 text-sm font-bold text-[#003c90]">{{ formatCurrency(item.examFee || 0) }}</p>
+                    </div>
+                  </div>
+
+                  <div class="mt-4 grid gap-2 sm:grid-cols-2">
+                    <BaseButton variant="outline" size="sm" @click="openDoctorDetail(item)">
+                      <template #icon><Eye class="h-4 w-4" /></template>
+                      Hồ sơ chi tiết
+                    </BaseButton>
+                    <BaseButton size="sm" @click="selectDoctorFromCatalog(item)">
+                      Chọn bác sĩ này
+                    </BaseButton>
+                  </div>
+                </article>
+              </div>
+
+              <div v-else class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center">
+                <UserRound class="mx-auto h-10 w-10 text-slate-300" />
+                <p class="mt-3 font-semibold text-slate-900">Chưa có bác sĩ phù hợp</p>
+                <p class="mt-1 text-sm text-slate-500">Vui lòng chọn chuyên khoa khác hoặc quay lại sau.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+    <DoctorDetailModal :doctor="activeDetailDoctor" @close="closeDoctorDetail" />
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Search, Stethoscope } from 'lucide-vue-next'
+import { BadgeCheck, Eye, Search, Stethoscope, UserRound, X } from 'lucide-vue-next'
 import AppointmentForm from '@/components/booking/AppointmentForm.vue'
 import DoctorDetailModal from '@/components/booking/DoctorDetailModal.vue'
 import SlotPicker from '@/components/booking/SlotPicker.vue'
@@ -157,7 +251,9 @@ const loadingSlots = ref(false)
 const loadingCatalog = ref(false)
 const submitting = ref(false)
 const apiMessage = ref('')
+const catalogModalOpen = ref(false)
 const doctorDetailOpen = ref(false)
+const catalogDetailDoctor = ref<Doctor | null>(null)
 const today = new Date().toISOString().slice(0, 10)
 const toast = reactive({
   show: false,
@@ -196,6 +292,12 @@ const doctorOptions = computed(() =>
 )
 
 const doctor = computed(() => doctors.value.find((item) => item.doctorId === Number(selectedDoctor.value)))
+const catalogSpecialtyName = computed(() => {
+  if (!selectedSpecialty.value) return 'Tất cả chuyên khoa'
+  return displayText(specialties.value.find((item) => item.specialtyId === Number(selectedSpecialty.value))?.specialtyName)
+    || 'Tất cả chuyên khoa'
+})
+const activeDetailDoctor = computed(() => catalogDetailDoctor.value || (doctorDetailOpen.value ? doctor.value || null : null))
 const displaySlots = computed(() => mergeSlots(slots.value, bookedSlots.value))
 const bookingPatientId = computed(() => authStore.isPatient ? authStore.user?.patientId : undefined)
 const bookingPatientName = computed(() => authStore.isPatient ? authStore.user?.fullName : '')
@@ -299,6 +401,25 @@ async function submitBooking(payload: CreateAppointmentRequest) {
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
+}
+
+function doctorName(item?: Doctor | null) {
+  return displayText(item?.doctorName || item?.fullName || '')
+}
+
+function openDoctorDetail(item: Doctor) {
+  catalogDetailDoctor.value = item
+}
+
+function closeDoctorDetail() {
+  doctorDetailOpen.value = false
+  catalogDetailDoctor.value = null
+}
+
+function selectDoctorFromCatalog(item: Doctor) {
+  selectedDoctor.value = String(item.doctorId)
+  catalogModalOpen.value = false
+  closeDoctorDetail()
 }
 
 function mergeSlots(...groups: string[][]) {
