@@ -1,10 +1,10 @@
 <template>
   <div
+    v-if="isVisible"
     class="fixed z-50 flex max-w-[calc(100vw-2rem)] flex-col items-end font-sans"
     :class="isReturningAssistant ? 'assistant-returning' : ''"
     :style="assistantPositionStyle"
   >
-    <!-- Chat Window -->
     <transition name="chat-fade">
       <div
         v-if="chatOpen"
@@ -90,12 +90,15 @@
       </div>
     </transition>
 
-    <button
-      type="button"
-      class="group flex touch-none select-none flex-col items-center gap-0 rounded-2xl outline-none pointer-events-auto"
+    <div
+      class="group relative flex touch-none select-none flex-col items-center gap-0 rounded-2xl outline-none pointer-events-auto"
       :class="chatOpen || isReturningAssistant ? 'cursor-pointer' : isDraggingAssistant ? 'cursor-grabbing' : 'cursor-grab'"
+      role="button"
+      tabindex="0"
       aria-label="Mở hoặc đóng Dogky"
       @click="handleAssistantClick"
+      @keydown.enter="handleAssistantClick"
+      @keydown.space.prevent="handleAssistantClick"
       @pointerdown="startAssistantDrag"
     >
       <span
@@ -116,8 +119,20 @@
           preload="auto"
           aria-hidden="true"
         ></video>
+
+        <!-- Close Button (X) -->
+        <button
+          type="button"
+          class="absolute -top-1 -right-1 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-md transition hover:bg-slate-100 hover:text-slate-800 pointer-events-auto"
+          title="Ẩn trợ lý"
+          aria-label="Ẩn trợ lý"
+          @click.stop="isVisible = false"
+          @pointerdown.stop
+        >
+          <X class="h-3.5 w-3.5" />
+        </button>
       </span>
-    </button>
+    </div>
   </div>
 </template>
 
@@ -141,6 +156,7 @@ const assistantReturnMs = 520
 const assistantPosition = ref({ ...defaultAssistantPosition })
 const isDraggingAssistant = ref(false)
 const isReturningAssistant = ref(false)
+const isVisible = ref(true)
 
 let dragStartX = 0
 let dragStartY = 0
