@@ -22,15 +22,41 @@
 
     <div class="grid gap-6 xl:grid-cols-[1fr_420px]">
       <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_220px]">
+        <div ref="slotControls" class="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_220px]">
           <BaseSelect v-model="selectedSpecialty" label="Chuyên khoa" :options="specialtyOptions" placeholder="Chọn chuyên khoa" />
           <BaseInput v-model="selectedDate" label="Ngày khám" type="date" :min="today" />
           <div class="flex items-end">
-            <BaseButton class="w-full" size="lg" :loading="loadingSlots" :disabled="!selectedDoctor || !selectedDate" @click="findSlots">
+            <BaseButton
+              class="w-full"
+              size="lg"
+              :loading="loadingSlots"
+              :disabled="!selectedDoctor || !selectedDate"
+              :title="selectedDoctor ? 'Kiểm tra lịch trống' : 'Chọn bác sĩ ở danh sách bên phải trước'"
+              @click="findSlots"
+            >
               <template #icon><Search class="h-4 w-4" /></template>
               Kiểm tra lịch trống
             </BaseButton>
           </div>
+        </div>
+
+        <div
+          v-if="doctor"
+          class="mt-4 flex flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-[#003c90] sm:flex-row sm:items-center sm:justify-between"
+        >
+          <p class="flex min-w-0 items-center gap-2 font-semibold">
+            <CheckCircle2 class="h-4 w-4 shrink-0" />
+            <span class="truncate">Đang chọn: {{ displayDoctorTitle(doctor) }}</span>
+          </p>
+          <span class="shrink-0 font-bold">Phí khám: {{ formatCurrency(doctor.examFee || 0) }}</span>
+        </div>
+
+        <div
+          v-else
+          class="mt-4 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
+        >
+          <Info class="h-4 w-4 shrink-0 text-[#0F52BA]" />
+          Chọn bác sĩ ở danh sách bên phải để kiểm tra lịch trống.
         </div>
 
         <div class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -40,6 +66,7 @@
             :all-slots="displaySlots"
             :booked-slots="bookedSlots"
             :loading="loadingSlots"
+            :empty-message="slotEmptyMessage"
           />
         </div>
 
@@ -49,6 +76,7 @@
 
         <div class="mt-5 border-t border-slate-100 pt-5">
           <AppointmentForm
+            v-if="selectedSlot"
             layout="inline"
             :doctorId="doctor?.doctorId || 0"
             :appointmentDate="selectedDate"
@@ -59,30 +87,37 @@
             :initialPatientPhone="bookingPatientPhone"
             @submit="submitBooking"
           />
+          <div v-else class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
+            <CalendarPlus class="mx-auto h-9 w-9 text-slate-300" />
+            <p class="mt-3 font-semibold text-slate-900">Chọn khung giờ để đặt lịch</p>
+            <p class="mt-1 text-sm text-slate-500">Sau khi chọn slot trống, form xác nhận đặt lịch sẽ xuất hiện tại đây.</p>
+          </div>
         </div>
       </div>
 
       <aside class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Thông tin sơ bộ bác sĩ</p>
-            <h2 class="mt-2 text-lg font-bold text-slate-950">{{ selectedSpecialty ? catalogSpecialtyName : 'Chọn chuyên khoa để xem bác sĩ' }}</h2>
+        <div class="sticky top-0 z-10 -mx-1 bg-white/95 px-1 pb-4 backdrop-blur">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Thông tin sơ bộ bác sĩ</p>
+              <h2 class="mt-2 text-lg font-bold text-slate-950">{{ selectedSpecialty ? catalogSpecialtyName : 'Chọn chuyên khoa để xem bác sĩ' }}</h2>
+            </div>
+            <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[#0F52BA]">
+              <Stethoscope class="h-5 w-5" />
+            </span>
           </div>
-          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[#0F52BA]">
-            <Stethoscope class="h-5 w-5" />
-          </span>
-        </div>
 
-        <p class="mt-3 flex items-center gap-2 text-sm text-slate-500">
-          <Info class="h-4 w-4" />
-          Chỉ hiển thị khi đã chọn chuyên khoa
-        </p>
+          <p class="mt-3 flex items-center gap-2 text-sm text-slate-500">
+            <Info class="h-4 w-4" />
+            Chỉ hiển thị khi đã chọn chuyên khoa
+          </p>
 
-        <div
-          v-if="selectedSpecialty"
-          class="mt-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-[#003c90]"
-        >
-          Đã chọn chuyên khoa: {{ catalogSpecialtyName }} · {{ specialtyDoctors.length }} bác sĩ phù hợp
+          <div
+            v-if="selectedSpecialty"
+            class="mt-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-[#003c90]"
+          >
+            Đã chọn chuyên khoa: {{ catalogSpecialtyName }} · {{ specialtyDoctors.length }} bác sĩ phù hợp
+          </div>
         </div>
 
         <div v-if="!selectedSpecialty" class="mt-5 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center">
@@ -101,13 +136,18 @@
             ]"
           >
             <div class="flex gap-4">
-              <div class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-50 text-[#0F52BA] ring-1 ring-blue-100">
+              <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-50 text-[#0F52BA] ring-1 ring-blue-100">
                 <img v-if="item.avatarUrl" :src="item.avatarUrl" :alt="doctorName(item)" class="h-full w-full object-cover" />
-                <UserRound v-else class="h-10 w-10" />
+                <UserRound v-else class="h-8 w-8" />
               </div>
               <div class="min-w-0 flex-1">
-                <h3 class="truncate text-base font-bold text-slate-950">{{ displayDoctorTitle(item) }}</h3>
-                <div class="mt-3 space-y-2 text-sm text-slate-600">
+                <div class="flex items-start gap-2">
+                  <h3 class="min-w-0 flex-1 truncate text-base font-bold text-slate-950">{{ displayDoctorTitle(item) }}</h3>
+                  <span v-if="isSelectedDoctor(item)" class="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-xs font-bold text-[#0F52BA]">
+                    Đang chọn
+                  </span>
+                </div>
+                <div class="mt-2 space-y-1.5 text-sm text-slate-600">
                   <p class="flex items-start gap-2">
                     <BadgeCheck class="mt-0.5 h-4 w-4 shrink-0 text-[#0F52BA]" />
                     <span>{{ item.experienceYears ? `${item.experienceYears} năm kinh nghiệm` : 'Kinh nghiệm đang cập nhật' }}</span>
@@ -118,22 +158,24 @@
                   </p>
                   <p class="flex items-start gap-2">
                     <Star class="mt-0.5 h-4 w-4 shrink-0 text-[#0F52BA]" />
-                    <span>{{ item.description || `Chuyên khoa ${displayText(item.specialtyName)}` }}</span>
+                    <span class="line-clamp-2">{{ item.description || `Chuyên khoa ${displayText(item.specialtyName)}` }}</span>
                   </p>
                 </div>
-                <p class="mt-3 text-sm font-bold text-[#003c90]">Phí khám: {{ formatCurrency(item.examFee || 0) }}</p>
               </div>
             </div>
 
-            <BaseButton
-              class="mt-4 w-full"
-              :variant="isSelectedDoctor(item) ? 'primary' : 'outline'"
-              size="sm"
-              @click="selectDoctorForSchedule(item)"
-            >
-              <template #icon><CalendarPlus class="h-4 w-4" /></template>
-              {{ isSelectedDoctor(item) ? 'Đã chọn bác sĩ này' : 'Chọn lịch với BS này' }}
-            </BaseButton>
+            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p class="text-sm font-bold text-[#003c90]">Phí khám: {{ formatCurrency(item.examFee || 0) }}</p>
+              <BaseButton
+                class="w-full sm:w-auto"
+                :variant="isSelectedDoctor(item) ? 'primary' : 'outline'"
+                size="sm"
+                @click="selectDoctorForSchedule(item)"
+              >
+                <template #icon><CalendarPlus class="h-4 w-4" /></template>
+                {{ isSelectedDoctor(item) ? 'Đang chọn lịch' : 'Chọn lịch với BS này' }}
+              </BaseButton>
+            </div>
           </article>
         </div>
 
@@ -156,9 +198,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { BadgeCheck, CalendarPlus, GraduationCap, Info, Search, Star, Stethoscope, UserRound } from 'lucide-vue-next'
+import { BadgeCheck, CalendarPlus, CheckCircle2, GraduationCap, Info, Search, Star, Stethoscope, UserRound } from 'lucide-vue-next'
 import AppointmentForm from '@/components/booking/AppointmentForm.vue'
 import SlotPicker from '@/components/booking/SlotPicker.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -183,10 +225,11 @@ const selectedDate = ref(new Date().toISOString().slice(0, 10))
 const selectedSlot = ref('')
 const slots = ref<string[]>([])
 const bookedSlots = ref<string[]>([])
+const slotsChecked = ref(false)
 const loadingSlots = ref(false)
-const loadingCatalog = ref(false)
 const submitting = ref(false)
 const apiMessage = ref('')
+const slotControls = ref<HTMLElement | null>(null)
 const today = new Date().toISOString().slice(0, 10)
 const toast = reactive({
   show: false,
@@ -204,7 +247,11 @@ const bookingIntroText = computed(() => isPatientBookingRoute.value
 const summary = computed(() => [
   { label: 'Chuyên khoa', value: specialties.value.length, note: 'Đang hoạt động' },
   { label: 'Bác sĩ', value: doctors.value.length, note: 'Có thể đặt lịch' },
-  { label: 'Slot trống', value: slots.value.length, note: selectedDoctor.value ? 'Theo ngày đã chọn' : 'Chọn bác sĩ trước' },
+  {
+    label: 'Slot trống',
+    value: slotsChecked.value ? slots.value.length : '--',
+    note: slotsChecked.value ? 'Theo bác sĩ và ngày đã chọn' : 'Chưa kiểm tra',
+  },
 ])
 
 const specialtyOptions = computed(() =>
@@ -225,6 +272,12 @@ const catalogSpecialtyName = computed(() => {
     || 'Tất cả chuyên khoa'
 })
 const displaySlots = computed(() => mergeSlots(slots.value, bookedSlots.value))
+const slotEmptyMessage = computed(() => {
+  if (!selectedSpecialty.value) return 'Chọn chuyên khoa để xem danh sách bác sĩ phù hợp.'
+  if (!selectedDoctor.value) return 'Chọn bác sĩ ở danh sách bên phải để kiểm tra lịch trống.'
+  if (!slotsChecked.value) return `Sẵn sàng kiểm tra lịch trống cho ${displayDoctorTitle(doctor.value)} vào ngày ${selectedDate.value}.`
+  return 'Không có slot trống cho bác sĩ/ngày đã chọn. Hãy chọn ngày khác hoặc bác sĩ khác.'
+})
 const bookingPatientId = computed(() => authStore.isPatient ? authStore.user?.patientId : undefined)
 const bookingPatientName = computed(() => authStore.isPatient ? authStore.user?.fullName : '')
 const bookingPatientPhone = computed(() => authStore.isPatient ? authStore.user?.phoneNumber : '')
@@ -236,19 +289,20 @@ watch(selectedSpecialty, () => {
   selectedSlot.value = ''
   slots.value = []
   bookedSlots.value = []
+  slotsChecked.value = false
 })
 
 watch([selectedDoctor, selectedDate], () => {
   selectedSlot.value = ''
   slots.value = []
   bookedSlots.value = []
+  slotsChecked.value = false
   apiMessage.value = ''
 })
 
 onMounted(loadCatalog)
 
 async function loadCatalog() {
-  loadingCatalog.value = true
   apiMessage.value = ''
   try {
     const [doctorData, specialtyData] = await Promise.all([
@@ -264,8 +318,6 @@ async function loadCatalog() {
     doctors.value = []
     specialties.value = []
     apiMessage.value = getApiErrorMessage(error)
-  } finally {
-    loadingCatalog.value = false
   }
 
   const queryDoctorId = Number(route.query.doctorId)
@@ -290,10 +342,11 @@ async function findSlots() {
     ])
     slots.value = data
     bookedSlots.value = booked
-    if (!data.length) apiMessage.value = 'Không có giờ trống trong database cho bác sĩ và ngày đã chọn.'
+    slotsChecked.value = true
   } catch (error) {
     slots.value = []
     bookedSlots.value = []
+    slotsChecked.value = true
     apiMessage.value = getApiErrorMessage(error)
   } finally {
     loadingSlots.value = false
@@ -344,7 +397,11 @@ function isSelectedDoctor(item: Doctor) {
 }
 
 function selectDoctorForSchedule(item: Doctor) {
+  if (isSelectedDoctor(item)) return
   selectedDoctor.value = String(item.doctorId)
+  nextTick(() => {
+    slotControls.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
 }
 
 function mergeSlots(...groups: string[][]) {

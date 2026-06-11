@@ -24,7 +24,7 @@
     </div>
 
     <div v-else class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
-      Không có slot trống cho bác sĩ/ngày đã chọn. Hãy chọn ngày khác hoặc bác sĩ khác.
+      {{ emptyMessage }}
     </div>
   </div>
 </template>
@@ -39,12 +39,14 @@ const props = withDefaults(
     bookedSlots?: string[]
     modelValue?: string
     loading?: boolean
+    emptyMessage?: string
   }>(),
   {
     allSlots: () => [],
     bookedSlots: () => [],
     modelValue: '',
     loading: false,
+    emptyMessage: 'Không có slot trống cho bác sĩ/ngày đã chọn. Hãy chọn ngày khác hoặc bác sĩ khác.',
   },
 )
 
