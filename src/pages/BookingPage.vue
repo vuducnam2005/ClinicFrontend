@@ -3,15 +3,11 @@
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div class="grid gap-6 xl:grid-cols-[0.9fr_1.1fr] xl:items-center">
         <div>
-          <p class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[#0F52BA]">
-            <CalendarCheck class="h-4 w-4" />
-            Đặt lịch khám
-          </p>
           <h1 class="mt-4 text-3xl font-bold leading-tight tracking-normal text-slate-950">
             Chọn chuyên khoa, bác sĩ và khung giờ phù hợp
           </h1>
           <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-            Dữ liệu bác sĩ, chuyên khoa và lịch trống được đọc từ N1 Appointment Service qua API Gateway.
+            {{ bookingIntroText }}
           </p>
         </div>
         <div class="grid gap-3 sm:grid-cols-3">
@@ -155,6 +151,11 @@ const toast = reactive({
   message: '',
   type: 'success' as 'success' | 'error',
 })
+
+const bookingIntroText = computed(() => route.path.startsWith('/patient')
+  ? 'Danh sách bác sĩ, chuyên khoa và khung giờ trống luôn được cập nhật để bạn dễ chọn lịch khám phù hợp.'
+  : 'Dữ liệu bác sĩ, chuyên khoa và lịch trống được đọc từ N1 Appointment Service qua API Gateway.',
+)
 
 const summary = computed(() => [
   { label: 'Chuyên khoa', value: specialties.value.length, note: 'Đang hoạt động' },

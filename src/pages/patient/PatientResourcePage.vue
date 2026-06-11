@@ -3,8 +3,8 @@
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-xs font-bold uppercase tracking-[0.14em] text-[#0F52BA]">{{ config.service }}</p>
-          <h1 class="mt-2 text-2xl font-bold tracking-normal text-slate-950 sm:text-3xl">{{ config.title }}</h1>
+          <p v-if="config.service" class="text-xs font-bold uppercase tracking-[0.14em] text-[#0F52BA]">{{ config.service }}</p>
+          <h1 :class="[config.service ? 'mt-2' : '', 'text-2xl font-bold tracking-normal text-slate-950 sm:text-3xl']">{{ config.title }}</h1>
           <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{{ config.description }}</p>
         </div>
         <button v-if="resource !== 'profile'" type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-[#003c90]" :disabled="loading" @click="loadData">
@@ -99,7 +99,7 @@
             ></textarea>
           </label>
           <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Patient ID</p>
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Mã bệnh nhân</p>
             <p class="mt-2 break-words font-semibold text-slate-900">{{ displayPatientCode }}</p>
           </div>
           <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
@@ -120,9 +120,9 @@
           <h3 class="font-bold">Liên kết dữ liệu</h3>
         </div>
         <div class="mt-5 space-y-3 text-sm leading-6">
-          <p>N1 đọc lịch hẹn theo Patient ID.</p>
-          <p>N2 đọc lịch sử khám, bệnh án và đơn thuốc theo Patient ID.</p>
-          <p>N3 đọc viện phí theo tài khoản hoặc Patient ID.</p>
+          <p>Lịch hẹn được liên kết theo mã bệnh nhân.</p>
+          <p>Hồ sơ khám bệnh và đơn thuốc được tổng hợp theo từng lượt khám.</p>
+          <p>Viện phí được hiển thị theo tài khoản hoặc mã bệnh nhân.</p>
         </div>
       </section>
     </div>
@@ -225,7 +225,7 @@
         <SearchX class="mx-auto h-10 w-10 text-slate-400" />
         <h2 class="mt-4 text-lg font-bold text-slate-950">Chưa có dữ liệu</h2>
         <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-          Database chưa có dữ liệu phù hợp với tài khoản bệnh nhân này.
+          Chưa có dữ liệu phù hợp với tài khoản bệnh nhân này.
         </p>
       </div>
     </div>
@@ -262,7 +262,7 @@
             </div>
 
             <div class="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-[#003c90]">
-              SePay API/webhook nên xử lý ở backend N3 để tự xác nhận giao dịch. Trên frontend chỉ hiển thị QR và gửi yêu cầu ghi nhận thanh toán bằng phương thức BankTransfer.
+              Hệ thống sẽ ghi nhận yêu cầu thanh toán chuyển khoản sau khi bạn xác nhận đã chuyển tiền.
             </div>
 
             <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
@@ -373,11 +373,11 @@ watch(() => toast.show, (visible) => {
 })
 
 const configs: Record<Resource, { title: string; service: string; description: string; placeholder: string; icon: any; iconClass: string; search: string[]; columns: Column[] }> = {
-  appointments: cfg('Lịch hẹn của tôi', 'N1 Appointment', 'Theo dõi lịch đã đặt, bác sĩ, giờ khám và trạng thái xác nhận.', 'Tìm mã lịch, bác sĩ, chuyên khoa, lý do, trạng thái...', CalendarClock, 'bg-blue-50 text-[#0F52BA]', ['id', 'doctorName', 'specialtyName', 'status', 'reason', 'dateTime'], cols(['id', 'Mã lịch'], ['doctorName', 'Bác sĩ', false, true], ['specialtyName', 'Chuyên khoa'], ['dateTime', 'Ngày giờ hẹn'], ['reason', 'Lý do khám'], ['status', 'Trạng thái', true])),
-  records: cfg('Hồ sơ bệnh án', 'N2 Medical Record', 'Xem chẩn đoán, triệu chứng và ghi chú bác sĩ sau mỗi lần khám.', 'Tìm chẩn đoán, triệu chứng, ghi chú...', FileHeart, 'bg-indigo-50 text-indigo-700', ['id', 'diagnosis', 'symptoms', 'doctorNotes'], cols(['id', 'Mã BA'], ['diagnosis', 'Chẩn đoán', false, true], ['symptoms', 'Triệu chứng'], ['doctorNotes', 'Ghi chú'], ['createdAt', 'Ngày tạo'])),
-  prescriptions: cfg('Đơn thuốc', 'N2 Prescription', 'Xem đơn thuốc cũ đã được bác sĩ chốt và gửi sang nhà thuốc.', 'Tìm mã đơn, thuốc, trạng thái...', Pill, 'bg-cyan-50 text-cyan-700', ['id', 'medicine', 'status', 'note'], cols(['id', 'Mã đơn'], ['medicine', 'Thuốc', false, true], ['quantity', 'Số lượng'], ['note', 'Ghi chú'], ['status', 'Trạng thái', true])),
-  bills: cfg('Viện phí của tôi', 'N3 Billing', 'Xem hóa đơn, số tiền và thực hiện thanh toán viện phí khi cần.', 'Tìm mã hóa đơn, trạng thái...', CreditCard, 'bg-emerald-50 text-emerald-700', ['id', 'amount', 'status'], cols(['id', 'Mã HĐ'], ['appointmentId', 'Lịch hẹn'], ['amount', 'Số tiền', false, true], ['status', 'Trạng thái', true])),
-  profile: cfg('Hồ sơ cá nhân', 'Auth/N2 Profile', 'Thông tin tài khoản bệnh nhân và hồ sơ N2 liên kết.', '', UserRound, 'bg-slate-100 text-slate-700', [], []),
+  appointments: cfg('Lịch hẹn của tôi', '', 'Theo dõi lịch đã đặt, bác sĩ, giờ khám và trạng thái xác nhận.', 'Tìm mã lịch, bác sĩ, chuyên khoa, lý do, trạng thái...', CalendarClock, 'bg-blue-50 text-[#0F52BA]', ['id', 'doctorName', 'specialtyName', 'status', 'reason', 'dateTime'], cols(['id', 'Mã lịch'], ['doctorName', 'Bác sĩ', false, true], ['specialtyName', 'Chuyên khoa'], ['dateTime', 'Ngày giờ hẹn'], ['reason', 'Lý do khám'], ['status', 'Trạng thái', true])),
+  records: cfg('Hồ sơ bệnh án', 'Hồ sơ khám bệnh', 'Xem chẩn đoán, triệu chứng và ghi chú bác sĩ sau mỗi lần khám.', 'Tìm chẩn đoán, triệu chứng, ghi chú...', FileHeart, 'bg-indigo-50 text-indigo-700', ['id', 'diagnosis', 'symptoms', 'doctorNotes'], cols(['id', 'Mã BA'], ['diagnosis', 'Chẩn đoán', false, true], ['symptoms', 'Triệu chứng'], ['doctorNotes', 'Ghi chú'], ['createdAt', 'Ngày tạo'])),
+  prescriptions: cfg('Đơn thuốc', 'Đơn thuốc đã kê', 'Xem đơn thuốc cũ đã được bác sĩ chốt và gửi sang nhà thuốc.', 'Tìm mã đơn, thuốc, trạng thái...', Pill, 'bg-cyan-50 text-cyan-700', ['id', 'medicine', 'status', 'note'], cols(['id', 'Mã đơn'], ['medicine', 'Thuốc', false, true], ['quantity', 'Số lượng'], ['note', 'Ghi chú'], ['status', 'Trạng thái', true])),
+  bills: cfg('Viện phí của tôi', '', 'Xem hóa đơn, số tiền và thực hiện thanh toán viện phí khi cần.', 'Tìm mã hóa đơn, trạng thái...', CreditCard, 'bg-emerald-50 text-emerald-700', ['id', 'amount', 'status'], cols(['id', 'Mã HĐ'], ['appointmentId', 'Lịch hẹn'], ['amount', 'Số tiền', false, true], ['status', 'Trạng thái', true])),
+  profile: cfg('Hồ sơ cá nhân', '   ', 'Thông tin tài khoản và hồ sơ bệnh nhân liên kết.', '', UserRound, 'bg-slate-100 text-slate-700', [], []),
 }
 
 const filteredRows = computed(() => {
@@ -490,13 +490,13 @@ async function loadData() {
         ? uniqueRows((await appointmentApi.getAppointmentsByPatient(id).catch(() => [] as Appointment[])).map(mapAppointment))
           .sort((a, b) => appointmentTimestamp(b) - appointmentTimestamp(a))
         : []
-      note.value = rows.value.length ? 'Đã tải lịch hẹn từ N1.' : 'Database chưa có lịch hẹn cho bệnh nhân này.'
+      note.value = rows.value.length ? 'Đã tải lịch hẹn của bạn.' : 'Chưa có lịch hẹn cho bệnh nhân này.'
       showLoadToast('Lịch hẹn', rows.value.length, 'Nếu chưa có lịch, sang Đặt lịch khám để tạo lịch mới.')
     }
     if (resource.value === 'records') {
       const records = await getHistory().then((data) => data.medicalRecords)
       rows.value = records.map(mapRecord)
-      note.value = rows.value.length ? 'Đã tải hồ sơ bệnh án từ N2.' : 'Database chưa có bệnh án cho bệnh nhân này.'
+      note.value = rows.value.length ? 'Đã tải hồ sơ bệnh án của bạn.' : 'Chưa có bệnh án cho bệnh nhân này.'
       showLoadToast('Hồ sơ bệnh án', rows.value.length, 'Bệnh án sẽ xuất hiện sau khi bác sĩ hoàn tất lượt khám.')
     }
     if (resource.value === 'prescriptions') {
@@ -518,19 +518,19 @@ async function loadData() {
         return true
       })
       rows.value = uniquePrescriptions.map(mapPrescription)
-      note.value = rows.value.length ? 'Đã đồng bộ đơn thuốc từ N2 và N3.' : 'Database chưa có đơn thuốc cho bệnh nhân này.'
-      showLoadToast('Đơn thuốc', rows.value.length, 'Đơn thuốc sẽ xuất hiện sau khi bác sĩ chốt đơn qua N2.')
+      note.value = rows.value.length ? 'Đã tải đơn thuốc của bạn.' : 'Chưa có đơn thuốc cho bệnh nhân này.'
+      showLoadToast('Đơn thuốc', rows.value.length, 'Đơn thuốc sẽ xuất hiện sau khi bác sĩ chốt đơn.')
     }
     if (resource.value === 'bills') {
       rows.value = patientId.value
         ? uniqueRows((await billingApi.getInvoices(patientId.value)).map(mapInvoice))
         : []
-      note.value = rows.value.length ? 'Đã tải viện phí từ N3.' : 'Database chưa có viện phí cho bệnh nhân này.'
+      note.value = rows.value.length ? 'Đã tải viện phí của bạn.' : 'Chưa có viện phí cho bệnh nhân này.'
       showLoadToast('Viện phí', rows.value.length, 'Nếu đã khám xong, liên hệ quầy thu ngân hoặc kiểm tra lại sau.')
     }
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError)
-    showToast('Không tải được dữ liệu', `${error.value} Kiểm tra lại liên kết Patient ID hoặc thử sang Hồ sơ cá nhân.`, 'error')
+    showToast('Không tải được dữ liệu', `${error.value} Kiểm tra lại mã bệnh nhân hoặc thử sang Hồ sơ cá nhân.`, 'error')
     rows.value = []
   } finally {
     loading.value = false
@@ -780,7 +780,7 @@ async function confirmBankTransfer() {
       bankAccountNumber: bankTransferConfig.account,
     })
     note.value = 'Đã gửi yêu cầu ghi nhận thanh toán chuyển khoản.'
-    showToast('Thanh toán thành công', 'N3 đã ghi nhận thanh toán chuyển khoản ngân hàng.', 'success')
+    showToast('Thanh toán thành công', 'Hệ thống đã ghi nhận thanh toán chuyển khoản ngân hàng.', 'success')
     closePayment()
     await loadData()
   } catch (apiError) {

@@ -7,10 +7,6 @@
       <div class="absolute -bottom-20 -right-12 h-48 w-48 rounded-full border border-white/10"></div>
       <div class="relative z-10 grid gap-8 lg:grid-cols-[1fr_320px] lg:items-center">
         <div>
-          <p class="inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-blue-50">
-            <ShieldCheck class="h-4 w-4" />
-            Cổng bệnh nhân
-          </p>
           <h1 class="mt-5 max-w-2xl text-3xl font-bold leading-tight tracking-normal sm:text-4xl">
             Xin chào, {{ displayName }}
           </h1>
@@ -114,7 +110,7 @@
           <div class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 class="text-lg font-bold text-slate-950">Lịch hẹn gần nhất</h2>
-              <p class="mt-1 text-sm text-slate-500">Nguồn N1 Appointment Service</p>
+              <p class="mt-1 text-sm text-slate-500">Lịch khám đã đặt</p>
             </div>
             <RouterLink to="/patient/appointments" class="inline-flex items-center gap-1 text-sm font-bold text-[#003c90] hover:text-[#0F52BA]">
               Xem tất cả
@@ -145,7 +141,7 @@
           <div class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 class="text-lg font-bold text-slate-950">Hồ sơ bệnh án gần đây</h2>
-              <p class="mt-1 text-sm text-slate-500">Nguồn N2 Medical Record Service</p>
+              <p class="mt-1 text-sm text-slate-500">Hồ sơ khám gần đây</p>
             </div>
             <RouterLink to="/patient/records" class="inline-flex items-center gap-1 text-sm font-bold text-[#003c90] hover:text-[#0F52BA]">
               Xem hồ sơ
@@ -276,9 +272,9 @@ const nextAppointment = computed(() => upcomingAppointments.value[0] || null)
 const unpaidInvoices = computed(() => invoices.value.filter((item) => String(item.status || '').toLowerCase().includes('unpaid')))
 
 const stats = computed(() => [
-  { label: 'Lịch hẹn', value: appointments.value.length, note: 'N1 Appointment', to: '/patient/appointments', icon: CalendarCheck, iconClass: 'bg-blue-50 text-[#0F52BA]' },
-  { label: 'Bệnh án', value: records.value.length, note: 'N2 Medical Record', to: '/patient/records', icon: FileHeart, iconClass: 'bg-indigo-50 text-indigo-700' },
-  { label: 'Hóa đơn', value: invoices.value.length, note: 'N3 Billing', to: '/patient/bills', icon: CreditCard, iconClass: 'bg-emerald-50 text-emerald-700' },
+  { label: 'Lịch hẹn', value: appointments.value.length, note: 'Theo dõi lịch khám', to: '/patient/appointments', icon: CalendarCheck, iconClass: 'bg-blue-50 text-[#0F52BA]' },
+  { label: 'Bệnh án', value: records.value.length, note: 'Hồ sơ khám bệnh', to: '/patient/records', icon: FileHeart, iconClass: 'bg-indigo-50 text-indigo-700' },
+  { label: 'Hóa đơn', value: invoices.value.length, note: 'Viện phí & thanh toán', to: '/patient/bills', icon: CreditCard, iconClass: 'bg-emerald-50 text-emerald-700' },
   { label: 'Chưa thanh toán', value: unpaidInvoices.value.length, note: 'Cần theo dõi', to: '/patient/bills', icon: BellRing, iconClass: 'bg-amber-50 text-amber-700' },
 ])
 
