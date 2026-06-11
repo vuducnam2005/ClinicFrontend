@@ -47,6 +47,20 @@
         <div v-if="apiMessage" class="mt-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-[#003c90]">
           {{ apiMessage }}
         </div>
+
+        <div v-if="isPatientBookingRoute" class="mt-5 border-t border-slate-100 pt-5">
+          <AppointmentForm
+            layout="inline"
+            :doctorId="doctor?.doctorId || 0"
+            :appointmentDate="selectedDate"
+            :slotTime="selectedSlot"
+            :loading="submitting"
+            :initialPatientId="bookingPatientId"
+            :initialPatientName="bookingPatientName"
+            :initialPatientPhone="bookingPatientPhone"
+            @submit="submitBooking"
+          />
+        </div>
       </div>
 
       <aside class="space-y-6">
@@ -84,7 +98,7 @@
           </dl>
         </div>
 
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div v-if="!isPatientBookingRoute" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <AppointmentForm
             :doctorId="doctor?.doctorId || 0"
             :appointmentDate="selectedDate"
@@ -113,7 +127,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { CalendarCheck, Search, Stethoscope } from 'lucide-vue-next'
+import { Search, Stethoscope } from 'lucide-vue-next'
 import AppointmentForm from '@/components/booking/AppointmentForm.vue'
 import DoctorDetailModal from '@/components/booking/DoctorDetailModal.vue'
 import SlotPicker from '@/components/booking/SlotPicker.vue'
@@ -152,7 +166,8 @@ const toast = reactive({
   type: 'success' as 'success' | 'error',
 })
 
-const bookingIntroText = computed(() => route.path.startsWith('/patient')
+const isPatientBookingRoute = computed(() => route.path.startsWith('/patient'))
+const bookingIntroText = computed(() => isPatientBookingRoute.value
   ? 'Danh sách bác sĩ, chuyên khoa và khung giờ trống luôn được cập nhật để bạn dễ chọn lịch khám phù hợp.'
   : 'Dữ liệu bác sĩ, chuyên khoa và lịch trống được đọc từ N1 Appointment Service qua API Gateway.',
 )

@@ -1,9 +1,9 @@
 <template>
-  <form class="space-y-4" @submit.prevent="submit">
-    <div class="rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-800">
+  <form :class="formClass" @submit.prevent="submit">
+    <div :class="infoClass">
       Mã bệnh nhân được hệ thống tự gắn khi đặt lịch. Bạn chỉ cần nhập họ tên, số điện thoại và lý do khám.
     </div>
-    <div>
+    <div :class="fieldClass">
       <BaseInput
         v-model="form.patientPhoneSnapshot"
         label="Số điện thoại"
@@ -24,20 +24,24 @@
         Sử dụng SĐT đã đăng ký: {{ initialPatientPhone }}
       </button>
     </div>
-    <BaseInput v-model="form.patientNameSnapshot" label="Họ tên" placeholder="Nguyễn Văn D" required />
-    <label class="block">
+    <div :class="fieldClass">
+      <BaseInput v-model="form.patientNameSnapshot" label="Họ tên" placeholder="Nguyễn Văn D" required />
+    </div>
+    <label :class="reasonClass">
       <span class="mb-2 block text-sm font-medium text-slate-700">Lý do khám</span>
       <textarea
         v-model="form.reason"
-        rows="3"
-        class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
+        :rows="textareaRows"
+        :class="textareaClass"
         placeholder="Mô tả ngắn gọn triệu chứng"
       ></textarea>
     </label>
-    <BaseButton class="w-full" type="submit" size="lg" :loading="loading" :disabled="!canSubmit">
-      <template #icon><CalendarCheck class="h-4 w-4" /></template>
-      Xác nhận đặt lịch
-    </BaseButton>
+    <div :class="buttonClass">
+      <BaseButton class="w-full whitespace-nowrap" type="submit" size="lg" :loading="loading" :disabled="!canSubmit">
+        <template #icon><CalendarCheck class="h-4 w-4" /></template>
+        Xác nhận đặt lịch
+      </BaseButton>
+    </div>
   </form>
 </template>
 
@@ -58,6 +62,7 @@ const props = defineProps<{
   initialPatientId?: string | number
   initialPatientName?: string
   initialPatientPhone?: string
+  layout?: 'stacked' | 'inline'
 }>()
 
 const emit = defineEmits<{
@@ -73,6 +78,24 @@ const form = reactive({
 
 const phoneError = ref('')
 const phoneValidating = ref(false)
+const inlineLayout = computed(() => props.layout === 'inline')
+
+const formClass = computed(() => inlineLayout.value
+  ? 'grid gap-4 xl:grid-cols-4 xl:items-start'
+  : 'space-y-4',
+)
+const infoClass = computed(() => inlineLayout.value
+  ? 'rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-800 xl:col-span-4'
+  : 'rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-800',
+)
+const fieldClass = computed(() => inlineLayout.value ? 'min-w-0' : '')
+const reasonClass = computed(() => inlineLayout.value ? 'block min-w-0' : 'block')
+const buttonClass = computed(() => inlineLayout.value ? 'flex items-end xl:pt-7' : '')
+const textareaRows = computed(() => inlineLayout.value ? 1 : 3)
+const textareaClass = computed(() => [
+  'w-full resize-none rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-100',
+  inlineLayout.value ? 'h-11 py-2.5 leading-5' : 'py-3',
+])
 
 watch(
   () => [props.initialPatientId, props.initialPatientName, props.initialPatientPhone],

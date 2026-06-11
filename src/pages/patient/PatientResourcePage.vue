@@ -377,7 +377,7 @@ const configs: Record<Resource, { title: string; service: string; description: s
   records: cfg('Hồ sơ bệnh án', 'Hồ sơ khám bệnh', 'Xem chẩn đoán, triệu chứng và ghi chú bác sĩ sau mỗi lần khám.', 'Tìm chẩn đoán, triệu chứng, ghi chú...', FileHeart, 'bg-indigo-50 text-indigo-700', ['id', 'diagnosis', 'symptoms', 'doctorNotes'], cols(['id', 'Mã BA'], ['diagnosis', 'Chẩn đoán', false, true], ['symptoms', 'Triệu chứng'], ['doctorNotes', 'Ghi chú'], ['createdAt', 'Ngày tạo'])),
   prescriptions: cfg('Đơn thuốc', 'Đơn thuốc đã kê', 'Xem đơn thuốc cũ đã được bác sĩ chốt và gửi sang nhà thuốc.', 'Tìm mã đơn, thuốc, trạng thái...', Pill, 'bg-cyan-50 text-cyan-700', ['id', 'medicine', 'status', 'note'], cols(['id', 'Mã đơn'], ['medicine', 'Thuốc', false, true], ['quantity', 'Số lượng'], ['note', 'Ghi chú'], ['status', 'Trạng thái', true])),
   bills: cfg('Viện phí của tôi', '', 'Xem hóa đơn, số tiền và thực hiện thanh toán viện phí khi cần.', 'Tìm mã hóa đơn, trạng thái...', CreditCard, 'bg-emerald-50 text-emerald-700', ['id', 'amount', 'status'], cols(['id', 'Mã HĐ'], ['appointmentId', 'Lịch hẹn'], ['amount', 'Số tiền', false, true], ['status', 'Trạng thái', true])),
-  profile: cfg('Hồ sơ cá nhân', '   ', 'Thông tin tài khoản và hồ sơ bệnh nhân liên kết.', '', UserRound, 'bg-slate-100 text-slate-700', [], []),
+  profile: cfg('Hồ sơ cá nhân', '', 'Thông tin tài khoản và hồ sơ bệnh nhân liên kết.', '', UserRound, 'bg-slate-100 text-slate-700', [], []),
 }
 
 const filteredRows = computed(() => {
