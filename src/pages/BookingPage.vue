@@ -22,7 +22,7 @@
 
     <div class="grid gap-6 xl:grid-cols-[1fr_420px]">
       <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div class="grid gap-4 md:grid-cols-2">
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <BaseSelect v-model="selectedSpecialty" label="Chuyên khoa" :options="specialtyOptions" placeholder="Chọn chuyên khoa" />
           <BaseSelect v-model="selectedDoctor" label="Bác sĩ" :options="doctorOptions" placeholder="Chọn bác sĩ" required />
           <BaseInput v-model="selectedDate" label="Ngày khám" type="date" :min="today" />
