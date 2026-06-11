@@ -25,7 +25,7 @@
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <BaseSelect v-model="selectedSpecialty" label="Chuyên khoa" :options="specialtyOptions" placeholder="Chọn chuyên khoa" />
           <div class="space-y-2">
-            <BaseSelect v-model="selectedDoctor" label="Bác sĩ" :options="doctorOptions" placeholder="Chọn bác sĩ" required />
+            <BaseSelect v-model="selectedDoctor" label="Bác sĩ" :options="doctorOptions" placeholder="Xem bác sĩ" required />
             <button
               type="button"
               class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-[#0F52BA] transition duration-200 hover:border-blue-200 hover:bg-blue-100 hover:text-[#003c90] focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
@@ -33,7 +33,7 @@
               @click="catalogModalOpen = true"
             >
               <Eye class="h-4 w-4" />
-              Xem danh sách bác sĩ
+              Xem bác sĩ
             </button>
           </div>
           <BaseInput v-model="selectedDate" label="Ngày khám" type="date" :min="today" />
