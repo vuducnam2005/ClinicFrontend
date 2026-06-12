@@ -46,7 +46,7 @@ function pick(s: string) { if (isAvail(s)) emit('update:modelValue', n(s)) }
 .on { background: #0F52BA; border-color: #0F52BA; color: #fff; }
 .bk { background: #fef2f2; border-color: #fecaca; color: #ef4444; opacity: .5; cursor: not-allowed; text-decoration: line-through; }
 .of { background: #f8fafc; border-color: #e2e8f0; color: #94a3b8; opacity: .4; cursor: not-allowed; }
-.em { padding: 8px 6px; text-align: center; background: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 6px; font-size: 10.5px; color: #64748b; }
+.em { height: 56px; display: flex; align-items: center; justify-content: center; background: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 6px; font-size: 10.5px; color: #64748b; padding: 0 6px; box-sizing: border-box; text-align: center; }
 .sk { display: flex; flex-wrap: wrap; gap: 4px; }
 .ss { width: 48px; height: 24px; border-radius: 4px; background: #f1f5f9; animation: p 1.5s ease-in-out infinite; }
 @keyframes p { 0%,100% { opacity: 1 } 50% { opacity: .5 } }

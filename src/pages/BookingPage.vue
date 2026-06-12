@@ -230,9 +230,11 @@ function formatDisplayDate(v: string) { if (!v) return ''; const [y,m,d] = v.sli
 .dbt-a { background: #0F52BA; color: #fff; }
 
 /* Empty */
-.eb { display: flex; flex-direction: column; align-items: center; padding: 8px; background: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 6px; }
-.ei { width: 18px; height: 18px; color: #cbd5e1; }
-.eb p { margin: 1px 0 0; font-size: 11px; font-weight: 600; color: #0f172a; }
+.eb { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; background: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 6px; box-sizing: border-box; }
+.ei { width: 16px; height: 16px; color: #cbd5e1; }
+.eb p { margin: 0; font-size: 11px; font-weight: 600; color: #64748b; }
+.cd:nth-of-type(2) .eb { height: 82px; }
+.cd:nth-of-type(4) .eb { height: 66px; }
 
 /* Nav */
 .nr { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; padding-top: 4px; border-top: 1px solid #f1f5f9; }
