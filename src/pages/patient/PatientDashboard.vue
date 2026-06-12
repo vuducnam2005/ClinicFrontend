@@ -1,5 +1,7 @@
 <template>
   <section class="space-y-6">
+    <FullscreenLoader :show="loading" />
+
     <div
       class="relative overflow-hidden rounded-2xl border border-blue-100 bg-[#003c90] p-6 text-white shadow-[0_20px_50px_rgba(15,82,186,0.22)] sm:p-7 lg:p-8"
     >
@@ -66,11 +68,7 @@
       {{ error }}
     </div>
 
-    <div v-if="loading" class="grid gap-4 md:grid-cols-3">
-      <LoadingSkeleton v-for="item in 3" :key="item" />
-    </div>
-
-    <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <RouterLink
         v-for="stat in stats"
         :key="stat.label"
@@ -247,7 +245,7 @@ import {
   Stethoscope,
   UserRoundSearch,
 } from 'lucide-vue-next'
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
+import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { appointmentApi } from '@/services/appointmentApi'
 import { billingApi } from '@/services/billingApi'

@@ -1,5 +1,7 @@
 <template>
   <section class="min-h-screen bg-[#f8fafc] py-6 sm:py-8">
+    <FullscreenLoader :show="loading" />
+
     <div class="max-w-none mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
       
       <!-- 1. Header trang -->
@@ -168,11 +170,7 @@
         </BaseButton>
       </div>
 
-      <div v-if="loading" class="grid gap-4 md:grid-cols-3">
-        <LoadingSkeleton v-for="item in 3" :key="item" />
-      </div>
-
-      <div v-else class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div class="flex items-center justify-between border-b border-slate-100 p-4 bg-slate-50/50">
           <span class="text-sm font-semibold text-slate-500">
             Tổng số {{ filteredPrescriptions.length }} kết quả đơn thuốc
@@ -553,6 +551,7 @@ import {
   X
 } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
 import Toast from '@/components/ui/Toast.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { medicalRecordApi } from '@/services/medicalRecordApi'

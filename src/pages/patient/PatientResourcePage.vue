@@ -1,5 +1,7 @@
 <template>
   <section class="space-y-6">
+    <FullscreenLoader :show="loading" />
+
     <header v-if="resource === 'appointments'" class="px-1 pt-2">
       <h1 class="text-[1.75rem] font-bold tracking-normal text-slate-950">{{ config.title }}</h1>
       <p class="mt-1.5 text-[13px] leading-5 text-slate-500">{{ config.description }}</p>
@@ -130,10 +132,6 @@
           <p>Viện phí được hiển thị theo tài khoản hoặc mã bệnh nhân.</p>
         </div>
       </section>
-    </div>
-
-    <div v-else-if="loading" class="grid gap-4 md:grid-cols-3">
-      <LoadingSkeleton v-for="item in 3" :key="item" />
     </div>
 
     <div v-else-if="resource === 'appointments'" class="appointment-table-shell">
@@ -402,7 +400,7 @@ import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from
 import { CalendarClock, ChevronLeft, ChevronRight, Copy, CreditCard, Eye, FileHeart, Pill, RefreshCw, Save, Search, SearchX, ShieldCheck, UserRound, X } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
+import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
 import Toast from '@/components/ui/Toast.vue'
 import { useAuthStore } from '@/stores/authStore'
 import { appointmentApi } from '@/services/appointmentApi'
@@ -687,7 +685,7 @@ onUnmounted(() => {
 })
 
 async function loadData() {
-  loading.value = resource.value !== 'profile'
+  loading.value = true
   error.value = ''
   note.value = ''
   try {
