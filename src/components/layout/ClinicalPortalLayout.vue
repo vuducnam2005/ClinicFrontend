@@ -122,7 +122,7 @@
       </div>
 
       <main ref="mainRef" class="flex-1 overflow-y-auto">
-        <div class="mx-auto min-h-screen max-w-[1600px] px-4 py-5 sm:px-5 lg:px-6">
+        <div class="mx-auto min-h-[calc(100vh-5rem)] max-w-[1600px] px-4 py-5 sm:px-5 lg:px-6">
           <div v-if="layoutError" class="rounded-2xl border border-rose-200 bg-white p-6 text-sm text-rose-700 shadow-sm">
             <p class="text-lg font-bold text-rose-800">Không hiển thị được trang</p>
             <p class="mt-2">{{ layoutError }}</p>

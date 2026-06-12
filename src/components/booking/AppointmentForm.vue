@@ -1,57 +1,40 @@
 <template>
-  <form :class="formClass" @submit.prevent="submit">
-    <div :class="fieldClass">
-      <BaseInput
-        v-model="form.patientPhoneSnapshot"
-        label="Số điện thoại"
-        placeholder="0900000000"
-        required
-        :error="phoneError"
-        @blur="validatePhone"
-      />
-      <button
-        v-if="showPhoneSuggestion"
-        type="button"
-        class="mt-2 inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 transition hover:bg-blue-100 hover:border-blue-300"
-        @click="useRegisteredPhone"
-      >
-        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
-        Sử dụng SĐT đã đăng ký: {{ initialPatientPhone }}
+  <form class="af-form" @submit.prevent="submit">
+    <div class="af-fields">
+      <div class="af-fld">
+        <label class="af-lbl">Họ tên <span class="af-req">*</span></label>
+        <input v-model="form.patientNameSnapshot" type="text" class="af-inp" placeholder="Nhập họ và tên" required />
+      </div>
+      <div class="af-fld">
+        <label class="af-lbl">SĐT <span class="af-req">*</span></label>
+        <input v-model="form.patientPhoneSnapshot" type="text" :class="['af-inp', phoneError ? 'af-inp-err' : '']" placeholder="Nhập số điện thoại" required @blur="validatePhone" />
+        <span v-if="phoneError" class="af-err">{{ phoneError }}</span>
+        <button v-if="showPhoneSuggestion" type="button" class="af-suggest" @click="useRegisteredPhone">+ SĐT đã đăng ký: {{ initialPatientPhone }}</button>
+      </div>
+      <div class="af-fld">
+        <label class="af-lbl">Lý do khám</label>
+        <input v-model="form.reason" type="text" class="af-inp" placeholder="Nhập lý do khám" />
+      </div>
+    </div>
+    <div class="af-actions">
+      <button v-if="showBack" type="button" class="af-back" @click="$emit('back')">
+        <svg class="af-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Quay lại
       </button>
-    </div>
-    <div :class="fieldClass">
-      <BaseInput v-model="form.patientNameSnapshot" label="Họ tên" placeholder="Nguyễn Văn D" required />
-    </div>
-    <label :class="reasonClass">
-      <span class="mb-2 block text-sm font-medium text-slate-700">Lý do khám</span>
-      <textarea
-        v-model="form.reason"
-        :rows="textareaRows"
-        :class="textareaClass"
-        placeholder="Mô tả ngắn gọn triệu chứng"
-      ></textarea>
-    </label>
-    <div :class="buttonClass">
-      <BaseButton class="w-full whitespace-nowrap" type="submit" size="lg" :loading="loading" :disabled="!canSubmit">
-        <template #icon><CalendarCheck class="h-4 w-4" /></template>
-        Xác nhận đặt lịch
-      </BaseButton>
+      <button type="submit" class="af-submit" :disabled="!canSubmit || loading">
+        <svg v-if="loading" class="af-ic af-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        XÁC NHẬN
+      </button>
     </div>
   </form>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { CalendarCheck } from 'lucide-vue-next'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseInput from '@/components/ui/BaseInput.vue'
-import { appointmentApi } from '@/services/appointmentApi'
 import { authApi } from '@/services/authApi'
 import type { CreateAppointmentRequest } from '@/types/appointment'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   doctorId: number
   appointmentDate: string
   slotTime: string
@@ -60,11 +43,10 @@ const props = defineProps<{
   initialPatientName?: string
   initialPatientPhone?: string
   layout?: 'stacked' | 'inline'
-}>()
+  showBack?: boolean
+}>(), { showBack: true })
 
-const emit = defineEmits<{
-  submit: [payload: CreateAppointmentRequest]
-}>()
+const emit = defineEmits<{ submit: [payload: CreateAppointmentRequest]; back: [] }>()
 
 const form = reactive({
   patientId: props.initialPatientId ? String(props.initialPatientId) : '',
@@ -72,105 +54,47 @@ const form = reactive({
   patientPhoneSnapshot: props.initialPatientPhone || '',
   reason: '',
 })
-
 const phoneError = ref('')
 const phoneValidating = ref(false)
-const inlineLayout = computed(() => props.layout === 'inline')
 
-const formClass = computed(() => inlineLayout.value
-  ? 'grid gap-4 xl:grid-cols-4 xl:items-start'
-  : 'space-y-4',
-)
-const infoClass = computed(() => inlineLayout.value
-  ? 'rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-800 xl:col-span-4'
-  : 'rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-800',
-)
-const fieldClass = computed(() => inlineLayout.value ? 'min-w-0' : '')
-const reasonClass = computed(() => inlineLayout.value ? 'block min-w-0' : 'block')
-const buttonClass = computed(() => inlineLayout.value ? 'flex items-end xl:pt-7' : '')
-const textareaRows = computed(() => inlineLayout.value ? 1 : 3)
-const textareaClass = computed(() => [
-  'w-full resize-none rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-100',
-  inlineLayout.value ? 'h-11 py-2.5 leading-5' : 'py-3',
-])
-
-watch(
-  () => [props.initialPatientId, props.initialPatientName, props.initialPatientPhone],
-  (values: any[]) => {
-    const patientId = values[0]
-    const patientName = values[1]
-    const patientPhone = values[2]
-    form.patientId = patientId ? String(patientId) : ''
-    if (patientName && !form.patientNameSnapshot) form.patientNameSnapshot = String(patientName)
-    if (patientPhone && !form.patientPhoneSnapshot) form.patientPhoneSnapshot = String(patientPhone)
-  },
-  { immediate: true },
-)
-
-// Show phone suggestion chip when the user clears or changes away from their registered phone
 const showPhoneSuggestion = computed(() => {
-  const initialPhone = props.initialPatientPhone
-  if (!initialPhone) return false
-  return form.patientPhoneSnapshot.trim() !== initialPhone.trim()
+  const p = props.initialPatientPhone
+  return p ? form.patientPhoneSnapshot.trim() !== p.trim() : false
 })
+function useRegisteredPhone() { if (props.initialPatientPhone) { form.patientPhoneSnapshot = props.initialPatientPhone; phoneError.value = '' } }
 
-function useRegisteredPhone() {
-  const initialPhone = props.initialPatientPhone
-  if (initialPhone) {
-    form.patientPhoneSnapshot = initialPhone
-    phoneError.value = ''
-  }
-}
+watch(() => [props.initialPatientId, props.initialPatientName, props.initialPatientPhone], (v: any[]) => {
+  form.patientId = v[0] ? String(v[0]) : ''
+  if (v[1] && !form.patientNameSnapshot) form.patientNameSnapshot = String(v[1])
+  if (v[2] && !form.patientPhoneSnapshot) form.patientPhoneSnapshot = String(v[2])
+}, { immediate: true })
 
-// Clear error when user types
-watch(() => form.patientPhoneSnapshot, () => {
-  if (phoneError.value) phoneError.value = ''
-})
+watch(() => form.patientPhoneSnapshot, () => { if (phoneError.value) phoneError.value = '' })
 
-async function validatePhone(e?: any) {
-  const phone = form.patientPhoneSnapshot.trim()
-  if (!phone) return
-
-  const initialPhone = props.initialPatientPhone
-  // If it matches the registered phone, no need to validate
-  if (initialPhone && phone === initialPhone.trim()) {
-    phoneError.value = ''
-    return
-  }
-
+async function validatePhone() {
+  const ph = form.patientPhoneSnapshot.trim()
+  if (!ph) return
+  if (props.initialPatientPhone && ph === props.initialPatientPhone.trim()) { phoneError.value = ''; return }
   phoneValidating.value = true
   try {
-    const result = await authApi.checkDuplicate({ phoneNumber: phone })
-    if (result.phoneNumberExists) {
-      phoneError.value = 'Số điện thoại này đã được đăng ký với bệnh nhân khác.'
-    } else {
-      phoneError.value = ''
-    }
-  } catch (error) {
-    // If check fails, allow submission (don't block on network errors)
-    phoneError.value = ''
-  } finally {
-    phoneValidating.value = false
-  }
+    const r = await authApi.checkDuplicate({ phoneNumber: ph })
+    phoneError.value = r.phoneNumberExists ? 'SĐT đã được đăng ký với bệnh nhân khác.' : ''
+  } catch { phoneError.value = '' }
+  finally { phoneValidating.value = false }
 }
 
-const canSubmit = computed(
-  () =>
-    Boolean(props.doctorId) &&
-    Boolean(props.appointmentDate) &&
-    Boolean(props.slotTime) &&
-    Boolean(form.patientNameSnapshot.trim()) &&
-    Boolean(form.patientPhoneSnapshot.trim()) &&
-    !phoneError.value &&
-    !phoneValidating.value,
+const canSubmit = computed(() =>
+  Boolean(props.doctorId) && Boolean(props.appointmentDate) && Boolean(props.slotTime) &&
+  Boolean(form.patientNameSnapshot.trim()) && Boolean(form.patientPhoneSnapshot.trim()) &&
+  !phoneError.value && !phoneValidating.value,
 )
 
 async function submit() {
   await validatePhone()
   if (!canSubmit.value) return
-  const patientId = Number(form.patientId)
+  const pid = Number(form.patientId)
   emit('submit', {
-    ...(Number.isFinite(patientId) && patientId > 0 ? { patientId } : {}),
+    ...(Number.isFinite(pid) && pid > 0 ? { patientId: pid } : {}),
     patientNameSnapshot: form.patientNameSnapshot.trim(),
     patientPhoneSnapshot: form.patientPhoneSnapshot.trim(),
     doctorId: props.doctorId,
@@ -180,3 +104,29 @@ async function submit() {
   })
 }
 </script>
+
+<style scoped>
+.af-form { display: flex; flex-direction: column; gap: 6px; }
+.af-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.af-fld { display: flex; flex-direction: column; gap: 2px; }
+.af-lbl { font-size: 12px; font-weight: 600; color: #334155; }
+.af-req { color: #ef4444; }
+.af-inp { height: 34px; width: 100%; padding: 0 10px; border: 1.5px solid #cbd5e1; border-radius: 5px; background: #fff; font-size: 13px; color: #0f172a; outline: none; transition: border-color .2s; box-sizing: border-box; }
+.af-inp::placeholder { color: #94a3b8; }
+.af-inp:focus { border-color: #0F52BA; box-shadow: 0 0 0 2px rgba(15,82,186,.08); }
+.af-inp-err { border-color: #ef4444; }
+.af-inp-err:focus { border-color: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,.08); }
+.af-err { font-size: 11px; color: #ef4444; }
+.af-suggest { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 10px; border: 1px solid #bfdbfe; background: #eff6ff; font-size: 9.5px; font-weight: 500; color: #1d4ed8; cursor: pointer; align-self: flex-start; }
+.af-suggest:hover { background: #dbeafe; }
+.af-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.af-back { display: inline-flex; align-items: center; gap: 4px; padding: 0 14px; height: 30px; border-radius: 5px; background: #fff; color: #475569; border: 1.5px solid #cbd5e1; font-size: 12px; font-weight: 600; cursor: pointer; transition: all .2s; }
+.af-back:hover { background: #f8fafc; }
+.af-submit { display: inline-flex; align-items: center; gap: 4px; padding: 0 20px; height: 30px; border-radius: 5px; background: #0F52BA; color: #fff; border: none; font-size: 12px; font-weight: 700; cursor: pointer; transition: all .2s; letter-spacing: .3px; }
+.af-submit:hover:not(:disabled) { background: #0b4296; }
+.af-submit:disabled { opacity: .5; cursor: not-allowed; }
+.af-ic { width: 14px; height: 14px; }
+.af-spin { animation: sp 1s linear infinite; }
+@keyframes sp { from { transform: rotate(0) } to { transform: rotate(360deg) } }
+@media (max-width: 768px) { .af-fields { grid-template-columns: 1fr; } }
+</style>
