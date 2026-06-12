@@ -9,7 +9,7 @@
       <div class="absolute -bottom-20 -right-12 h-48 w-48 rounded-full border border-white/10"></div>
       <div class="relative z-10 grid gap-8 lg:grid-cols-[1fr_320px] lg:items-center">
         <div>
-          <h1 class="mt-5 max-w-2xl text-3xl font-bold leading-tight tracking-normal sm:text-4xl">
+          <h1 class="max-w-2xl text-3xl font-bold leading-tight tracking-normal sm:text-4xl">
             Xin chào, {{ displayName }}
           </h1>
           <p class="mt-4 max-w-2xl text-sm leading-6 text-blue-50/90 sm:text-base">

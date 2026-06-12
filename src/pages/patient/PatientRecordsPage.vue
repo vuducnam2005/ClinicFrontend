@@ -1,14 +1,12 @@
 <template>
-  <section class="min-h-screen bg-[#f8fafc] py-6 sm:py-8">
+  <section class="min-h-screen bg-[#f8fafc] py-2 sm:py-3">
     <FullscreenLoader :show="loading" />
 
     <div class="max-w-none mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
       
-      <header class="px-1 pt-2">
+      <header class="px-1">
         <h1 class="text-[1.75rem] font-semibold tracking-normal text-slate-950">Hồ sơ bệnh án</h1>
-        <p class="mt-1.5 text-[13px] leading-5 text-slate-500">
-          Theo dõi chẩn đoán, ghi chú bác sĩ, kế hoạch điều trị và lịch tái khám.
-        </p>
+        
       </header>
 
       <!-- 2. Stats Grid -->
@@ -159,132 +157,84 @@
           </span>
         </div>
 
-        <div v-if="filteredRecords.length" class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-slate-100 text-sm">
-            <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500">
-              <tr>
-                <th class="px-6 py-4 text-left">Mã BA</th>
-                <th class="px-6 py-4 text-left">Chẩn đoán</th>
-                <th class="px-6 py-4 text-left">Mã ICD</th>
-                <th class="px-6 py-4 text-left">Ngày tạo</th>
-                <th class="px-6 py-4 text-left">Tái khám</th>
-                <th class="px-6 py-4 text-left">Trạng thái</th>
-                <th class="px-6 py-4 text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 bg-white">
-              <tr v-for="record in paginatedRecords" :key="record.medicalRecordId || record.id" class="transition hover:bg-slate-50">
-                <td class="px-6 py-4 whitespace-nowrap font-bold text-slate-900">
-                  {{ record.medicalRecordCode || 'Chưa cập nhật' }}
-                </td>
-                <td class="px-6 py-4">
-                  <p class="font-medium text-slate-800 line-clamp-2 max-w-sm">
-                    {{ record.diagnosisText || record.diagnosis || 'Chưa cập nhật chẩn đoán' }}
-                  </p>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-slate-600 font-mono text-xs">
-                  {{ record.diagnosisCode || '-' }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-slate-500">
-                  {{ formatDate(record.createdAt) }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span v-if="record.followUpDate" class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 border border-blue-100 inline-flex items-center gap-1">
-                    {{ formatDate(record.followUpDate) }}
-                  </span>
-                  <span v-else class="text-slate-400 text-xs font-medium">
-                    Chưa có
-                  </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span :class="['rounded-full px-2.5 py-1 text-xs font-bold inline-flex items-center gap-1', statusClass(record.status)]">
-                    <span class="h-1.5 w-1.5 rounded-full bg-current"></span>
-                    {{ statusLabel(record.status) }}
-                  </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right">
-                  <div class="inline-flex gap-2">
-                    <BaseButton
-                      variant="ghost"
-                      size="sm"
-                      class="bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold flex items-center gap-1.5 border border-transparent"
-                      @click="openDetails(record)"
-                    >
-                      <template #icon>
-                        <Eye class="h-4 w-4" />
-                      </template>
-                      Chi tiết
-                    </BaseButton>
-                    <BaseButton
-                      variant="ghost"
-                      size="sm"
-                      class="bg-slate-50 text-slate-600 hover:bg-slate-100 font-bold flex items-center gap-1.5 border border-transparent"
-                      @click="printMedicalRecord(record)"
-                    >
-                      <template #icon>
-                        <Printer class="h-4 w-4 text-slate-500" />
-                      </template>
-                      In
-                    </BaseButton>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <!-- Pagination Footer -->
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 p-4 bg-slate-50/50">
-            <div class="flex items-center gap-2 text-sm text-slate-500">
-              <span>Hiển thị</span>
-              <select
-                v-model="itemsPerPage"
-                class="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-              >
-                <option :value="10">10</option>
-                <option :value="20">20</option>
-                <option :value="50">50</option>
-                <option :value="100">100</option>
-              </select>
-              <span>bản ghi mỗi trang</span>
-            </div>
-
-            <div class="text-sm font-medium text-slate-500">
-              Hiển thị {{ Math.min(filteredRecords.length, (currentPage - 1) * itemsPerPage + 1) }} - {{ Math.min(filteredRecords.length, currentPage * itemsPerPage) }} trên {{ filteredRecords.length }} kết quả
-            </div>
-
-            <div v-if="totalPages > 1" class="flex items-center gap-1.5">
-              <button
-                type="button"
-                :disabled="currentPage === 1"
-                class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-500"
-                @click="currentPage--"
-              >
-                <ChevronLeft class="h-4 w-4" />
-              </button>
-              <button
-                v-for="page in totalPages"
-                :key="page"
-                type="button"
-                :class="[
-                  'h-8 min-w-8 rounded-lg text-sm font-bold transition px-2',
-                  currentPage === page
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800'
-                ]"
-                @click="currentPage = page"
-              >
-                {{ page }}
-              </button>
-              <button
-                type="button"
-                :disabled="currentPage === totalPages"
-                class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-500"
-                @click="currentPage++"
-              >
-                <ChevronRight class="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+        <div v-if="filteredRecords.length" class="medical-record-table-shell">
+          <ATable
+            :columns="medicalRecordTableColumns"
+            :data-source="filteredRecords"
+            :pagination="medicalRecordPagination"
+            :row-key="recordIdentity"
+            :scroll="{ x: 1120 }"
+            size="middle"
+            @change="handleMedicalRecordTableChange"
+          >
+            <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+              <div class="medical-record-filter">
+                <p class="medical-record-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+                <AInput
+                  :value="selectedKeys[0]"
+                  :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+                  allow-clear
+                  autofocus
+                  @change="setSelectedKeys(getRecordFilterKeys($event))"
+                  @press-enter="confirm()"
+                >
+                  <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+                </AInput>
+                <div class="medical-record-filter-actions">
+                  <AButton size="small" class="medical-record-filter-reset" @click="clearRecordFilter(clearFilters, confirm)">Đặt lại</AButton>
+                  <AButton type="primary" size="small" class="medical-record-filter-submit" @click="confirm()">Áp dụng</AButton>
+                </div>
+              </div>
+            </template>
+            <template #customFilterIcon="{ filtered }">
+              <Search :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+            </template>
+            <template #emptyText>
+              <div class="py-8 text-center">
+                <FileHeart class="mx-auto h-9 w-9 text-slate-300" />
+                <p class="mt-3 font-bold text-slate-800">Không có hồ sơ bệnh án phù hợp</p>
+                <p class="mt-1 text-sm text-slate-500">Thử đổi bộ lọc hoặc từ khóa tìm kiếm trong từng cột.</p>
+              </div>
+            </template>
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'code'">
+                <span class="font-bold text-slate-950">{{ recordCode(record) }}</span>
+              </template>
+              <template v-else-if="column.key === 'diagnosis'">
+                <span class="line-clamp-2 max-w-sm text-[13px] font-semibold leading-5 text-slate-800" :title="recordDiagnosis(record)">
+                  {{ recordDiagnosis(record) }}
+                </span>
+              </template>
+              <template v-else-if="column.key === 'diagnosisCode'">
+                <span class="font-mono text-xs font-semibold text-slate-600">{{ record.diagnosisCode || '-' }}</span>
+              </template>
+              <template v-else-if="column.key === 'createdAt'">
+                <span class="whitespace-nowrap text-[13px] font-medium text-slate-500">{{ formatDate(record.createdAt) }}</span>
+              </template>
+              <template v-else-if="column.key === 'followUpDate'">
+                <ATag v-if="record.followUpDate" :bordered="false" class="medical-follow-tag">{{ formatDate(record.followUpDate) }}</ATag>
+                <span v-else class="text-xs font-semibold text-slate-400">Chưa có</span>
+              </template>
+              <template v-else-if="column.key === 'status'">
+                <ATag :bordered="false" :class="['medical-status-tag', statusClass(record.status)]">
+                  <span class="medical-status-dot"></span>
+                  {{ statusLabel(record.status) }}
+                </ATag>
+              </template>
+              <template v-else-if="column.key === 'actions'">
+                <div class="medical-record-actions">
+                  <button type="button" class="medical-record-action-button medical-record-action-primary" title="Xem chi tiết bệnh án" @click="openDetails(record)">
+                    <Eye class="h-4 w-4" />
+                    <span>Chi tiết</span>
+                  </button>
+                  <button type="button" class="medical-record-action-button medical-record-action-muted" title="In hồ sơ bệnh án" @click="printMedicalRecord(record)">
+                    <Printer class="h-4 w-4" />
+                    <span>In</span>
+                  </button>
+                </div>
+              </template>
+            </template>
+          </ATable>
         </div>
 
         <!-- Empty state -->
@@ -850,11 +800,10 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from 'ant-design-vue'
 import {
   CalendarClock,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   ClipboardList,
   CreditCard,
   Eye,
@@ -1031,6 +980,79 @@ const paginatedRecords = computed(() => {
   return filteredRecords.value.slice(start, end)
 })
 
+const medicalRecordTableColumns = [
+  {
+    title: 'Mã BA',
+    key: 'code',
+    width: 150,
+    customFilterDropdown: true,
+    onFilter: recordColumnFilter('code'),
+    sorter: (a: MedicalRecord, b: MedicalRecord) => recordCode(a).localeCompare(recordCode(b), 'vi'),
+  },
+  {
+    title: 'Chẩn đoán',
+    key: 'diagnosis',
+    minWidth: 260,
+    customFilterDropdown: true,
+    onFilter: recordColumnFilter('diagnosis'),
+    sorter: (a: MedicalRecord, b: MedicalRecord) => recordDiagnosis(a).localeCompare(recordDiagnosis(b), 'vi'),
+  },
+  {
+    title: 'Mã ICD',
+    dataIndex: 'diagnosisCode',
+    key: 'diagnosisCode',
+    width: 170,
+    customFilterDropdown: true,
+    onFilter: recordColumnFilter('diagnosisCode'),
+  },
+  {
+    title: 'Ngày tạo',
+    dataIndex: 'createdAt',
+    key: 'createdAt',
+    width: 170,
+    customFilterDropdown: true,
+    onFilter: recordColumnFilter('createdAt'),
+    sorter: (a: MedicalRecord, b: MedicalRecord) => recordTimestamp(a.createdAt) - recordTimestamp(b.createdAt),
+    defaultSortOrder: 'descend' as const,
+  },
+  {
+    title: 'Tái khám',
+    dataIndex: 'followUpDate',
+    key: 'followUpDate',
+    width: 170,
+    customFilterDropdown: true,
+    onFilter: recordColumnFilter('followUpDate'),
+    sorter: (a: MedicalRecord, b: MedicalRecord) => recordTimestamp(a.followUpDate) - recordTimestamp(b.followUpDate),
+  },
+  {
+    title: 'Trạng thái',
+    dataIndex: 'status',
+    key: 'status',
+    width: 210,
+    customFilterDropdown: true,
+    onFilter: recordColumnFilter('status'),
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 180,
+    align: 'right' as const,
+    fixed: 'right' as const,
+  },
+]
+
+const medicalRecordPagination = computed(() => ({
+  current: currentPage.value,
+  pageSize: itemsPerPage.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50', '100'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `Hiển thị ${range[0]} - ${range[1]} trên ${total} kết quả`,
+  locale: { items_per_page: ' / trang' },
+}))
+
 const followUpStatus = computed(() => {
   if (!selectedRecord.value?.followUpDate) return 'NONE'
   const followDate = new Date(selectedRecord.value.followUpDate)
@@ -1081,7 +1103,7 @@ function uniqueAppointments(list: Appointment[]) {
   })
 }
 
-function recordIdentity(record: MedicalRecord) {
+function recordIdentity(record: MedicalRecord | Record<string, any>) {
   return String(
     record.medicalRecordId ||
     record.recordId ||
@@ -1090,6 +1112,60 @@ function recordIdentity(record: MedicalRecord) {
     (record.visitId ? `visit-${record.visitId}` : '') ||
     `${record.patientId}-${record.createdAt}-${record.diagnosisCode}-${record.diagnosisText}`,
   )
+}
+
+function recordCode(record: MedicalRecord | Record<string, any>) {
+  return String(record.medicalRecordCode || record.medicalRecordIdCode || record.recordIdCode || record.recordId || record.medicalRecordId || 'Chưa cập nhật')
+}
+
+function recordDiagnosis(record: MedicalRecord | Record<string, any>) {
+  return String(record.diagnosisText || record.diagnosis || 'Chưa cập nhật chẩn đoán')
+}
+
+function recordTimestamp(value?: string | null) {
+  if (!value) return 0
+  const time = new Date(value).getTime()
+  return Number.isNaN(time) ? 0 : time
+}
+
+function recordSearchField(record: MedicalRecord | Record<string, any>, key: string) {
+  if (key === 'code') return recordCode(record)
+  if (key === 'diagnosis') return recordDiagnosis(record)
+  if (key === 'diagnosisCode') return record.diagnosisCode || '-'
+  if (key === 'createdAt') return formatDate(record.createdAt)
+  if (key === 'followUpDate') return record.followUpDate ? formatDate(record.followUpDate) : 'Chưa có'
+  if (key === 'status') return statusLabel(record.status)
+  return ''
+}
+
+function recordColumnFilter(key: string) {
+  return (filterValue: string | number | boolean, record: MedicalRecord | Record<string, any>) =>
+    normalizeSearchText(recordSearchField(record, key)).includes(normalizeSearchText(filterValue))
+}
+
+function normalizeSearchText(valueToNormalize: unknown) {
+  return String(valueToNormalize || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim()
+}
+
+function getRecordFilterKeys(event: Event) {
+  const filterValue = (event.target as HTMLInputElement)?.value || ''
+  return filterValue ? [filterValue] : []
+}
+
+function clearRecordFilter(clearFilters: (() => void) | undefined, confirm: () => void) {
+  clearFilters?.()
+  confirm()
+}
+
+function handleMedicalRecordTableChange(pagination: { current?: number; pageSize?: number }) {
+  currentPage.value = pagination.current || 1
+  itemsPerPage.value = pagination.pageSize || 10
 }
 
 async function loadData() {
@@ -1147,18 +1223,19 @@ async function loadData() {
   }
 }
 
-function openDetails(record: MedicalRecord) {
-  selectedRecord.value = record
+function openDetails(record: MedicalRecord | Record<string, any>) {
+  const medicalRecord = record as MedicalRecord
+  selectedRecord.value = medicalRecord
   currentTab.value = 'overview'
   activePrescription.value = null
   activeInvoice.value = null
   drawerOpen.value = true
 
-  const recordId = record.medicalRecordId || record.recordId || record.id
+  const recordId = medicalRecord.medicalRecordId || medicalRecord.recordId || medicalRecord.id
   if (recordId) {
     medicalRecordApi.getCompleteMedicalRecord(recordId)
       .then((completeRecord) => {
-        selectedRecord.value = { ...record, ...(completeRecord as Record<string, any>) }
+        selectedRecord.value = { ...medicalRecord, ...(completeRecord as Record<string, any>) }
       })
       .catch((err) => {
         if ((err as any)?.response?.status === 403) {
@@ -1171,8 +1248,8 @@ function openDetails(record: MedicalRecord) {
   }
 
   // Proactively pre-load Prescription and Billing data for this record
-  void loadPrescriptionData(record)
-  void loadBillingData(record)
+  void loadPrescriptionData(medicalRecord)
+  void loadBillingData(medicalRecord)
 }
 
 function closeDrawer() {
@@ -1485,8 +1562,9 @@ function clinicalOrderResult(order: Record<string, any>) {
   return [value, unit].filter(Boolean).join(' ') || 'Chưa có kết quả'
 }
 
-async function printMedicalRecord(record: MedicalRecord) {
-  const recordId = record.medicalRecordId || record.recordId || record.id
+async function printMedicalRecord(record: MedicalRecord | Record<string, any>) {
+  const medicalRecord = record as MedicalRecord
+  const recordId = medicalRecord.medicalRecordId || medicalRecord.recordId || medicalRecord.id
   recordToPrint.value = null
   printAppointment.value = null
   printVisit.value = null
@@ -1500,7 +1578,7 @@ async function printMedicalRecord(record: MedicalRecord) {
   if (recordId) {
     try {
       const complete = await medicalRecordApi.getCompleteMedicalRecord(recordId)
-      applyCompleteRecordForPrint(record, complete)
+      applyCompleteRecordForPrint(medicalRecord, complete)
     } catch (err) {
       const status = (err as any)?.response?.status
       if (status === 403) {
@@ -1511,19 +1589,19 @@ async function printMedicalRecord(record: MedicalRecord) {
         return
       }
       if (status !== 404) console.error('Failed to load complete medical record', err)
-      recordToPrint.value = record
+      recordToPrint.value = medicalRecord
     }
   } else {
-    recordToPrint.value = record
+    recordToPrint.value = medicalRecord
   }
 
-  await loadPrescriptionData(recordToPrint.value || record)
+  await loadPrescriptionData(recordToPrint.value || medicalRecord)
 
   if (!activePrescription.value && printPrescriptions.value.length) {
     activePrescription.value = printPrescriptions.value[0]
   }
 
-  await loadBillingData(recordToPrint.value || record)
+  await loadBillingData(recordToPrint.value || medicalRecord)
 
   await nextTick()
   setTimeout(() => {
@@ -1615,6 +1693,150 @@ function isPaidInvoice(status?: string) {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.medical-record-table-shell {
+  overflow: hidden;
+}
+
+.medical-record-table-shell :deep(.ant-table) {
+  color: #334155;
+  font-size: 14px;
+}
+
+.medical-record-table-shell :deep(.ant-table-thead > tr > th) {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  padding: 16px 20px;
+  text-transform: uppercase;
+}
+
+.medical-record-table-shell :deep(.ant-table-tbody > tr > td) {
+  border-bottom: 1px solid #f1f5f9;
+  padding: 18px 20px;
+  vertical-align: middle;
+}
+
+.medical-record-table-shell :deep(.ant-table-tbody > tr:hover > td) {
+  background: #f8fafc;
+}
+
+.medical-record-table-shell :deep(.ant-table-cell-fix-right) {
+  background: #fff;
+}
+
+.medical-record-table-shell :deep(.ant-table-tbody > tr:hover > .ant-table-cell-fix-right) {
+  background: #f8fafc;
+}
+
+.medical-record-table-shell :deep(.ant-pagination) {
+  border-top: 1px solid #f1f5f9;
+  margin: 0;
+  padding: 16px;
+}
+
+.medical-record-filter {
+  width: 260px;
+  padding: 12px;
+}
+
+.medical-record-filter-title {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+
+.medical-record-filter-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.medical-record-filter-reset {
+  border-color: #e2e8f0;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.medical-record-filter-submit {
+  background: #0F52BA;
+  border-color: #0F52BA;
+  font-weight: 700;
+}
+
+.medical-follow-tag,
+.medical-status-tag {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 6px;
+  line-height: 1;
+  margin: 0;
+  padding: 8px 12px;
+}
+
+.medical-follow-tag {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.medical-status-dot {
+  background: currentColor;
+  border-radius: 999px;
+  height: 7px;
+  width: 7px;
+}
+
+.medical-record-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.medical-record-action-button {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 8px;
+  height: 36px;
+  justify-content: center;
+  padding: 0 14px;
+  transition: background .2s, border-color .2s, color .2s;
+}
+
+.medical-record-action-primary {
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  color: #1d4ed8;
+}
+
+.medical-record-action-primary:hover {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+  color: #0F52BA;
+}
+
+.medical-record-action-muted {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+.medical-record-action-muted:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
 }
 </style>
 

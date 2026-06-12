@@ -70,6 +70,30 @@
           <Menu class="h-6 w-6" />
         </button>
 
+        <div
+          :key="route.fullPath"
+          class="hidden min-w-0 items-center gap-3 rounded-2xl border border-slate-100 bg-white/75 px-3 py-2 shadow-[0_12px_30px_rgba(15,23,42,0.04)] animate-[welcome-fade_420ms_ease-out] md:flex"
+        >
+          <div
+            :class="[
+              'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br shadow-sm transition-all duration-300 hover:rotate-12 hover:scale-105',
+              greetingData.iconBg,
+            ]"
+          >
+            <component :is="greetingData.icon" :class="['h-5 w-5', greetingData.iconColor]" />
+          </div>
+          <div class="min-w-0">
+            <p class="truncate text-sm font-bold text-slate-800">{{ greetingData.text }}, {{ displayName }}!</p>
+            <p class="flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-slate-500">
+              <span v-if="contextStatus.pulseClass" class="relative flex h-2.5 w-2.5 shrink-0">
+                <span :class="['absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping', contextStatus.pulseClass]"></span>
+                <span :class="['relative inline-flex h-2.5 w-2.5 rounded-full', contextStatus.pulseClass]"></span>
+              </span>
+              <span class="truncate">{{ contextStatus.message }}</span>
+            </p>
+          </div>
+        </div>
+
         <div class="ml-auto flex items-center gap-4">
           <NotificationBell />
           <div class="hidden h-12 border-l border-slate-200 sm:block"></div>
@@ -122,7 +146,7 @@
       </div>
 
       <main ref="mainRef" class="flex-1 overflow-y-auto">
-        <div class="mx-auto min-h-[calc(100vh-5rem)] max-w-[1600px] px-4 py-5 sm:px-5 lg:px-6">
+        <div class="mx-auto min-h-[calc(100vh-5rem)] max-w-[1600px] px-4 py-2 sm:px-5 sm:py-3 lg:px-6">
           <div v-if="layoutError" class="rounded-2xl border border-rose-200 bg-white p-6 text-sm text-rose-700 shadow-sm">
             <p class="text-lg font-bold text-rose-800">Không hiển thị được trang</p>
             <p class="mt-2">{{ layoutError }}</p>
@@ -153,14 +177,21 @@ import {
   ChevronRight,
   LogOut,
   Menu,
+  Moon,
+  Sparkles,
+  Sun,
+  Sunrise,
+  Sunset,
   X,
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/authStore'
 import { useNotificationStore } from '@/stores/notificationStore'
+import { appointmentApi } from '@/services/appointmentApi'
 import NotificationBell from '@/components/layout/NotificationBell.vue'
 import Toast from '@/components/ui/Toast.vue'
 import logoUrl from '@/assets/logo.png'
 import relIconUrl from '@/assets/rel-icon.png'
+import type { Appointment } from '@/types/appointment'
 
 defineProps<{
   menuGroups: {
@@ -181,6 +212,11 @@ const mobileMenuOpen = ref(false)
 const sidebarCollapsed = ref(false)
 const mainRef = ref<HTMLElement | null>(null)
 const layoutError = ref('')
+const currentTime = ref(new Date())
+const nextAppointmentLabel = ref('')
+const doctorTodayCount = ref<number | null>(null)
+const receptionistPendingCount = ref<number | null>(null)
+let clockTimer: ReturnType<typeof setInterval> | null = null
 
 const displayName = computed(() => authStore.user?.fullName || authStore.user?.username || 'Người dùng')
 const initials = computed(() => displayName.value.trim().charAt(0).toUpperCase() || 'U')
@@ -190,6 +226,39 @@ const roleName = computed(() => {
   if (authStore.isReceptionist) return 'Điều phối y tế'
   if (authStore.isPatient) return 'Bệnh nhân'
   return 'Clinical Portal'
+})
+const greetingData = computed(() => {
+  const hour = currentTime.value.getHours()
+  if (hour >= 5 && hour <= 10) {
+    return { text: 'Chào buổi sáng', icon: Sunrise, iconBg: 'from-amber-100 to-orange-200', iconColor: 'text-amber-600' }
+  }
+  if (hour >= 11 && hour <= 13) {
+    return { text: 'Chào buổi trưa', icon: Sun, iconBg: 'from-amber-100 to-sky-100', iconColor: 'text-amber-500' }
+  }
+  if (hour >= 14 && hour <= 17) {
+    return { text: 'Chào buổi chiều', icon: Sunset, iconBg: 'from-orange-100 to-rose-100', iconColor: 'text-orange-500' }
+  }
+  if (hour >= 18 && hour <= 22) {
+    return { text: 'Chào buổi tối', icon: Moon, iconBg: 'from-purple-100 to-indigo-200', iconColor: 'text-indigo-600' }
+  }
+  return { text: 'Đêm muộn rồi, nghỉ ngơi thôi', icon: Sparkles, iconBg: 'from-slate-100 to-slate-200', iconColor: 'text-slate-600' }
+})
+const contextStatus = computed(() => {
+  if (authStore.isPatient) {
+    if (nextAppointmentLabel.value) {
+      return { message: `Lịch khám tiếp theo: ${nextAppointmentLabel.value}`, pulseClass: 'bg-emerald-500' }
+    }
+    return { message: 'Chúc bạn một ngày nhiều sức khỏe! Hãy theo dõi sức khỏe thường xuyên.', pulseClass: '' }
+  }
+  if (authStore.isDoctor) {
+    const count = doctorTodayCount.value ?? 8
+    return { message: `Hôm nay bác sĩ có ${count} ca khám lịch hẹn cần thực hiện.`, pulseClass: '' }
+  }
+  if (authStore.isReceptionist) {
+    const count = receptionistPendingCount.value ?? 3
+    return { message: `Có ${count} yêu cầu đặt lịch khám mới đang chờ bạn phê duyệt.`, pulseClass: count > 0 ? 'bg-rose-500' : '' }
+  }
+  return { message: 'Chúc bạn một ngày làm việc hiệu quả cùng MedicareDNU.', pulseClass: '' }
 })
 
 watch(
@@ -211,17 +280,32 @@ onMounted(() => {
   if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual'
   scrollToTop()
   initializeNotifications()
+  refreshContextStatus()
+  clockTimer = setInterval(() => {
+    currentTime.value = new Date()
+  }, 60000)
 })
 
 onBeforeUnmount(() => {
   notificationStore.disconnectSignalR()
+  if (clockTimer) clearInterval(clockTimer)
 })
 
 watch(
   () => authStore.token,
   (token) => {
-    if (token) initializeNotifications()
+    if (token) {
+      initializeNotifications()
+      refreshContextStatus()
+    }
     else notificationStore.disconnectSignalR()
+  },
+)
+
+watch(
+  () => [authStore.user?.patientId, authStore.user?.doctorId, authStore.roleId, route.fullPath],
+  () => {
+    refreshContextStatus()
   },
 )
 
@@ -247,6 +331,87 @@ function reloadRoute() {
   router.replace({ path: route.path, query: { ...route.query, _reload: Date.now().toString() } })
 }
 
+async function refreshContextStatus() {
+  if (!authStore.token) return
+  nextAppointmentLabel.value = ''
+  doctorTodayCount.value = null
+  receptionistPendingCount.value = null
+
+  try {
+    if (authStore.isPatient) {
+      await refreshPatientAppointmentStatus()
+    } else if (authStore.isDoctor) {
+      await refreshDoctorAppointmentStatus()
+    } else if (authStore.isReceptionist) {
+      await refreshReceptionistAppointmentStatus()
+    }
+  } catch {
+    // Context text is decorative; fall back silently when a service is unavailable.
+  }
+}
+
+async function refreshPatientAppointmentStatus() {
+  const patientId = authStore.user?.patientId
+  if (!patientId) return
+  const appointments = await appointmentApi.getAppointmentsByPatient(patientId)
+  const nextAppointment = appointments
+    .filter(isUpcomingAppointment)
+    .sort((a, b) => appointmentTimestamp(a) - appointmentTimestamp(b))[0]
+  nextAppointmentLabel.value = nextAppointment ? formatNextAppointment(nextAppointment) : ''
+}
+
+async function refreshDoctorAppointmentStatus() {
+  const doctorId = Number(authStore.user?.doctorId)
+  if (!Number.isFinite(doctorId) || doctorId <= 0) return
+  const today = new Date().toISOString().slice(0, 10)
+  const appointments = await appointmentApi.getAppointmentsByDoctor(doctorId)
+  doctorTodayCount.value = appointments.filter((appointment) =>
+    String(appointment.appointmentDate || '').slice(0, 10) === today &&
+    !isClosedAppointmentStatus(appointment.status),
+  ).length
+}
+
+async function refreshReceptionistAppointmentStatus() {
+  const appointments = await appointmentApi.getAppointments()
+  receptionistPendingCount.value = appointments.filter((appointment) =>
+    String(appointment.status || '').toLowerCase().includes('pending') ||
+    String(appointment.status || '').toLowerCase().includes('waiting') ||
+    String(appointment.status || '').toLowerCase().includes('chờ'),
+  ).length
+}
+
+function isUpcomingAppointment(appointment: Appointment) {
+  if (isClosedAppointmentStatus(appointment.status)) return false
+  return appointmentTimestamp(appointment) >= Date.now() - 15 * 60 * 1000
+}
+
+function isClosedAppointmentStatus(status?: string) {
+  const value = String(status || '').toLowerCase()
+  return value.includes('cancel') || value.includes('completed') || value.includes('done') || value.includes('noshow') || value.includes('expired') || value.includes('hủy')
+}
+
+function appointmentTimestamp(appointment: Appointment) {
+  const date = String(appointment.appointmentDate || '').slice(0, 10)
+  const time = String(appointment.slotTime || '00:00').slice(0, 8)
+  const timestamp = new Date(`${date}T${time}`).getTime()
+  return Number.isNaN(timestamp) ? 0 : timestamp
+}
+
+function formatNextAppointment(appointment: Appointment) {
+  const date = String(appointment.appointmentDate || '').slice(0, 10)
+  const time = String(appointment.slotTime || '').slice(0, 5) || 'Chưa rõ giờ'
+  const today = new Date().toISOString().slice(0, 10)
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+  if (date === today) return `${time} hôm nay`
+  if (date === tomorrow) return `${time} ngày mai`
+  return `${time} ngày ${formatShortDate(date)}`
+}
+
+function formatShortDate(value: string) {
+  const [year, month, day] = value.split('-')
+  return year && month && day ? `${day}/${month}` : value
+}
+
 async function initializeNotifications() {
   if (!authStore.token) return
   await Promise.all([
@@ -256,3 +421,17 @@ async function initializeNotifications() {
   ])
 }
 </script>
+
+<style scoped>
+@keyframes welcome-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+</style>
