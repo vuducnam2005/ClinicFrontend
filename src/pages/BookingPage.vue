@@ -35,7 +35,7 @@
         <span class="bg">2</span>
         <div><h2 class="cd-t">BƯỚC 2: CHỌN BÁC SĨ</h2><p class="cd-s">Chi tiết thủ tục và Giam Xem thêm.</p></div>
       </div>
-      <div v-if="!selectedSpecialty" class="eb"><UserRound class="ei" /><p>Chưa chọn chuyên khoa</p></div>
+      <div v-if="!selectedSpecialty" class="eb eb-doc"><UserRound class="ei" /><p>Chưa chọn chuyên khoa</p></div>
       <div v-else-if="specialtyDoctors.length" class="dg">
         <div v-for="item in specialtyDoctors" :key="item.doctorId" :class="['dc', isSelectedDoctor(item) ? 'dc-s' : '']">
           <div class="di">
@@ -54,7 +54,7 @@
           </div>
         </div>
       </div>
-      <div v-else class="eb"><UserRound class="ei" /><p>Chưa có bác sĩ phù hợp</p></div>
+      <div v-else class="eb eb-doc"><UserRound class="ei" /><p>Chưa có bác sĩ phù hợp</p></div>
     </div>
 
     <!-- 3 Chọn giờ -->
@@ -89,7 +89,7 @@
         @submit="submitBooking"
         @back="goBackFromStep4"
       />
-      <div v-else class="eb"><CalendarPlus class="ei" /><p>Chọn khung giờ để đặt lịch</p></div>
+      <div v-else class="eb eb-frm"><CalendarPlus class="ei" /><p>Chọn khung giờ để đặt lịch</p></div>
     </div>
 
     <Toast :show="toast.show" :title="toast.title" :message="toast.message" :type="toast.type" @close="toast.show = false" />
@@ -233,8 +233,8 @@ function formatDisplayDate(v: string) { if (!v) return ''; const [y,m,d] = v.sli
 .eb { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; background: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 6px; box-sizing: border-box; }
 .ei { width: 16px; height: 16px; color: #cbd5e1; }
 .eb p { margin: 0; font-size: 11px; font-weight: 600; color: #64748b; }
-.cd:nth-of-type(2) .eb { height: 82px; }
-.cd:nth-of-type(4) .eb { height: 66px; }
+.eb-doc { height: 96px; }
+.eb-frm { height: 74px; }
 
 /* Nav */
 .nr { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; padding-top: 4px; border-top: 1px solid #f1f5f9; }
