@@ -46,9 +46,12 @@
               <p class="dl"><GraduationCap class="dk" /><span>{{ item.description || displayText(item.specialtyName) }}</span></p>
               <div class="df">
                 <span class="dp">Phí khám: <b>{{ formatCurrency(item.examFee || 0) }}</b></span>
-                <button :class="['dbt', isSelectedDoctor(item) ? 'dbt-a' : '']" @click="selectDoctorForSchedule(item)">
-                  {{ isSelectedDoctor(item) ? 'ĐANG CHỌN BÁC SĨ NÀY' : 'ĐẶT LỊCH VỚI BÁC SỸ NÀY' }}
-                </button>
+                <div class="d-btns">
+                  <button class="dbt-info" type="button" @click="activeDetailDoctor = item">THÔNG TIN BÁC SĨ</button>
+                  <button :class="['dbt', isSelectedDoctor(item) ? 'dbt-a' : '']" @click="selectDoctorForSchedule(item)">
+                    {{ isSelectedDoctor(item) ? 'ĐANG CHỌN BÁC SĨ NÀY' : 'ĐẶT LỊCH VỚI BÁC SỸ NÀY' }}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -93,6 +96,7 @@
     </div>
 
     <Toast :show="toast.show" :title="toast.title" :message="toast.message" :type="toast.type" @close="toast.show = false" />
+    <DoctorDetailModal :doctor="activeDetailDoctor" @close="activeDetailDoctor = null" />
   </div>
 </template>
 
@@ -103,6 +107,7 @@ import { BadgeCheck, CalendarPlus, ChevronLeft, ChevronRight, GraduationCap, Use
 import AppointmentForm from '@/components/booking/AppointmentForm.vue'
 import SlotPicker from '@/components/booking/SlotPicker.vue'
 import Toast from '@/components/ui/Toast.vue'
+import DoctorDetailModal from '@/components/booking/DoctorDetailModal.vue'
 import { appointmentApi } from '@/services/appointmentApi'
 import { useAuthStore } from '@/stores/authStore'
 import { getApiErrorMessage } from '@/services/apiClient'
@@ -120,6 +125,7 @@ const selectedSpecialty = ref('')
 const selectedDoctor = ref('')
 const selectedDate = ref(new Date().toISOString().slice(0, 10))
 const selectedSlot = ref('')
+const activeDetailDoctor = ref<Doctor | null>(null)
 const slots = ref<string[]>([])
 const bookedSlots = ref<string[]>([])
 const slotsChecked = ref(false)
@@ -225,6 +231,9 @@ function formatDisplayDate(v: string) { if (!v) return ''; const [y,m,d] = v.sli
 .df { display: flex; align-items: center; justify-content: space-between; margin-top: 3px; padding-top: 3px; border-top: 1px solid #f1f5f9; gap: 4px; }
 .dp { font-size: 11px; font-weight: 600; color: #334155; }
 .dp b { color: #0F52BA; }
+.d-btns { display: flex; gap: 4px; align-items: center; }
+.dbt-info { padding: 3px 8px; border: 1.5px solid #cbd5e1; border-radius: 4px; background: #fff; color: #475569; font-size: 9.5px; font-weight: 700; cursor: pointer; transition: all .2s; white-space: nowrap; }
+.dbt-info:hover { background: #f8fafc; border-color: #94a3b8; color: #0F52BA; }
 .dbt { padding: 3px 8px; border: 1.5px solid #0F52BA; border-radius: 4px; background: #fff; color: #0F52BA; font-size: 9.5px; font-weight: 700; cursor: pointer; transition: all .2s; white-space: nowrap; }
 .dbt:hover { background: #0F52BA; color: #fff; }
 .dbt-a { background: #0F52BA; color: #fff; }

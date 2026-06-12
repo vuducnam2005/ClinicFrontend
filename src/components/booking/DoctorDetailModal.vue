@@ -81,7 +81,7 @@
 
               <div class="mt-6 rounded-2xl border border-teal-100 bg-white p-4">
                 <p class="text-sm font-semibold text-slate-950">Sẵn sàng đặt lịch</p>
-                <p class="mt-2 text-sm leading-6 text-slate-600">Chọn lịch khám với bác sĩ này và xem slot trống theo ngày trên Appointment Service.</p>
+                <!-- <p class="mt-2 text-sm leading-6 text-slate-600">Chọn lịch khám với bác sĩ này và xem slot trống theo ngày trên Appointment Service.</p> -->
                 <RouterLink :to="{ path: '/booking', query: { doctorId: doctor.doctorId } }" @click="emit('close')">
                   <BaseButton class="mt-4 w-full" size="lg">
                     <template #icon><CalendarPlus class="h-4 w-4" /></template>
