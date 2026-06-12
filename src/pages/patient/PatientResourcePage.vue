@@ -1,25 +1,12 @@
 <template>
-  <section class="space-y-6">
+  <section class="min-h-screen bg-[#f8fafc] py-6 sm:py-8">
     <FullscreenLoader :show="loading" />
 
-    <header v-if="resource === 'appointments'" class="px-1 pt-2">
-      <h1 class="text-[1.75rem] font-bold tracking-normal text-slate-950">{{ config.title }}</h1>
-      <p class="mt-1.5 text-[13px] leading-5 text-slate-500">{{ config.description }}</p>
-    </header>
-
-    <div v-else class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p v-if="config.service" class="text-xs font-bold uppercase tracking-[0.14em] text-[#0F52BA]">{{ config.service }}</p>
-          <h1 :class="[config.service ? 'mt-2' : '', 'text-2xl font-bold tracking-normal text-slate-950 sm:text-3xl']">{{ config.title }}</h1>
-          <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{{ config.description }}</p>
-        </div>
-        <button v-if="resource !== 'profile'" type="button" class="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-[#003c90]" :disabled="loading" @click="loadData">
-          <RefreshCw :class="['h-4 w-4', loading ? 'animate-spin' : '']" />
-          Tải lại
-        </button>
-      </div>
-    </div>
+    <div class="mx-auto max-w-none space-y-6 px-4 sm:px-6 lg:px-8">
+      <header class="px-1 pt-2">
+        <h1 class="text-[1.75rem] font-semibold tracking-normal text-slate-950">{{ config.title }}</h1>
+        <p class="mt-1.5 text-[13px] leading-5 text-slate-500">{{ config.description }}</p>
+      </header>
 
     <div v-if="resource !== 'profile' && resource !== 'appointments'" class="grid gap-4 sm:grid-cols-3">
       <div v-for="metric in metrics" :key="metric.label" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -383,13 +370,14 @@
       </div>
     </div>
 
-    <Toast
+      <Toast
       :show="toast.show"
       :title="toast.title"
       :message="toast.message"
       :type="toast.type"
       @close="toast.show = false"
-    />
+      />
+    </div>
   </section>
 </template>
 
@@ -397,7 +385,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from 'ant-design-vue'
-import { CalendarClock, ChevronLeft, ChevronRight, Copy, CreditCard, Eye, FileHeart, Pill, RefreshCw, Save, Search, SearchX, ShieldCheck, UserRound, X } from 'lucide-vue-next'
+import { CalendarClock, ChevronLeft, ChevronRight, Copy, CreditCard, Eye, FileHeart, Pill, Save, Search, SearchX, ShieldCheck, UserRound, X } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'

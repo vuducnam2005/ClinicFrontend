@@ -4,28 +4,12 @@
 
     <div class="max-w-none mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
       
-      <!-- 1. Header trang -->
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="flex items-start gap-4">
-          <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-            <Pill class="h-6 w-6" />
-          </span>
-          <div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Đơn thuốc của tôi</h1>
-            <p class="mt-1 text-sm text-slate-500">
-              Theo dõi đơn thuốc đã được bác sĩ kê và trạng thái xử lý tại nhà thuốc.
-            </p>
-          </div>
-        </div>
-        <div class="flex items-center">
-          <BaseButton variant="outline" :disabled="loading" @click="loadData">
-            <template #icon>
-              <RefreshCw :class="['h-4 w-4', loading ? 'animate-spin' : '']" />
-            </template>
-            Tải lại
-          </BaseButton>
-        </div>
-      </div>
+      <header class="px-1 pt-2">
+        <h1 class="text-[1.75rem] font-semibold tracking-normal text-slate-950">Đơn thuốc của tôi</h1>
+        <p class="mt-1.5 text-[13px] leading-5 text-slate-500">
+          Theo dõi đơn thuốc đã được bác sĩ kê và trạng thái xử lý tại nhà thuốc.
+        </p>
+      </header>
 
       <!-- 2. Stats Grid -->
       <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">

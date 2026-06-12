@@ -1,8 +1,5 @@
 <template>
   <form :class="formClass" @submit.prevent="submit">
-    <div :class="infoClass">
-      Mã bệnh nhân được hệ thống tự gắn khi đặt lịch. Bạn chỉ cần nhập họ tên, số điện thoại và lý do khám.
-    </div>
     <div :class="fieldClass">
       <BaseInput
         v-model="form.patientPhoneSnapshot"
