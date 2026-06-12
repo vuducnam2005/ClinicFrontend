@@ -96,7 +96,7 @@
     </div>
 
     <Toast :show="toast.show" :title="toast.title" :message="toast.message" :type="toast.type" @close="toast.show = false" />
-    <DoctorDetailModal :doctor="activeDetailDoctor" @close="activeDetailDoctor = null" />
+    <DoctorDetailModal :doctor="activeDetailDoctor" enable-select @close="activeDetailDoctor = null" @select="handleSelectDoctorFromModal" />
   </div>
 </template>
 
@@ -173,6 +173,7 @@ function doctorName(d?: Doctor | null) { return displayText(d?.doctorName || d?.
 function displayDoctorTitle(d?: Doctor | null) { const n = doctorName(d); if (!n) return 'BS chưa cập nhật'; return n.toLowerCase().startsWith('bs') ? n : `BS. ${n}` }
 function isSelectedDoctor(d: Doctor) { return Number(selectedDoctor.value) === d.doctorId }
 function selectDoctorForSchedule(d: Doctor) { const r = isSelectedDoctor(d); selectedDoctor.value = String(d.doctorId); if (r) void findSlots() }
+function handleSelectDoctorFromModal(d: Doctor) { selectDoctorForSchedule(d); activeDetailDoctor.value = null }
 function mergeSlots(...g: string[][]) { return [...new Set(g.flat().map((s) => String(s||'').slice(0,5)).filter(Boolean))].sort() }
 function formatDisplayDate(v: string) { if (!v) return ''; const [y,m,d] = v.slice(0,10).split('-'); return y&&m&&d ? `${d}/${m}/${y}` : v }
 </script>

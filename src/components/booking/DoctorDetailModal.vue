@@ -81,13 +81,20 @@
 
               <div class="mt-6 rounded-2xl border border-teal-100 bg-white p-4">
                 <p class="text-sm font-semibold text-slate-950">Sẵn sàng đặt lịch</p>
-                <!-- <p class="mt-2 text-sm leading-6 text-slate-600">Chọn lịch khám với bác sĩ này và xem slot trống theo ngày trên Appointment Service.</p> -->
-                <RouterLink :to="{ path: '/booking', query: { doctorId: doctor.doctorId } }" @click="emit('close')">
-                  <BaseButton class="mt-4 w-full" size="lg">
+                <template v-if="enableSelect">
+                  <BaseButton class="mt-4 w-full" size="lg" @click="emit('select', doctor)">
                     <template #icon><CalendarPlus class="h-4 w-4" /></template>
                     Đặt lịch với bác sĩ này
                   </BaseButton>
-                </RouterLink>
+                </template>
+                <template v-else>
+                  <RouterLink :to="{ path: '/booking', query: { doctorId: doctor.doctorId } }" @click="emit('close')">
+                    <BaseButton class="mt-4 w-full" size="lg">
+                      <template #icon><CalendarPlus class="h-4 w-4" /></template>
+                      Đặt lịch với bác sĩ này
+                    </BaseButton>
+                  </RouterLink>
+                </template>
               </div>
             </aside>
           </div>
@@ -117,12 +124,19 @@ import type { Doctor } from '@/types/doctor'
 import { doctorAvatarUrl } from '@/utils/doctorAvatar'
 import { displayText } from '@/utils/displayText'
 
-defineProps<{
-  doctor: Doctor | null
-}>()
+withDefaults(
+  defineProps<{
+    doctor: Doctor | null
+    enableSelect?: boolean
+  }>(),
+  {
+    enableSelect: false,
+  }
+)
 
 const emit = defineEmits<{
   (e: 'close'): void
+  (e: 'select', doctor: Doctor): void
 }>()
 
 const InfoItem = defineComponent({
