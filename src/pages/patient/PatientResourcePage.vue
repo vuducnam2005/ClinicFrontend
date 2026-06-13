@@ -4,8 +4,8 @@
 
     <div class="mx-auto max-w-none space-y-6 px-4 sm:px-6 lg:px-8">
       <header class="px-1">
-        <h1 class="text-[1.75rem] font-semibold tracking-normal text-slate-950">{{ config.title }}</h1>
-        <p class="mt-1.5 text-[13px] leading-5 text-slate-500">{{ config.description }}</p>
+        <h1 :class="['text-[1.75rem] tracking-normal text-slate-950', resource === 'appointments' ? 'font-bold' : 'font-semibold']">{{ config.title }}</h1>
+        <p :class="['mt-1.5 text-[13px] leading-5 text-slate-500', resource === 'appointments' ? 'font-medium' : '']">{{ config.description }}</p>
       </header>
 
     <div v-if="resource !== 'profile' && resource !== 'appointments'" class="grid gap-4 sm:grid-cols-3">
@@ -126,7 +126,7 @@
         :columns="appointmentTableColumns"
         :data-source="rows"
         :pagination="appointmentPagination"
-        :scroll="{ x: 1080 }"
+        :scroll="{ x: 1460 }"
         row-key="id"
         size="middle"
         @change="handleAppointmentTableChange"
@@ -169,6 +169,9 @@
           </template>
           <template v-else-if="column.key === 'specialtyName'">
             <span class="text-[13px] text-slate-600">{{ record.specialtyName }}</span>
+          </template>
+          <template v-else-if="column.key === 'room'">
+            <span class="whitespace-nowrap text-[13px] font-medium text-slate-700">{{ record.room }}</span>
           </template>
           <template v-else-if="column.key === 'dateTime'">
             <div class="flex items-center gap-2 whitespace-nowrap">
@@ -469,6 +472,7 @@ import { medicalRecordApi, type PatientMedicalHistory } from '@/services/medical
 import { getApiErrorMessage } from '@/services/apiClient'
 import type { Appointment } from '@/types/appointment'
 import type { Invoice, Prescription } from '@/types/billing'
+import type { Doctor } from '@/types/doctor'
 import type { MedicalRecord, Patient } from '@/types/medicalRecord'
 
 type Resource = 'appointments' | 'records' | 'prescriptions' | 'bills' | 'profile'
@@ -482,6 +486,7 @@ const error = ref('')
 const note = ref('')
 const query = ref('')
 const rows = ref<Row[]>([])
+const doctors = ref<Doctor[]>([])
 const actingId = ref<string | number | null>(null)
 const toast = reactive({ show: false, title: '', message: '', type: 'success' as 'success' | 'error' })
 let toastTimer: ReturnType<typeof setTimeout> | null = null
@@ -517,7 +522,7 @@ watch(() => toast.show, (visible) => {
 })
 
 const configs: Record<Resource, { title: string; service: string; description: string; placeholder: string; icon: any; iconClass: string; search: string[]; columns: Column[] }> = {
-  appointments: cfg('Lịch hẹn của tôi', '', 'Theo dõi lịch đã đặt, bác sĩ, giờ khám và trạng thái xác nhận.', 'Tìm mã lịch, bác sĩ, chuyên khoa, lý do, trạng thái...', CalendarClock, 'bg-blue-50 text-[#0F52BA]', ['id', 'doctorName', 'specialtyName', 'status', 'reason', 'dateTime'], cols(['id', 'Mã lịch'], ['doctorName', 'Bác sĩ', false, true], ['specialtyName', 'Chuyên khoa'], ['dateTime', 'Ngày giờ hẹn'], ['reason', 'Lý do khám'], ['status', 'Trạng thái', true])),
+  appointments: cfg('Lịch hẹn của tôi', '', 'Theo dõi lịch đã đặt, bác sĩ, giờ khám và trạng thái xác nhận.', 'Tìm mã lịch, bác sĩ, chuyên khoa, phòng, lý do, trạng thái...', CalendarClock, 'bg-blue-50 text-[#0F52BA]', ['id', 'doctorName', 'specialtyName', 'room', 'status', 'reason', 'dateTime'], cols(['id', 'Mã lịch'], ['doctorName', 'Bác sĩ', false, true], ['specialtyName', 'Chuyên khoa'], ['dateTime', 'Ngày giờ hẹn'], ['reason', 'Lý do khám'], ['status', 'Trạng thái', true])),
   records: cfg('Hồ sơ bệnh án', 'Hồ sơ khám bệnh', 'Xem chẩn đoán, triệu chứng và ghi chú bác sĩ sau mỗi lần khám.', 'Tìm chẩn đoán, triệu chứng, ghi chú...', FileHeart, 'bg-indigo-50 text-indigo-700', ['id', 'diagnosis', 'symptoms', 'doctorNotes'], cols(['id', 'Mã BA'], ['diagnosis', 'Chẩn đoán', false, true], ['symptoms', 'Triệu chứng'], ['doctorNotes', 'Ghi chú'], ['createdAt', 'Ngày tạo'])),
   prescriptions: cfg('Đơn thuốc', 'Đơn thuốc đã kê', 'Xem đơn thuốc cũ đã được bác sĩ chốt và gửi sang nhà thuốc.', 'Tìm mã đơn, thuốc, trạng thái...', Pill, 'bg-cyan-50 text-cyan-700', ['id', 'medicine', 'status', 'note'], cols(['id', 'Mã đơn'], ['medicine', 'Thuốc', false, true], ['quantity', 'Số lượng'], ['note', 'Ghi chú'], ['status', 'Trạng thái', true])),
   bills: cfg('Viện phí của tôi', '', 'Xem hóa đơn, số tiền và thực hiện thanh toán viện phí khi cần.', 'Tìm mã hóa đơn, trạng thái...', CreditCard, 'bg-emerald-50 text-emerald-700', ['id', 'amount', 'status'], cols(['id', 'Mã HĐ'], ['appointmentId', 'Lịch hẹn'], ['amount', 'Số tiền', false, true], ['status', 'Trạng thái', true])),
@@ -574,6 +579,15 @@ const appointmentTableColumns = [
     sorter: (a: Row, b: Row) => String(a.specialtyName || '').localeCompare(String(b.specialtyName || ''), 'vi'),
   },
   {
+    title: 'Phòng',
+    dataIndex: 'room',
+    key: 'room',
+    width: 130,
+    customFilterDropdown: true,
+    onFilter: appointmentColumnFilter('room'),
+    sorter: (a: Row, b: Row) => String(a.room || '').localeCompare(String(b.room || ''), 'vi'),
+  },
+  {
     title: 'Ngày giờ hẹn',
     dataIndex: 'dateTime',
     key: 'dateTime',
@@ -585,7 +599,7 @@ const appointmentTableColumns = [
     title: 'Lý do khám',
     dataIndex: 'reason',
     key: 'reason',
-    minWidth: 220,
+    width: 360,
     customFilterDropdown: true,
     onFilter: appointmentColumnFilter('reason'),
   },
@@ -781,6 +795,7 @@ const detailItems = computed(() => {
       ['Mã lịch', row.id || ''],
       ['Bác sĩ', row.doctorName || 'Chưa phân công'],
       ['Chuyên khoa', row.specialtyName || 'Chưa cập nhật'],
+      ['Phòng', row.room || 'Chưa cập nhật'],
       ['Ngày giờ hẹn', row.dateTime || formatAppointmentDateTime(row.appointmentDate, row.slotTime)],
       ['Lý do khám', row.reason || 'Chưa ghi nhận'],
       ['Trạng thái', row.status || 'Chưa cập nhật'],
@@ -828,10 +843,18 @@ async function loadData() {
     if (resource.value === 'profile') return
     if (resource.value === 'appointments') {
       const id = patientId.value
-      rows.value = id
-        ? uniqueRows((await appointmentApi.getAppointmentsByPatient(id).catch(() => [] as Appointment[])).map(mapAppointment))
+      if (id) {
+        const [appointments, doctorList] = await Promise.all([
+          appointmentApi.getAppointmentsByPatient(id).catch(() => [] as Appointment[]),
+          appointmentApi.getDoctors().catch(() => [] as Doctor[]),
+        ])
+        doctors.value = doctorList
+        rows.value = uniqueRows(appointments.map(mapAppointment))
           .sort((a, b) => appointmentTimestamp(b) - appointmentTimestamp(a))
-        : []
+      } else {
+        doctors.value = []
+        rows.value = []
+      }
       note.value = ''
     }
     if (resource.value === 'records') {
@@ -1007,6 +1030,7 @@ function mapAppointment(item: Appointment & Record<string, any>): Row {
   const slotTime = getAny(item, 'slotTime', 'SlotTime')
   const doctorName = cleanDisplayText(getAny(item, 'doctorName', 'DoctorName'))
   const specialtyName = cleanDisplayText(getAny(item, 'specialtyName', 'SpecialtyName'))
+  const room = appointmentRoom(item)
   const reason = cleanDisplayText(getAny(item, 'reason', 'Reason'))
   const status = getAny(item, 'status', 'Status')
 
@@ -1015,6 +1039,7 @@ function mapAppointment(item: Appointment & Record<string, any>): Row {
     appointmentId,
     doctorName: doctorName || 'Chưa phân công bác sĩ',
     specialtyName: specialtyName || 'Chưa cập nhật',
+    room: room || 'Chưa cập nhật',
     appointmentDate,
     slotTime,
     dateTime: formatAppointmentDateTime(appointmentDate, slotTime),
@@ -1022,6 +1047,16 @@ function mapAppointment(item: Appointment & Record<string, any>): Row {
     status: statusLabel(status),
     raw: item,
   }
+}
+
+function appointmentRoom(item: Appointment & Record<string, any>) {
+  const doctorId = Number(getAny(item, 'doctorId', 'DoctorId'))
+  const doctor = doctors.value.find((entry) => Number(entry.doctorId) === doctorId)
+  return cleanDisplayText(
+    getAny(doctor, 'roomNumber', 'RoomNumber', 'roomName', 'RoomName', 'room', 'Room')
+    || getAny(item, 'doctorRoom', 'DoctorRoom', 'doctorRoomNumber', 'DoctorRoomNumber', 'roomNumber', 'RoomNumber', 'roomName', 'RoomName', 'room', 'Room')
+    || getAny(getAny(item, 'doctor', 'Doctor'), 'roomNumber', 'RoomNumber', 'roomName', 'RoomName', 'room', 'Room')
+  )
 }
 
 function appointmentDisplayCode(item: Record<string, any>, appointmentId: unknown) {

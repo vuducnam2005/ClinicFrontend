@@ -7,12 +7,12 @@
       <div class="stp">
         <div v-for="(s, i) in steps" :key="s.v" class="stp-i">
           <div class="stp-c">
-            <span v-if="i > 0" :class="['stp-l', cur >= s.v ? 'stp-la' : '']"></span>
+            <span :class="['stp-l', i === 0 ? 'stp-lh' : '', cur >= s.v ? 'stp-la' : '']"></span>
             <span :class="['stp-d', cur > s.v ? 'stp-dd' : cur === s.v ? 'stp-da' : 'stp-dp']">
               <svg v-if="cur > s.v" class="stp-ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
               <span v-else>{{ s.v }}</span>
             </span>
-            <span v-if="i < steps.length - 1" :class="['stp-l', cur > s.v ? 'stp-la' : '']"></span>
+            <span :class="['stp-l', i === steps.length - 1 ? 'stp-lh' : '', cur > s.v ? 'stp-la' : '']"></span>
           </div>
           <span class="stp-t">{{ s.t }}</span>
         </div>
@@ -21,7 +21,7 @@
 
     <!-- 1 Chuyên khoa & Ngày -->
     <div class="cd">
-      <div class="cd-h"><span class="bg">1</span><h2 class="cd-t">BƯỚC 1: CHỌN CHUYÊN KHOA & NGÀY</h2></div>
+      <div class="cd-h"><span class="bg">1</span><h2 class="cd-t">CHỌN CHUYÊN KHOA & NGÀY</h2></div>
       <div class="r2">
         <div class="fl"><label class="lb">Chuyên khoa</label><select :value="selectedSpecialty" class="sl" @change="selectedSpecialty = ($event.target as HTMLSelectElement).value"><option value="">Chọn chuyên khoa</option><option v-for="o in specialtyOptions" :key="String(o.value)" :value="o.value">{{ o.label }}</option></select></div>
         <div class="fl"><label class="lb">Ngày khám</label><input :value="selectedDate" type="date" :min="today" class="ip" @input="selectedDate = ($event.target as HTMLInputElement).value" /></div>
@@ -33,7 +33,7 @@
     <div class="cd">
       <div class="cd-h">
         <span class="bg">2</span>
-        <div><h2 class="cd-t">BƯỚC 2: CHỌN BÁC SĨ</h2><p class="cd-s">Chi tiết thủ tục và Giam Xem thêm.</p></div>
+        <div><h2 class="cd-t">CHỌN BÁC SĨ</h2><p class="cd-s">Chi tiết thủ tục và Giam Xem thêm.</p></div>
       </div>
       <div v-if="!selectedSpecialty" class="eb eb-doc"><UserRound class="ei" /><p>Chưa chọn chuyên khoa</p></div>
       <div v-else-if="specialtyDoctors.length" class="dg">
@@ -49,7 +49,7 @@
                 <div class="d-btns">
                   <button class="dbt-info" type="button" @click="activeDetailDoctor = item">THÔNG TIN BÁC SĨ</button>
                   <button :class="['dbt', isSelectedDoctor(item) ? 'dbt-a' : '']" @click="selectDoctorForSchedule(item)">
-                    {{ isSelectedDoctor(item) ? 'ĐANG CHỌN BÁC SĨ NÀY' : 'ĐẶT LỊCH VỚI BÁC SỸ NÀY' }}
+                    {{ isSelectedDoctor(item) ? 'ĐANG CHỌN BÁC SĨ NÀY' : 'ĐẶT LỊCH VỚI BÁC SĨ NÀY' }}
                   </button>
                 </div>
               </div>
@@ -64,7 +64,7 @@
     <div class="cd">
       <div class="cd-h">
         <span class="bg">3</span>
-        <div><h2 class="cd-t">BƯỚC 3: CHỌN GIỜ</h2><p class="cd-s">{{ doctor ? `Bác sĩ: ${displayDoctorTitle(doctor)} · Ngày ${formatDisplayDate(selectedDate)}` : 'Chưa chọn bác sĩ' }}</p></div>
+        <div><h2 class="cd-t">CHỌN GIỜ</h2><p class="cd-s">{{ doctor ? `Bác sĩ: ${displayDoctorTitle(doctor)} · Ngày ${formatDisplayDate(selectedDate)}` : 'Chưa chọn bác sĩ' }}</p></div>
       </div>
       <SlotPicker v-model="selectedSlot" :slots="slots" :all-slots="displaySlots" :booked-slots="bookedSlots" :loading="loadingSlots" :empty-message="slotEmptyMessage" />
       <div v-if="doctor" class="nr">
@@ -77,7 +77,7 @@
     <div class="cd">
       <div class="cd-h">
         <span class="bg">4</span>
-        <div><h2 class="cd-t">BƯỚC 4: THÔNG TIN BỆNH NHÂN</h2><p class="cd-sb">Kiểm tra và xác nhận thông tin.</p></div>
+        <div><h2 class="cd-t">THÔNG TIN BỆNH NHÂN</h2><p class="cd-sb">Kiểm tra và xác nhận thông tin.</p></div>
       </div>
       <AppointmentForm
         v-if="selectedSlot"
@@ -134,7 +134,12 @@ const submitting = ref(false)
 const apiMessage = ref('')
 const today = new Date().toISOString().slice(0, 10)
 const toast = reactive({ show: false, title: '', message: '', type: 'success' as 'success' | 'error' })
-const steps = [{ v: 1, t: 'Bước 1' }, { v: 2, t: 'Bước 2' }, { v: 3, t: 'Bước 3' }, { v: 4, t: 'Bước 4' }]
+const steps = [
+  { v: 1, t: 'Chọn chuyên khoa' },
+  { v: 2, t: 'Chọn bác sĩ' },
+  { v: 3, t: 'Chọn giờ' },
+  { v: 4, t: 'Thông tin' },
+]
 
 const cur = computed(() => { if (selectedSlot.value) return 4; if (selectedDoctor.value) return 3; if (selectedSpecialty.value) return 2; return 1 })
 const specialtyOptions = computed(() => specialties.value.map((s) => ({ label: displayText(s.specialtyName), value: s.specialtyId })))
@@ -192,6 +197,7 @@ function formatDisplayDate(v: string) { if (!v) return ''; const [y,m,d] = v.sli
 .stp-i { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; }
 .stp-c { display: flex; align-items: center; width: 100%; height: 22px; }
 .stp-l { flex: 1; height: 2px; background: #cbd5e1; transition: background .3s; }
+.stp-lh { visibility: hidden; }
 .stp-la { background: #0F52BA; }
 .stp-d { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; z-index: 1; }
 .stp-dd { background: #0F52BA; color: #fff; border: 1.5px solid #0F52BA; }
