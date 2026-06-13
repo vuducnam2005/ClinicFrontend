@@ -104,8 +104,9 @@
                 </div>
               </div>
             </template>
-            <template #customFilterIcon="{ filtered }">
-              <Search :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+            <template #customFilterIcon="{ filtered, column }">
+              <CheckSquare v-if="column.key === 'status'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+              <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
             </template>
             <template #emptyText>
               <div class="py-8 text-center">
@@ -127,7 +128,10 @@
                 <span class="font-mono text-xs font-medium text-slate-600">{{ record.diagnosisCode || '-' }}</span>
               </template>
               <template v-else-if="column.key === 'createdAt'">
-                <span class="whitespace-nowrap text-[13px] font-medium text-slate-600">{{ formatDate(record.createdAt) }}</span>
+                <div class="flex items-center gap-2 whitespace-nowrap">
+                  <CalendarClock class="h-3.5 w-3.5 text-slate-400" />
+                  <span class="text-[13px] font-medium text-slate-600">{{ formatDate(record.createdAt) }}</span>
+                </div>
               </template>
               <template v-else-if="column.key === 'followUpDate'">
                 <ATag v-if="record.followUpDate" :bordered="false" class="medical-follow-tag">{{ formatDate(record.followUpDate) }}</ATag>
@@ -154,7 +158,7 @@
     </div>
 
     <!-- 7. Drawer Chi tiết bệnh án bên phải -->
-    <div v-if="drawerOpen" class="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm transition-opacity" @click="closeDrawer"></div>
+    <div v-if="drawerOpen" class="fixed inset-0 z-[90] bg-slate-950/40 backdrop-blur-sm transition-opacity" @click="closeDrawer"></div>
 
     <transition
       enter-active-class="transition duration-300 ease-out"
@@ -164,20 +168,25 @@
       leave-from-class="translate-x-0"
       leave-to-class="translate-x-full"
     >
-      <div v-if="drawerOpen" class="fixed right-0 top-0 z-50 h-screen w-full max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200">
+      <div v-if="drawerOpen" class="fixed right-0 top-0 z-[90] h-screen w-full max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200">
         
         <!-- Drawer Header -->
-        <div class="flex items-center justify-between border-b border-slate-100 p-5 bg-slate-50/50">
-          <div>
-            <div class="flex items-center gap-2">
-              <h2 class="text-lg font-bold text-slate-900">Chi tiết bệnh án</h2>
-              <span :class="['rounded-full px-2 py-0.5 text-[10px] font-bold', statusClass(selectedRecord?.status)]">
-                {{ statusLabel(selectedRecord?.status) }}
-              </span>
+        <div class="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/50 p-5">
+          <div class="flex items-start gap-3">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700">
+              <FileHeart class="h-5 w-5" />
+            </span>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <h2 class="text-lg font-bold text-slate-900">Chi tiết bệnh án</h2>
+                <span :class="['rounded-full px-2 py-0.5 text-[10px] font-bold', statusClass(selectedRecord?.status)]">
+                  {{ statusLabel(selectedRecord?.status) }}
+                </span>
+              </div>
+              <p class="mt-1 text-xs font-semibold text-slate-500 font-mono">
+                Mã: {{ selectedRecord?.medicalRecordCode || 'Chưa cập nhật' }}
+              </p>
             </div>
-            <p class="mt-1 text-xs font-semibold text-slate-500 font-mono">
-              Mã: {{ selectedRecord?.medicalRecordCode || 'Chưa cập nhật' }}
-            </p>
           </div>
           <div class="flex items-center gap-2">
             <BaseButton
@@ -203,13 +212,14 @@
             :key="tab.key"
             type="button"
             :class="[
-              'px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition relative',
+              'inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition relative',
               currentTab === tab.key
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             ]"
             @click="currentTab = tab.key"
           >
+            <component :is="tab.icon" class="h-4 w-4" />
             {{ tab.label }}
           </button>
         </div>
@@ -391,11 +401,11 @@
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-4 flex items-center justify-between">
                   <div>
                     <span class="text-xs font-semibold text-slate-400">Mã đơn thuốc</span>
-                    <p class="mt-0.5 font-mono font-bold text-slate-800">{{ activePrescription.prescriptionCode || 'Chưa cập nhật' }}</p>
+                    <p class="mt-0.5 font-mono font-bold text-slate-800">{{ prescriptionDisplayCode(activePrescription) }}</p>
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
-                      {{ activePrescription.status || 'Chờ phát thuốc' }}
+                      {{ statusLabel(activePrescription.status) }}
                     </span>
                   </div>
                 </div>
@@ -471,7 +481,7 @@
                 <div class="space-y-2 text-xs text-slate-500">
                   <div class="flex justify-between">
                     <span>Phương thức thanh toán:</span>
-                    <span class="font-bold text-slate-700">{{ activeInvoice.payments?.[0]?.paymentMethod || 'Tiền mặt/Chuyển khoản' }}</span>
+                    <span class="font-bold text-slate-700">{{ invoicePaymentMethodLabel(activeInvoice) }}</span>
                   </div>
                   <div class="flex justify-between">
                     <span>Ngày thanh toán:</span>
@@ -630,7 +640,7 @@
           <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1 mb-2">Đơn thuốc</h2>
           <template v-if="activePrescription">
             <div class="grid grid-cols-2 gap-y-2 text-xs mb-3">
-              <div><span class="font-bold text-slate-500">Mã đơn thuốc:</span> <span class="font-semibold text-slate-800 font-mono">{{ activePrescription.prescriptionCode || activePrescription.prescriptionIdCode || activePrescription.prescriptionId || activePrescription.id || 'Chưa cập nhật' }}</span></div>
+              <div><span class="font-bold text-slate-500">Mã đơn thuốc:</span> <span class="font-semibold text-slate-800 font-mono">{{ prescriptionDisplayCode(activePrescription) }}</span></div>
               <div><span class="font-bold text-slate-500">Ngày kê đơn:</span> <span class="font-semibold text-slate-800">{{ formatDateTime(activePrescription.createdAt || activePrescription.submittedAt) }}</span></div>
               <div><span class="font-bold text-slate-500">Trạng thái:</span> <span class="font-semibold text-slate-800">{{ statusLabel(activePrescription.status) }}</span></div>
               <div><span class="font-bold text-slate-500">Bác sĩ kê đơn:</span> <span class="font-semibold text-slate-800">{{ associatedDoctorNameForPrescription(activePrescription) || doctorNameForRecord(recordToPrint) || 'Chưa có thông tin' }}</span></div>
@@ -674,6 +684,7 @@
               <div><span class="font-bold text-slate-500">Phí khám:</span> <span class="font-semibold text-slate-800">{{ formatCurrency(activeInvoice.examinationFee || activeInvoice.examFee) }}</span></div>
               <div><span class="font-bold text-slate-500">Tiền thuốc:</span> <span class="font-semibold text-slate-800">{{ formatCurrency(activeInvoice.medicineTotal) }}</span></div>
               <div><span class="font-bold text-slate-500">Tổng cộng:</span> <span class="font-bold text-slate-900">{{ formatCurrency(activeInvoice.totalAmount || activeInvoice.amount) }}</span></div>
+              <div><span class="font-bold text-slate-500">Phương thức thanh toán:</span> <span class="font-semibold text-slate-800">{{ invoicePaymentMethodLabel(activeInvoice) }}</span></div>
               <div><span class="font-bold text-slate-500">{{ isPaidInvoice(activeInvoice.status) ? 'Ngày thanh toán:' : 'Ngày lập hóa đơn:' }}</span> <span class="font-semibold text-slate-800">{{ formatDateTime(activeInvoice.paidAt || activeInvoice.createdAt) }}</span></div>
             </div>
           </template>
@@ -707,6 +718,7 @@ import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from
 import {
   CalendarClock,
   CheckCircle2,
+  CheckSquare,
   ClipboardList,
   CreditCard,
   Eye,
@@ -779,12 +791,12 @@ const printVitalItems = computed(() => {
 const printVitalNote = computed(() => String(readFirst(printVitalSigns.value, 'note', 'Note') || '').trim())
 
 const tabs = [
-  { key: 'overview', label: 'Tổng quan' },
-  { key: 'diagnosis', label: 'Chẩn đoán' },
-  { key: 'treatment', label: 'Điều trị' },
-  { key: 'history', label: 'Lịch sử' },
-  { key: 'prescription', label: 'Đơn thuốc' },
-  { key: 'billing', label: 'Viện phí' },
+  { key: 'overview', label: 'Tổng quan', icon: ClipboardList },
+  { key: 'diagnosis', label: 'Chẩn đoán', icon: FileHeart },
+  { key: 'treatment', label: 'Điều trị', icon: FilePenLine },
+  { key: 'history', label: 'Lịch sử', icon: CalendarClock },
+  { key: 'prescription', label: 'Đơn thuốc', icon: Pill },
+  { key: 'billing', label: 'Viện phí', icon: CreditCard },
 ]
 
 // Toasts
@@ -864,8 +876,15 @@ const medicalRecordTableColumns = [
     dataIndex: 'status',
     key: 'status',
     width: 210,
-    customFilterDropdown: true,
-    onFilter: recordColumnFilter('status'),
+    filters: [
+      { text: 'Đã hoàn tất', value: 'Đã hoàn tất' },
+      { text: 'Bản nháp', value: 'Bản nháp' },
+      { text: 'Đang xử lý', value: 'Đang xử lý' },
+      { text: 'Chưa cập nhật', value: 'Chưa cập nhật' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: MedicalRecord) => statusLabel(record.status) === String(filterValue),
   },
   {
     title: 'Thao tác',
@@ -1301,6 +1320,10 @@ function mergePrescriptionForPrint(n2?: Prescription, n3?: Prescription): Prescr
   return {
     ...(n2 || {}),
     ...(n3 || {}),
+    prescriptionCode: objectValue(n3, 'prescriptionCode', 'PrescriptionCode') || objectValue(n2, 'prescriptionCode', 'PrescriptionCode'),
+    prescriptionIdCode: objectValue(n3, 'prescriptionIdCode', 'PrescriptionIdCode') || objectValue(n2, 'prescriptionIdCode', 'PrescriptionIdCode'),
+    prescriptionId: objectValue(n3, 'prescriptionId', 'PrescriptionId') || objectValue(n2, 'prescriptionId', 'PrescriptionId'),
+    id: objectValue(n3, 'id', 'Id') || objectValue(n2, 'id', 'Id'),
     items: n3Items.length ? n3Items : n2Items,
     prescriptionItems: n3Items.length ? n3Items : n2Items,
     status: n3?.status || n2?.status,
@@ -1470,6 +1493,59 @@ function formatCurrency(value?: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0))
 }
 
+function prescriptionDisplayCode(prescription?: Prescription | null) {
+  const code = objectValue(
+    prescription,
+    'prescriptionCode',
+    'PrescriptionCode',
+    'prescriptionIdCode',
+    'PrescriptionIdCode',
+    'code',
+    'Code',
+  )
+  if (code) return String(code)
+  const id = objectValue(prescription, 'prescriptionId', 'PrescriptionId', 'id', 'Id')
+  const numericId = Number(id)
+  if (Number.isFinite(numericId) && numericId > 0) return `DT${String(numericId).padStart(3, '0')}`
+  return 'Chưa cập nhật'
+}
+
+function invoicePaymentMethodLabel(invoice?: Invoice | null) {
+  const invoiceData = invoice as Record<string, any> | null | undefined
+  const payments = getArrayValue(invoiceData, 'payments', 'Payments')
+  const payment = payments[0]
+  const value = objectValue(payment, 'paymentMethod', 'PaymentMethod', 'method', 'Method', 'channel', 'Channel')
+    || objectValue(invoiceData, 'paymentMethod', 'PaymentMethod', 'method', 'Method', 'paymentChannel', 'PaymentChannel')
+  return paymentMethodLabel(value, String(invoiceData?.status || invoiceData?.Status || ''))
+}
+
+function paymentMethodLabel(value: unknown, status?: string) {
+  const raw = String(value || '').trim()
+  if (!raw) return isPaidInvoice(status) ? 'Chưa cập nhật' : 'Chưa thanh toán'
+
+  const normalized = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+
+  if (normalized.includes('cash') || normalized.includes('tien mat')) return 'Tiền mặt'
+  if (normalized.includes('bank') || normalized.includes('transfer') || normalized.includes('chuyen khoan') || normalized.includes('qr')) return 'Chuyển khoản'
+  if (normalized.includes('card') || normalized.includes('the')) return 'Thẻ'
+  if (normalized.includes('vnpay')) return 'VNPay'
+  if (normalized.includes('momo')) return 'MoMo'
+  return raw
+}
+
+function getArrayValue(source: Record<string, any> | null | undefined, ...keys: string[]) {
+  for (const key of keys) {
+    const value = source?.[key]
+    if (Array.isArray(value)) return value as Record<string, any>[]
+  }
+  return [] as Record<string, any>[]
+}
+
 function genderLabel(value?: string) {
   const normalized = String(value || '').toLowerCase()
   if (normalized === 'male' || normalized === 'nam') return 'Nam'
@@ -1480,6 +1556,10 @@ function genderLabel(value?: string) {
 function statusLabel(status?: string) {
   const value = String(status || '').toLowerCase()
   if (value.includes('completed') || value.includes('done') || value.includes('hoàn tất')) return 'Đã hoàn tất'
+  if (value.includes('dispensed') || value.includes('cấp thuốc') || value.includes('cap thuoc')) return 'Đã cấp thuốc'
+  if (value.includes('sent_to_pharmacy') || value.includes('sent to pharmacy') || value.includes('nhà thuốc') || value.includes('nha thuoc')) return 'Đã gửi nhà thuốc'
+  if (value.includes('pending') || value.includes('waiting') || value.includes('chờ') || value.includes('cho')) return 'Chờ xử lý'
+  if (value.includes('cancel') || value.includes('hủy') || value.includes('huy')) return 'Đã hủy'
   if (value.includes('draft') || value.includes('bản nháp')) return 'Bản nháp'
   if (value.includes('progress') || value.includes('đang xử lý')) return 'Đang xử lý'
   return status || 'Chưa cập nhật'
@@ -1487,9 +1567,11 @@ function statusLabel(status?: string) {
 
 function statusClass(status?: string) {
   const value = String(status || '').toLowerCase()
-  if (value.includes('completed') || value.includes('done') || value.includes('hoàn tất')) return 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+  if (value.includes('completed') || value.includes('done') || value.includes('hoàn tất') || value.includes('dispensed') || value.includes('cấp thuốc') || value.includes('cap thuoc')) return 'bg-emerald-50 text-emerald-700 border border-emerald-100'
   if (value.includes('draft') || value.includes('bản nháp')) return 'bg-amber-50 text-amber-700 border border-amber-100'
-  if (value.includes('progress') || value.includes('đang xử lý')) return 'bg-blue-50 text-blue-700 border border-blue-100'
+  if (value.includes('progress') || value.includes('đang xử lý') || value.includes('sent_to_pharmacy') || value.includes('sent to pharmacy')) return 'bg-blue-50 text-blue-700 border border-blue-100'
+  if (value.includes('pending') || value.includes('waiting') || value.includes('chờ') || value.includes('cho')) return 'bg-amber-50 text-amber-700 border border-amber-100'
+  if (value.includes('cancel') || value.includes('hủy') || value.includes('huy')) return 'bg-rose-50 text-rose-700 border border-rose-100'
   return 'bg-slate-50 text-slate-700 border border-slate-100'
 }
 
@@ -1649,6 +1731,10 @@ function isPaidInvoice(status?: string) {
 .medical-follow-tag {
   background: #eff6ff;
   color: #1d4ed8;
+}
+
+.medical-follow-tag :deep(svg) {
+  display: none;
 }
 
 .medical-record-actions {
