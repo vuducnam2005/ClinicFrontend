@@ -48,6 +48,7 @@
              :appointmentDate="appointmentDate"
              :slotTime="slotTime"
              :loading="submitting"
+             :showBack="false"
               @submit="createBooking"
             />
           </div>

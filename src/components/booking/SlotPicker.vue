@@ -1,292 +1,54 @@
 <template>
   <div>
-    <div class="mb-3 flex items-center justify-between">
-      <p class="text-sm font-semibold text-slate-800">{{ title }}</p>
-      <span v-if="loading" class="text-xs text-slate-500">Đang tải...</span>
-    </div>
-
-    <div v-if="loading" class="slot-wheel">
-      <span v-for="item in 5" :key="item" :class="['slot-card animate-pulse border-slate-100 bg-slate-100', compact ? 'h-20 w-20' : 'h-24 w-24']"></span>
-    </div>
-
-    <div v-else-if="displaySlots.length" class="slot-stage">
-      <span class="slot-needle slot-needle-top" aria-hidden="true"></span>
-      <span class="slot-needle slot-needle-bottom" aria-hidden="true"></span>
-      <div
-        ref="scroller"
-        :class="['slot-wheel', isDragging ? 'is-dragging' : '']"
-        aria-label="Chọn giờ khám"
-        @pointerdown="startDrag"
-        @pointermove="dragSlots"
-        @pointerup="endDrag"
-        @pointercancel="endDrag"
-        @pointerleave="endDrag"
-      >
-        <span class="slot-edge" aria-hidden="true"></span>
-        <button
-          v-for="slot in displaySlots"
-          :key="slot"
-          :data-slot="slot"
-          :class="['slot-card', compact ? 'h-20 w-20' : 'h-24 w-24', slotClass(slot)]"
-          :disabled="!isAvailable(slot)"
-          type="button"
-          :title="isBooked(slot) ? 'Khung giờ đã có lịch' : 'Khung giờ còn trống'"
-          @click="selectSlot(slot)"
-          @pointerup="selectSlotFromPointer(slot)"
-        >
-          <span class="text-base font-bold leading-none">{{ slot }}</span>
-          <span class="mt-1 text-[11px] font-semibold leading-none">{{ isBooked(slot) ? 'Đã đặt' : 'Còn trống' }}</span>
-        </button>
-        <span class="slot-edge" aria-hidden="true"></span>
+    <div v-if="loading" class="sk"><span v-for="i in 5" :key="i" class="ss"></span></div>
+    <div v-else-if="displaySlots.length" class="sw">
+      <div class="se">
+        <div class="sh"><svg class="su" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" stroke-width="2"/><line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" stroke-width="2"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" stroke-width="2"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" stroke-width="2"/><line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2"/><line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" stroke-width="2"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" stroke-width="2"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" stroke-width="2"/></svg><span class="st">CA SÁNG</span></div>
+        <div class="sg"><button v-for="s in morningSlots" :key="s" :class="['sb', cls(s)]" :disabled="!isAvail(s)" type="button" @click="pick(s)">{{ s }}</button></div>
+      </div>
+      <div class="se">
+        <div class="sh"><svg class="sm" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span class="st">CA CHIỀU</span></div>
+        <div class="sg"><button v-for="s in afternoonSlots" :key="s" :class="['sb', cls(s)]" :disabled="!isAvail(s)" type="button" @click="pick(s)">{{ s }}</button></div>
       </div>
     </div>
-
-    <div v-else class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
-      {{ emptyMessage }}
-    </div>
+    <div v-else class="em">{{ emptyMessage }}</div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
-
-const props = withDefaults(
-  defineProps<{
-    slots: string[]
-    allSlots?: string[]
-    bookedSlots?: string[]
-    title?: string
-    modelValue?: string
-    loading?: boolean
-    compact?: boolean
-    emptyMessage?: string
-  }>(),
-  {
-    allSlots: () => [],
-    bookedSlots: () => [],
-    title: 'Giờ khám còn trống',
-    modelValue: '',
-    loading: false,
-    compact: false,
-    emptyMessage: 'Không có slot trống cho bác sĩ/ngày đã chọn. Hãy chọn ngày khác hoặc bác sĩ khác.',
-  },
-)
-
-const emit = defineEmits<{
-  'update:modelValue': [value: string]
-}>()
-
-const availableSet = computed(() => new Set(props.slots.map(normalizeSlot)))
-const bookedSet = computed(() => new Set(props.bookedSlots.map(normalizeSlot)))
-const displaySlots = computed(() => {
-  const source = props.allSlots.length ? props.allSlots : props.slots
-  return Array.from(new Set(source.map(normalizeSlot).filter(Boolean))).sort((a, b) => a.localeCompare(b))
-})
-const selectedSlot = computed(() => normalizeSlot(props.modelValue))
-const hasSelectedSlot = computed(() => Boolean(selectedSlot.value))
-const scroller = ref<HTMLElement | null>(null)
-const isDragging = ref(false)
-const dragStartX = ref(0)
-const dragStartScroll = ref(0)
-const dragMoved = ref(false)
-const dragThreshold = 14
-const centerSelectionFrame = ref<number | null>(null)
-
-watch(
-  () => [props.modelValue, displaySlots.value.join('|')] as const,
-  () => {
-    if (!selectedSlot.value) return
-    void nextTick(() => scrollSlotIntoCenter(selectedSlot.value))
-  },
-)
-
-function normalizeSlot(slot: string) {
-  return String(slot || '').slice(0, 5)
-}
-
-function isAvailable(slot: string) {
-  const value = normalizeSlot(slot)
-  return availableSet.value.has(value) && !bookedSet.value.has(value)
-}
-
-function isBooked(slot: string) {
-  return bookedSet.value.has(normalizeSlot(slot))
-}
-
-function slotClass(slot: string) {
-  const value = normalizeSlot(slot)
-  const isSelected = selectedSlot.value === value
-  if (isBooked(slot)) return 'border-rose-200 bg-rose-50 text-rose-500 opacity-45 grayscale cursor-not-allowed'
-  if (!isAvailable(slot)) return 'border-slate-200 bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed'
-  if (isSelected) return 'scale-100 border-[#0F52BA] bg-[#0F52BA] text-white opacity-100 shadow-lg shadow-blue-200/70'
-  return [
-    'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50 hover:text-[#0F52BA]',
-    hasSelectedSlot.value ? 'scale-90 opacity-45 hover:opacity-80' : 'opacity-100',
-  ].join(' ')
-}
-
-function selectSlot(slot: string) {
-  if (!isAvailable(slot)) return
-  const value = normalizeSlot(slot)
-  emit('update:modelValue', value)
-  void nextTick(() => scrollSlotIntoCenter(value))
-}
-
-function selectSlotFromPointer(slot: string) {
-  if (dragMoved.value) return
-  selectSlot(slot)
-}
-
-function scrollSlotIntoCenter(slot: string) {
-  const target = scroller.value?.querySelector<HTMLElement>(`[data-slot="${slot}"]`)
-  target?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
-}
-
-function startDrag(event: PointerEvent) {
-  if (!scroller.value) return
-  isDragging.value = true
-  dragMoved.value = false
-  dragStartX.value = event.clientX
-  dragStartScroll.value = scroller.value.scrollLeft
-  scroller.value.setPointerCapture?.(event.pointerId)
-}
-
-function dragSlots(event: PointerEvent) {
-  if (!isDragging.value || !scroller.value) return
-  const delta = event.clientX - dragStartX.value
-  if (Math.abs(delta) > dragThreshold) dragMoved.value = true
-  scroller.value.scrollLeft = dragStartScroll.value - delta
-  scheduleCenteredSlotSelection(false)
-}
-
-function endDrag(event: PointerEvent) {
-  if (!isDragging.value) return
-  isDragging.value = false
-  scroller.value?.releasePointerCapture?.(event.pointerId)
-  selectCenteredSlot(true)
-  if (dragMoved.value) {
-    window.setTimeout(() => {
-      dragMoved.value = false
-    }, 0)
-  }
-}
-
-function scheduleCenteredSlotSelection(shouldCenter: boolean) {
-  if (centerSelectionFrame.value !== null) return
-  centerSelectionFrame.value = window.requestAnimationFrame(() => {
-    centerSelectionFrame.value = null
-    selectCenteredSlot(shouldCenter)
-  })
-}
-
-function selectCenteredSlot(shouldCenter: boolean) {
-  const container = scroller.value
-  if (!container) return
-
-  const cards = Array.from(container.querySelectorAll<HTMLElement>('[data-slot]'))
-    .map((element) => ({
-      element,
-      slot: normalizeSlot(element.dataset.slot || ''),
-      distance: Math.abs(
-        element.offsetLeft + element.offsetWidth / 2 - (container.scrollLeft + container.clientWidth / 2),
-      ),
-    }))
-    .filter((item) => item.slot && isAvailable(item.slot))
-    .sort((a, b) => a.distance - b.distance)
-
-  const nearest = cards[0]
-  if (!nearest) return
-  if (selectedSlot.value !== nearest.slot) {
-    emit('update:modelValue', nearest.slot)
-  }
-  if (shouldCenter) {
-    void nextTick(() => scrollSlotIntoCenter(nearest.slot))
-  }
-}
+import { computed } from 'vue'
+const props = withDefaults(defineProps<{ slots: string[]; allSlots?: string[]; bookedSlots?: string[]; title?: string; modelValue?: string; loading?: boolean; compact?: boolean; emptyMessage?: string }>(), { allSlots: () => [], bookedSlots: () => [], title: '', modelValue: '', loading: false, compact: false, emptyMessage: 'Không có slot trống.' })
+const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
+const avail = computed(() => new Set(props.slots.map(n)))
+const booked = computed(() => new Set(props.bookedSlots.map(n)))
+const displaySlots = computed(() => { const s = props.allSlots.length ? props.allSlots : props.slots; return [...new Set(s.map(n).filter(Boolean))].sort() })
+const sel = computed(() => n(props.modelValue))
+const morningSlots = computed(() => displaySlots.value.filter((s) => s < '12:00'))
+const afternoonSlots = computed(() => displaySlots.value.filter((s) => s >= '12:00'))
+function n(s: string) { return String(s || '').slice(0, 5) }
+function isAvail(s: string) { const v = n(s); return avail.value.has(v) && !booked.value.has(v) }
+function isBk(s: string) { return booked.value.has(n(s)) }
+function cls(s: string) { const v = n(s); if (isBk(s)) return 'bk'; if (!isAvail(s)) return 'of'; if (sel.value === v) return 'on'; return 'fr' }
+function pick(s: string) { if (isAvail(s)) emit('update:modelValue', n(s)) }
 </script>
 
 <style scoped>
-.slot-wheel {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-snap-type: x mandatory;
-  scroll-padding-inline: 44%;
-  padding: 22px 4px;
-  -webkit-overflow-scrolling: touch;
-  cursor: grab;
-  scrollbar-width: none;
-  touch-action: pan-y;
-  user-select: none;
-}
-
-.slot-stage {
-  position: relative;
-  overflow: hidden;
-  border-radius: 22px;
-  background:
-    linear-gradient(90deg, #ffffff 0%, rgba(255, 255, 255, 0) 18%, rgba(255, 255, 255, 0) 82%, #ffffff 100%),
-    linear-gradient(180deg, #f8fafc 0%, #ffffff 52%, #f8fafc 100%);
-}
-
-.slot-needle {
-  position: absolute;
-  left: 50%;
-  z-index: 2;
-  height: 0;
-  width: 0;
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-
-.slot-needle-top {
-  top: 6px;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-top: 10px solid #0f52ba;
-}
-
-.slot-needle-bottom {
-  bottom: 6px;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-bottom: 10px solid #0f52ba;
-}
-
-.slot-wheel::-webkit-scrollbar {
-  display: none;
-}
-
-.slot-wheel.is-dragging {
-  cursor: grabbing;
-  scroll-snap-type: none;
-}
-
-.slot-edge {
-  flex: 0 0 max(24px, calc(50% - 48px));
-}
-
-.slot-card {
-  flex: 0 0 auto;
-  scroll-snap-align: center;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-width: 1px;
-  border-radius: 18px;
-  transition:
-    opacity 180ms ease,
-    transform 180ms ease,
-    border-color 180ms ease,
-    background-color 180ms ease,
-    color 180ms ease,
-    box-shadow 180ms ease;
-}
-
-.slot-card:focus-visible {
-  outline: 3px solid #bfdbfe;
-  outline-offset: 3px;
-}
+.sw { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.se { min-width: 0; }
+.sh { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+.su { width: 13px; height: 13px; color: #f59e0b; }
+.sm { width: 13px; height: 13px; color: #6366f1; }
+.st { font-size: 9.5px; font-weight: 700; color: #334155; letter-spacing: .3px; }
+.sg { display: flex; flex-wrap: wrap; gap: 4px; }
+.sb { min-width: 48px; height: 24px; padding: 0 4px; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all .12s; border: 1.5px solid transparent; display: inline-flex; align-items: center; justify-content: center; }
+.fr { background: #fff; border-color: #e2e8f0; color: #334155; }
+.fr:hover { border-color: #0F52BA; background: #eff6ff; color: #0F52BA; }
+.on { background: #0F52BA; border-color: #0F52BA; color: #fff; }
+.bk { background: #fef2f2; border-color: #fecaca; color: #ef4444; opacity: .5; cursor: not-allowed; text-decoration: line-through; }
+.of { background: #f8fafc; border-color: #e2e8f0; color: #94a3b8; opacity: .4; cursor: not-allowed; }
+.em { height: 56px; display: flex; align-items: center; justify-content: center; background: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 6px; font-size: 10.5px; color: #64748b; padding: 0 6px; box-sizing: border-box; text-align: center; }
+.sk { display: flex; flex-wrap: wrap; gap: 4px; }
+.ss { width: 48px; height: 24px; border-radius: 4px; background: #f1f5f9; animation: p 1.5s ease-in-out infinite; }
+@keyframes p { 0%,100% { opacity: 1 } 50% { opacity: .5 } }
+@media (max-width: 640px) { .sw { grid-template-columns: 1fr; } }
 </style>

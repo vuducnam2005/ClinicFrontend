@@ -1,9 +1,9 @@
 <template>
-  <section class="min-h-screen bg-[#f8fafc] py-6 sm:py-8">
+  <section class="min-h-screen bg-[#f8fafc] py-2 sm:py-3">
     <FullscreenLoader :show="loading" />
 
     <div class="mx-auto max-w-none space-y-6 px-4 sm:px-6 lg:px-8">
-      <header class="px-1 pt-2">
+      <header class="px-1">
         <h1 class="text-[1.75rem] font-semibold tracking-normal text-slate-950">{{ config.title }}</h1>
         <p class="mt-1.5 text-[13px] leading-5 text-slate-500">{{ config.description }}</p>
       </header>
@@ -210,7 +210,79 @@
         <span class="rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-[#003c90]">{{ filteredRows.length }} dòng</span>
       </div>
 
-      <div v-if="filteredRows.length" class="overflow-x-auto">
+      <div v-if="filteredRows.length && resource === 'bills'" class="bill-table-shell">
+        <ATable
+          :columns="billTableColumns"
+          :data-source="filteredRows"
+          :pagination="billPagination"
+          :row-key="billRowKey"
+          :scroll="{ x: 920 }"
+          size="middle"
+          @change="handleBillTableChange"
+        >
+          <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+            <div class="bill-filter">
+              <p class="bill-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+              <AInput
+                :value="selectedKeys[0]"
+                :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+                allow-clear
+                autofocus
+                @change="setSelectedKeys(getFilterKeys($event))"
+                @press-enter="confirm()"
+              >
+                <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+              </AInput>
+              <div class="bill-filter-actions">
+                <AButton size="small" class="bill-filter-reset" @click="clearAppointmentFilter(clearFilters, confirm)">Đặt lại</AButton>
+                <AButton type="primary" size="small" class="bill-filter-submit" @click="confirm()">Áp dụng</AButton>
+              </div>
+            </div>
+          </template>
+          <template #customFilterIcon="{ filtered }">
+            <Search :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          </template>
+          <template #emptyText>
+            <div class="py-8 text-center">
+              <CreditCard class="mx-auto h-9 w-9 text-slate-300" />
+              <p class="mt-3 font-bold text-slate-800">Không có viện phí phù hợp</p>
+              <p class="mt-1 text-sm text-slate-500">Thử đổi từ khóa tìm kiếm trong từng cột.</p>
+            </div>
+          </template>
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'id'">
+              <span class="font-bold text-slate-950">{{ record.id }}</span>
+            </template>
+            <template v-else-if="column.key === 'appointmentId'">
+              <span class="font-mono text-sm font-medium text-slate-600">{{ record.appointmentId }}</span>
+            </template>
+            <template v-else-if="column.key === 'amount'">
+              <span class="whitespace-nowrap text-[15px] font-extrabold text-slate-950">{{ record.amount }}</span>
+            </template>
+            <template v-else-if="column.key === 'status'">
+              <ATag :bordered="false" :class="['bill-status-tag', statusClass(record.status)]">
+                <span class="bill-status-dot"></span>
+                {{ record.status }}
+              </ATag>
+            </template>
+            <template v-else-if="column.key === 'actions'">
+              <button
+                v-if="!isPaidBillRow(record)"
+                type="button"
+                class="bill-pay-button"
+                :disabled="actingId === record.id"
+                title="Thanh toán viện phí"
+                @click="openPayment(record)"
+              >
+                Thanh toán
+              </button>
+              <span v-else class="text-xs font-bold text-slate-400">Đã xử lý</span>
+            </template>
+          </template>
+        </ATable>
+      </div>
+
+      <div v-else-if="filteredRows.length" class="overflow-x-auto">
         <table class="min-w-full divide-y divide-slate-100 text-sm">
           <thead class="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
             <tr>
@@ -555,7 +627,68 @@ const appointmentPagination = computed(() => ({
   locale: { items_per_page: ' / trang' },
 }))
 
+const billTableColumns = [
+  {
+    title: 'Mã HĐ',
+    dataIndex: 'id',
+    key: 'id',
+    width: 160,
+    customFilterDropdown: true,
+    onFilter: billColumnFilter('id'),
+    sorter: (a: Row, b: Row) => String(a.id || '').localeCompare(String(b.id || ''), 'vi'),
+  },
+  {
+    title: 'Lịch hẹn',
+    dataIndex: 'appointmentId',
+    key: 'appointmentId',
+    width: 180,
+    customFilterDropdown: true,
+    onFilter: billColumnFilter('appointmentId'),
+  },
+  {
+    title: 'Số tiền',
+    dataIndex: 'amount',
+    key: 'amount',
+    width: 210,
+    customFilterDropdown: true,
+    onFilter: billColumnFilter('amount'),
+    sorter: (a: Row, b: Row) => Number(a.amountValue || 0) - Number(b.amountValue || 0),
+  },
+  {
+    title: 'Trạng thái',
+    dataIndex: 'status',
+    key: 'status',
+    width: 220,
+    customFilterDropdown: true,
+    onFilter: billColumnFilter('status'),
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 160,
+    align: 'right' as const,
+    fixed: 'right' as const,
+  },
+]
+
+const billPagination = computed(() => ({
+  current: currentPage.value,
+  pageSize: itemsPerPage.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50', '100'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `Hiển thị ${range[0]} - ${range[1]} trên ${total} kết quả`,
+  locale: { items_per_page: ' / trang' },
+}))
+
 function handleAppointmentTableChange(pagination: { current?: number; pageSize?: number }) {
+  currentPage.value = pagination.current || 1
+  itemsPerPage.value = pagination.pageSize || 10
+}
+
+function handleBillTableChange(pagination: { current?: number; pageSize?: number }) {
   currentPage.value = pagination.current || 1
   itemsPerPage.value = pagination.pageSize || 10
 }
@@ -563,6 +696,19 @@ function handleAppointmentTableChange(pagination: { current?: number; pageSize?:
 function appointmentColumnFilter(key: string) {
   return (filterValue: string | number | boolean, record: Row) =>
     normalizeSearchText(record[key]).includes(normalizeSearchText(filterValue))
+}
+
+function billColumnFilter(key: string) {
+  return (filterValue: string | number | boolean, record: Row) =>
+    normalizeSearchText(record[key]).includes(normalizeSearchText(filterValue))
+}
+
+function billRowKey(row: Row) {
+  return String(row.invoiceId || row.id || row.raw?.invoiceId || row.raw?.id)
+}
+
+function isPaidBillRow(row: Row) {
+  return String(row.status).toLowerCase() === 'paid' || String(row.status).toLowerCase().includes('đã thanh toán')
 }
 
 function normalizeSearchText(valueToNormalize: unknown) {
@@ -1408,6 +1554,129 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
   font-size: 11px;
   font-weight: 500;
   line-height: 18px;
+}
+
+.bill-table-shell {
+  overflow: hidden;
+}
+
+.bill-filter {
+  width: 260px;
+  padding: 12px;
+}
+
+.bill-filter-title {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+
+.bill-filter-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.bill-filter-reset {
+  border-color: #e2e8f0;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.bill-filter-submit {
+  background: #0F52BA;
+  border-color: #0F52BA;
+  font-weight: 700;
+}
+
+:global(.ant-table-filter-dropdown .bill-filter) {
+  margin: -4px;
+}
+
+.bill-table-shell :deep(.ant-table) {
+  color: #334155;
+  font-size: 14px;
+}
+
+.bill-table-shell :deep(.ant-table-thead > tr > th) {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  padding: 16px 20px;
+  text-transform: uppercase;
+}
+
+.bill-table-shell :deep(.ant-table-tbody > tr > td) {
+  border-bottom: 1px solid #f1f5f9;
+  padding: 18px 20px;
+  vertical-align: middle;
+}
+
+.bill-table-shell :deep(.ant-table-tbody > tr:hover > td) {
+  background: #f8fafc;
+}
+
+.bill-table-shell :deep(.ant-table-cell-fix-right) {
+  background: #fff;
+}
+
+.bill-table-shell :deep(.ant-table-tbody > tr:hover > .ant-table-cell-fix-right) {
+  background: #f8fafc;
+}
+
+.bill-table-shell :deep(.ant-pagination) {
+  border-top: 1px solid #f1f5f9;
+  margin: 0;
+  padding: 16px;
+}
+
+.bill-status-tag {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 6px;
+  line-height: 1;
+  margin: 0;
+  padding: 8px 12px;
+}
+
+.bill-status-dot {
+  background: currentColor;
+  border-radius: 999px;
+  height: 7px;
+  width: 7px;
+}
+
+.bill-pay-button {
+  align-items: center;
+  background: #0F52BA;
+  border: 1px solid #0F52BA;
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  height: 36px;
+  justify-content: center;
+  padding: 0 14px;
+  transition: background .2s, border-color .2s, opacity .2s;
+}
+
+.bill-pay-button:hover:not(:disabled) {
+  background: #003c90;
+  border-color: #003c90;
+}
+
+.bill-pay-button:disabled {
+  cursor: not-allowed;
+  opacity: .6;
 }
 
 @media (max-width: 640px) {

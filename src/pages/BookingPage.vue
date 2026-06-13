@@ -1,146 +1,83 @@
 <template>
-  <section class="min-h-screen bg-[#f8fafc] py-6 sm:py-8">
-    <div class="mx-auto max-w-none space-y-4 px-4 sm:px-6 lg:px-8">
-      <header class="grid gap-4 px-1 pt-2 lg:grid-cols-[380px_1fr] lg:items-start">
-      <div>
-        <h1 class="text-[1.75rem] font-semibold tracking-normal text-slate-950">Đặt lịch khám</h1>
-        <p class="mt-1.5 text-[13px] leading-5 text-slate-500">{{ bookingIntroText }}</p>
-      </div>
-      <div class="mt-1 grid grid-cols-4 items-start">
-        <div v-for="(step, index) in bookingSteps" :key="step.value" class="relative flex flex-col items-center gap-1.5">
-          <span
-            v-if="index < bookingSteps.length - 1"
-            class="absolute left-1/2 top-3.5 h-px w-full bg-[#0F52BA]"
-            aria-hidden="true"
-          ></span>
-          <span
-            :class="[
-              'relative z-10 flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold transition',
-              currentStep >= step.value ? 'border-[#0F52BA] bg-[#0F52BA] text-white' : 'border-[#0F52BA] bg-white text-[#0F52BA]',
-            ]"
-          >
-            <CheckCircle2 v-if="currentStep > step.value" class="h-4 w-4" />
-            <span v-else>{{ step.value }}</span>
-          </span>
-          <span class="text-center text-xs font-bold text-slate-700">{{ step.label }}</span>
+  <div class="bk">
+    <!-- Header + Stepper -->
+    <div class="bk-hdr">
+      <h1 class="bk-h1">MedicareDNU - ĐẶT LỊCH KHÁM</h1>
+      <p class="bk-sub">Đặt lịch khám theo chuyên khoa, bác sĩ và khung giờ còn trống.</p>
+      <div class="stp">
+        <div v-for="(s, i) in steps" :key="s.v" class="stp-i">
+          <div class="stp-c">
+            <span v-if="i > 0" :class="['stp-l', cur >= s.v ? 'stp-la' : '']"></span>
+            <span :class="['stp-d', cur > s.v ? 'stp-dd' : cur === s.v ? 'stp-da' : 'stp-dp']">
+              <svg v-if="cur > s.v" class="stp-ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              <span v-else>{{ s.v }}</span>
+            </span>
+            <span v-if="i < steps.length - 1" :class="['stp-l', cur > s.v ? 'stp-la' : '']"></span>
+          </div>
+          <span class="stp-t">{{ s.t }}</span>
         </div>
-      </div>
-    </header>
-
-    <div ref="patientInfoSection" class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-      <div class="mb-3 flex items-center gap-2">
-        <span class="flex h-6 w-6 items-center justify-center rounded-md bg-[#0F52BA] text-sm font-bold text-white">1</span>
-        <h2 class="text-sm font-bold uppercase text-slate-900">Chọn chuyên khoa & ngày</h2>
-      </div>
-      <div class="grid gap-4 md:grid-cols-2">
-        <BaseSelect v-model="selectedSpecialty" label="Chuyên khoa" :options="specialtyOptions" placeholder="Chọn chuyên khoa" />
-        <BaseInput v-model="selectedDate" label="Ngày khám" type="date" :min="today" />
-      </div>
-      <div v-if="apiMessage" class="mt-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-2 text-sm text-[#003c90]">
-        {{ apiMessage }}
       </div>
     </div>
 
-    <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-      <div class="mb-3 flex items-start gap-2">
-        <span class="flex h-6 w-6 items-center justify-center rounded-md bg-[#0F52BA] text-sm font-bold text-white">2</span>
-        <div>
-          <h2 class="text-sm font-bold uppercase text-slate-900">Chọn bác sĩ</h2>
-          <p class="mt-0.5 text-xs font-semibold text-slate-500">{{ selectedSpecialty ? `Hãy chọn một trong các bác sĩ thuộc khoa ${catalogSpecialtyName} dưới đây:` : 'Chọn chuyên khoa để xem bác sĩ.' }}</p>
-        </div>
+    <!-- 1 Chuyên khoa & Ngày -->
+    <div class="cd">
+      <div class="cd-h"><span class="bg">1</span><h2 class="cd-t">BƯỚC 1: CHỌN CHUYÊN KHOA & NGÀY</h2></div>
+      <div class="r2">
+        <div class="fl"><label class="lb">Chuyên khoa</label><select :value="selectedSpecialty" class="sl" @change="selectedSpecialty = ($event.target as HTMLSelectElement).value"><option value="">Chọn chuyên khoa</option><option v-for="o in specialtyOptions" :key="String(o.value)" :value="o.value">{{ o.label }}</option></select></div>
+        <div class="fl"><label class="lb">Ngày khám</label><input :value="selectedDate" type="date" :min="today" class="ip" @input="selectedDate = ($event.target as HTMLInputElement).value" /></div>
       </div>
+      <div v-if="apiMessage" class="am">{{ apiMessage }}</div>
+    </div>
 
-      <div v-if="!selectedSpecialty" class="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
-        <UserRound class="mx-auto h-8 w-8 text-slate-300" />
-        <p class="mt-2 font-semibold text-slate-900">Chưa chọn chuyên khoa</p>
+    <!-- 2 Bác sĩ -->
+    <div class="cd">
+      <div class="cd-h">
+        <span class="bg">2</span>
+        <div><h2 class="cd-t">BƯỚC 2: CHỌN BÁC SĨ</h2><p class="cd-s">Chi tiết thủ tục và Giam Xem thêm.</p></div>
       </div>
-
-      <div v-else-if="specialtyDoctors.length" class="grid gap-3 lg:grid-cols-2">
-        <article
-          v-for="item in specialtyDoctors"
-          :key="item.doctorId"
-          :class="[
-            'rounded-lg border bg-white p-3 transition duration-200',
-            isSelectedDoctor(item) ? 'border-[#0F52BA] ring-2 ring-blue-100' : 'border-slate-200 hover:border-blue-200 hover:shadow-sm',
-          ]"
-        >
-          <div class="grid gap-4 sm:grid-cols-[128px_1fr]">
-            <div class="flex h-[120px] w-full items-center justify-center overflow-hidden rounded-md bg-blue-50 text-[#0F52BA] ring-1 ring-blue-100">
-              <img :src="doctorAvatarUrl(item)" :alt="doctorName(item)" class="h-full w-full object-cover" />
-            </div>
-            <div class="min-w-0">
-              <div class="flex items-start gap-2">
-                <h3 class="min-w-0 flex-1 truncate text-base font-bold text-slate-950">{{ displayDoctorTitle(item) }}</h3>
-                <span v-if="isSelectedDoctor(item)" class="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-xs font-bold text-[#0F52BA]">Đang chọn</span>
-              </div>
-              <div class="mt-2 space-y-1.5 text-sm text-slate-600">
-                <p class="flex items-start gap-2">
-                  <BadgeCheck class="mt-0.5 h-4 w-4 shrink-0 text-[#0F52BA]" />
-                  <span>{{ item.experienceYears ? `${item.experienceYears} năm` : 'Kinh nghiệm đang cập nhật' }} - {{ item.degree || 'Bác sĩ chuyên khoa' }}</span>
-                </p>
-                <p class="flex items-start gap-2">
-                  <GraduationCap class="mt-0.5 h-4 w-4 shrink-0 text-[#0F52BA]" />
-                  <span class="line-clamp-1">{{ item.description || displayText(item.specialtyName) }}</span>
-                </p>
-              </div>
-              <div class="mt-3 flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
-                <p class="text-sm font-bold text-slate-700">Phí khám: <span class="text-[#0F52BA]">{{ formatCurrency(item.examFee || 0) }}</span></p>
-                <BaseButton
-                  class="w-full sm:w-auto"
-                  :variant="isSelectedDoctor(item) ? 'primary' : 'outline'"
-                  size="sm"
-                  :loading="loadingSlots && isSelectedDoctor(item)"
-                  @click="selectDoctorForSchedule(item)"
-                >
-                  <template #icon><CalendarPlus class="h-4 w-4" /></template>
-                  {{ isSelectedDoctor(item) ? 'Đang chọn bác sĩ này' : 'Đặt lịch với bác sĩ này' }}
-                </BaseButton>
+      <div v-if="!selectedSpecialty" class="eb eb-doc"><UserRound class="ei" /><p>Chưa chọn chuyên khoa</p></div>
+      <div v-else-if="specialtyDoctors.length" class="dg">
+        <div v-for="item in specialtyDoctors" :key="item.doctorId" :class="['dc', isSelectedDoctor(item) ? 'dc-s' : '']">
+          <div class="di">
+            <div class="da"><img :src="doctorAvatarUrl(item)" :alt="doctorName(item)" /></div>
+            <div class="db">
+              <h3 class="dn">{{ displayDoctorTitle(item) }}</h3>
+              <p class="dl"><BadgeCheck class="dk" /><span>{{ item.experienceYears ? `${item.experienceYears} năm` : 'KN cập nhật' }} - {{ item.degree || 'Bác sĩ chuyên khoa' }}</span></p>
+              <p class="dl"><GraduationCap class="dk" /><span>{{ item.description || displayText(item.specialtyName) }}</span></p>
+              <div class="df">
+                <span class="dp">Phí khám: <b>{{ formatCurrency(item.examFee || 0) }}</b></span>
+                <div class="d-btns">
+                  <button class="dbt-info" type="button" @click="activeDetailDoctor = item">THÔNG TIN BÁC SĨ</button>
+                  <button :class="['dbt', isSelectedDoctor(item) ? 'dbt-a' : '']" @click="selectDoctorForSchedule(item)">
+                    {{ isSelectedDoctor(item) ? 'ĐANG CHỌN BÁC SĨ NÀY' : 'ĐẶT LỊCH VỚI BÁC SỸ NÀY' }}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </article>
+        </div>
       </div>
+      <div v-else class="eb eb-doc"><UserRound class="ei" /><p>Chưa có bác sĩ phù hợp</p></div>
+    </div>
 
-      <div v-else class="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
-        <UserRound class="mx-auto h-8 w-8 text-slate-300" />
-        <p class="mt-2 font-semibold text-slate-900">Chưa có bác sĩ phù hợp</p>
+    <!-- 3 Chọn giờ -->
+    <div class="cd">
+      <div class="cd-h">
+        <span class="bg">3</span>
+        <div><h2 class="cd-t">BƯỚC 3: CHỌN GIỜ</h2><p class="cd-s">{{ doctor ? `Bác sĩ: ${displayDoctorTitle(doctor)} · Ngày ${formatDisplayDate(selectedDate)}` : 'Chưa chọn bác sĩ' }}</p></div>
+      </div>
+      <SlotPicker v-model="selectedSlot" :slots="slots" :all-slots="displaySlots" :booked-slots="bookedSlots" :loading="loadingSlots" :empty-message="slotEmptyMessage" />
+      <div v-if="doctor" class="nr">
+        <button class="nb nb-b" @click="goBackFromStep3"><ChevronLeft class="ni" /> Quay lại</button>
+        <button class="nb nb-n" :disabled="!selectedSlot" @click="goToStep4">Tiếp theo <ChevronRight class="ni" /></button>
       </div>
     </div>
 
-    <div ref="slotControls" class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-      <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div class="flex items-start gap-2">
-          <span class="flex h-6 w-6 items-center justify-center rounded-md bg-[#0F52BA] text-sm font-bold text-white">3</span>
-          <div>
-            <h2 class="text-sm font-bold uppercase text-slate-900">Chọn giờ</h2>
-            <p class="mt-0.5 text-xs font-semibold text-slate-500">{{ doctor ? `Bác sĩ: ${displayDoctorTitle(doctor)} · Ngày ${formatDisplayDate(selectedDate)}` : 'Chưa chọn bác sĩ' }}</p>
-          </div>
-        </div>
-        <div v-if="doctor" class="flex items-center gap-3 text-xs font-bold">
-          <span class="inline-flex items-center gap-1.5 text-slate-500"><span class="h-3 w-3 rounded border border-slate-200 bg-white"></span>Còn trống</span>
-          <span class="inline-flex items-center gap-1.5 text-rose-600"><span class="h-3 w-3 rounded border border-rose-300 bg-rose-50"></span>Đã có lịch</span>
-        </div>
-      </div>
-      <div class="rounded-lg border border-slate-200 bg-white p-3">
-        <SlotPicker
-          v-model="selectedSlot"
-          title="Giờ khám còn trống"
-          :slots="slots"
-          :all-slots="displaySlots"
-          :booked-slots="bookedSlots"
-          :loading="loadingSlots"
-          :empty-message="slotEmptyMessage"
-        />
-      </div>
-    </div>
-
-    <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-      <div class="mb-3 flex items-start gap-2">
-        <span class="flex h-6 w-6 items-center justify-center rounded-md bg-[#0F52BA] text-sm font-bold text-white">4</span>
-        <div>
-          <h2 class="text-sm font-bold uppercase text-slate-900">Thông tin bệnh nhân</h2>
-          <p class="mt-0.5 text-xs font-semibold text-[#0F52BA]">Kiểm tra và xác nhận thông tin.</p>
-        </div>
+    <!-- 4 Thông tin -->
+    <div class="cd">
+      <div class="cd-h">
+        <span class="bg">4</span>
+        <div><h2 class="cd-t">BƯỚC 4: THÔNG TIN BỆNH NHÂN</h2><p class="cd-sb">Kiểm tra và xác nhận thông tin.</p></div>
       </div>
       <AppointmentForm
         v-if="selectedSlot"
@@ -153,34 +90,24 @@
         :initialPatientName="bookingPatientName"
         :initialPatientPhone="bookingPatientPhone"
         @submit="submitBooking"
+        @back="goBackFromStep4"
       />
-      <div v-else class="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center">
-        <CalendarPlus class="mx-auto h-8 w-8 text-slate-300" />
-        <p class="mt-2 font-semibold text-slate-900">Chọn khung giờ để đặt lịch</p>
-      </div>
+      <div v-else class="eb eb-frm"><CalendarPlus class="ei" /><p>Chọn khung giờ để đặt lịch</p></div>
     </div>
 
-      <Toast
-      :show="toast.show"
-      :title="toast.title"
-      :message="toast.message"
-      :type="toast.type"
-      @close="toast.show = false"
-      />
-    </div>
-  </section>
+    <Toast :show="toast.show" :title="toast.title" :message="toast.message" :type="toast.type" @close="toast.show = false" />
+    <DoctorDetailModal :doctor="activeDetailDoctor" enable-select @close="activeDetailDoctor = null" @select="handleSelectDoctorFromModal" />
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { BadgeCheck, CalendarPlus, CheckCircle2, GraduationCap, UserRound } from 'lucide-vue-next'
+import { BadgeCheck, CalendarPlus, ChevronLeft, ChevronRight, GraduationCap, UserRound } from 'lucide-vue-next'
 import AppointmentForm from '@/components/booking/AppointmentForm.vue'
 import SlotPicker from '@/components/booking/SlotPicker.vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseInput from '@/components/ui/BaseInput.vue'
-import BaseSelect from '@/components/ui/BaseSelect.vue'
 import Toast from '@/components/ui/Toast.vue'
+import DoctorDetailModal from '@/components/booking/DoctorDetailModal.vue'
 import { appointmentApi } from '@/services/appointmentApi'
 import { useAuthStore } from '@/stores/authStore'
 import { getApiErrorMessage } from '@/services/apiClient'
@@ -198,206 +125,136 @@ const selectedSpecialty = ref('')
 const selectedDoctor = ref('')
 const selectedDate = ref(new Date().toISOString().slice(0, 10))
 const selectedSlot = ref('')
+const activeDetailDoctor = ref<Doctor | null>(null)
 const slots = ref<string[]>([])
 const bookedSlots = ref<string[]>([])
 const slotsChecked = ref(false)
 const loadingSlots = ref(false)
 const submitting = ref(false)
 const apiMessage = ref('')
-const slotControls = ref<HTMLElement | null>(null)
-const patientInfoSection = ref<HTMLElement | null>(null)
 const today = new Date().toISOString().slice(0, 10)
-const toast = reactive({
-  show: false,
-  title: '',
-  message: '',
-  type: 'success' as 'success' | 'error',
-})
-const bookingSteps = [
-  { value: 1, label: 'Chọn chuyên khoa' },
-  { value: 2, label: 'Chọn bác sĩ' },
-  { value: 3, label: 'Chọn giờ' },
-  { value: 4, label: 'Thông tin' },
-]
+const toast = reactive({ show: false, title: '', message: '', type: 'success' as 'success' | 'error' })
+const steps = [{ v: 1, t: 'Bước 1' }, { v: 2, t: 'Bước 2' }, { v: 3, t: 'Bước 3' }, { v: 4, t: 'Bước 4' }]
 
-const isPatientBookingRoute = computed(() => route.path.startsWith('/patient'))
-const bookingIntroText = computed(() => isPatientBookingRoute.value
-  ? 'Danh sách bác sĩ, chuyên khoa và khung giờ trống luôn được cập nhật để bạn dễ chọn lịch khám phù hợp.'
-  : 'Dữ liệu bác sĩ, chuyên khoa và lịch trống được đọc từ N1 Appointment Service qua API Gateway.',
-)
-const currentStep = computed(() => {
-  if (selectedSlot.value) return 4
-  if (selectedDoctor.value) return 3
-  if (selectedSpecialty.value) return 2
-  return 1
-})
-
-const specialtyOptions = computed(() =>
-  specialties.value.map((specialty) => ({ label: displayText(specialty.specialtyName), value: specialty.specialtyId })),
-)
-
-const filteredDoctors = computed(() =>
-  selectedSpecialty.value
-    ? doctors.value.filter((doctor) => doctor.specialtyId === Number(selectedSpecialty.value))
-    : doctors.value,
-)
-
+const cur = computed(() => { if (selectedSlot.value) return 4; if (selectedDoctor.value) return 3; if (selectedSpecialty.value) return 2; return 1 })
+const specialtyOptions = computed(() => specialties.value.map((s) => ({ label: displayText(s.specialtyName), value: s.specialtyId })))
+const filteredDoctors = computed(() => selectedSpecialty.value ? doctors.value.filter((d) => d.specialtyId === Number(selectedSpecialty.value)) : doctors.value)
 const specialtyDoctors = computed(() => selectedSpecialty.value ? filteredDoctors.value : [])
-const doctor = computed(() => doctors.value.find((item) => item.doctorId === Number(selectedDoctor.value)))
-const catalogSpecialtyName = computed(() => {
-  if (!selectedSpecialty.value) return 'Tất cả chuyên khoa'
-  return displayText(specialties.value.find((item) => item.specialtyId === Number(selectedSpecialty.value))?.specialtyName)
-    || 'Tất cả chuyên khoa'
-})
+const doctor = computed(() => doctors.value.find((d) => d.doctorId === Number(selectedDoctor.value)))
 const displaySlots = computed(() => mergeSlots(slots.value, bookedSlots.value))
-const slotEmptyMessage = computed(() => {
-  if (!selectedSpecialty.value) return 'Chọn chuyên khoa để xem danh sách bác sĩ phù hợp.'
-  if (!selectedDoctor.value) return 'Chọn bác sĩ để xem lịch trống.'
-  if (!slotsChecked.value) return `Đang sẵn sàng tải lịch cho ${displayDoctorTitle(doctor.value)} vào ngày ${formatDisplayDate(selectedDate.value)}.`
-  return 'Không có slot trống cho bác sĩ/ngày đã chọn. Hãy chọn ngày khác hoặc bác sĩ khác.'
-})
+const slotEmptyMessage = computed(() => { if (!selectedSpecialty.value) return 'Chọn chuyên khoa để xem bác sĩ.'; if (!selectedDoctor.value) return 'Chọn bác sĩ để xem lịch trống.'; if (!slotsChecked.value) return 'Đang tải...'; return 'Không có slot trống.' })
 const bookingPatientId = computed(() => authStore.isPatient ? authStore.user?.patientId : undefined)
 const bookingPatientName = computed(() => authStore.isPatient ? authStore.user?.fullName : '')
 const bookingPatientPhone = computed(() => authStore.isPatient ? authStore.user?.phoneNumber : '')
 
-watch(selectedSpecialty, () => {
-  if (selectedDoctor.value && !filteredDoctors.value.some((item) => item.doctorId === Number(selectedDoctor.value))) {
-    selectedDoctor.value = ''
-  }
-  selectedSlot.value = ''
-  slots.value = []
-  bookedSlots.value = []
-  slotsChecked.value = false
-})
-
-watch([selectedDoctor, selectedDate], ([doctorId, date]) => {
-  selectedSlot.value = ''
-  slots.value = []
-  bookedSlots.value = []
-  slotsChecked.value = false
-  apiMessage.value = ''
-  if (doctorId && date) void findSlots()
-})
-
-watch(selectedSlot, (slot) => {
-  if (!slot) return
-  nextTick(() => {
-    patientInfoSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  })
-})
+watch(selectedSpecialty, () => { if (selectedDoctor.value && !filteredDoctors.value.some((d) => d.doctorId === Number(selectedDoctor.value))) selectedDoctor.value = ''; selectedSlot.value = ''; slots.value = []; bookedSlots.value = []; slotsChecked.value = false })
+watch([selectedDoctor, selectedDate], ([did, date]) => { selectedSlot.value = ''; slots.value = []; bookedSlots.value = []; slotsChecked.value = false; apiMessage.value = ''; if (did && date) void findSlots() })
 
 onMounted(loadCatalog)
 
 async function loadCatalog() {
   apiMessage.value = ''
-  try {
-    const [doctorData, specialtyData] = await Promise.all([
-      appointmentApi.getDoctors(),
-      appointmentApi.getSpecialties(),
-    ])
-    doctors.value = doctorData
-    specialties.value = specialtyData
-    if (!doctorData.length || !specialtyData.length) {
-      apiMessage.value = 'Database chưa có đủ bác sĩ hoặc chuyên khoa để đặt lịch.'
-    }
-  } catch (error) {
-    doctors.value = []
-    specialties.value = []
-    apiMessage.value = getApiErrorMessage(error)
-  }
-
-  const queryDoctorId = Number(route.query.doctorId)
-  if (queryDoctorId) {
-    const queryDoctor = doctors.value.find((item) => item.doctorId === queryDoctorId)
-    if (queryDoctor) {
-      selectedDoctor.value = String(queryDoctor.doctorId)
-      selectedSpecialty.value = String(queryDoctor.specialtyId)
-    }
-  }
+  try { const [dd, sd] = await Promise.all([appointmentApi.getDoctors(), appointmentApi.getSpecialties()]); doctors.value = dd; specialties.value = sd; if (!dd.length || !sd.length) apiMessage.value = 'Chưa có đủ dữ liệu.' } catch (e) { doctors.value = []; specialties.value = []; apiMessage.value = getApiErrorMessage(e) }
+  const qid = Number(route.query.doctorId); if (qid) { const qd = doctors.value.find((d) => d.doctorId === qid); if (qd) { selectedDoctor.value = String(qd.doctorId); selectedSpecialty.value = String(qd.specialtyId) } }
 }
-
 async function findSlots() {
-  if (!selectedDoctor.value || !selectedDate.value) return
-  loadingSlots.value = true
-  selectedSlot.value = ''
-  apiMessage.value = ''
-  try {
-    const [data, booked] = await Promise.all([
-      appointmentApi.getAvailableSlots(Number(selectedDoctor.value), selectedDate.value),
-      appointmentApi.getBookedSlots(Number(selectedDoctor.value), selectedDate.value).catch(() => []),
-    ])
-    slots.value = data
-    bookedSlots.value = booked
-    slotsChecked.value = true
-  } catch (error) {
-    slots.value = []
-    bookedSlots.value = []
-    slotsChecked.value = true
-    apiMessage.value = getApiErrorMessage(error)
-  } finally {
-    loadingSlots.value = false
-  }
+  if (!selectedDoctor.value || !selectedDate.value) return; loadingSlots.value = true; selectedSlot.value = ''; apiMessage.value = ''
+  try { const [d, b] = await Promise.all([appointmentApi.getAvailableSlots(Number(selectedDoctor.value), selectedDate.value), appointmentApi.getBookedSlots(Number(selectedDoctor.value), selectedDate.value).catch(() => [])]); slots.value = d; bookedSlots.value = b; slotsChecked.value = true } catch (e) { slots.value = []; bookedSlots.value = []; slotsChecked.value = true; apiMessage.value = getApiErrorMessage(e) } finally { loadingSlots.value = false }
 }
-
 async function submitBooking(payload: CreateAppointmentRequest) {
   submitting.value = true
-  try {
-    const latestSlots = await appointmentApi.getAvailableSlots(payload.doctorId, payload.appointmentDate)
-    if (!latestSlots.map((slot) => slot.slice(0, 5)).includes(payload.slotTime.slice(0, 5))) {
-      selectedSlot.value = ''
-      await findSlots()
-      throw new Error('Khung giờ này vừa được người khác đặt. Vui lòng chọn giờ khác.')
-    }
-    const appointment = await appointmentApi.createAppointment(payload)
-    toast.title = 'Đặt lịch thành công'
-    toast.message = `Mã lịch hẹn: ${appointment.appointmentId || 'đang cập nhật'}`
-    toast.type = 'success'
-    toast.show = true
-    await findSlots()
-  } catch (error) {
-    toast.title = 'Chưa thể đặt lịch'
-    toast.message = getApiErrorMessage(error)
-    toast.type = 'error'
-    toast.show = true
-  } finally {
-    submitting.value = false
-  }
+  try { const ls = await appointmentApi.getAvailableSlots(payload.doctorId, payload.appointmentDate); if (!ls.map((s) => s.slice(0, 5)).includes(payload.slotTime.slice(0, 5))) { selectedSlot.value = ''; await findSlots(); throw new Error('Khung giờ vừa được đặt.') }; const a = await appointmentApi.createAppointment(payload); toast.title = 'Đặt lịch thành công'; toast.message = `Mã: ${a.appointmentId || '...'}`; toast.type = 'success'; toast.show = true; await findSlots() } catch (e) { toast.title = 'Lỗi'; toast.message = getApiErrorMessage(e); toast.type = 'error'; toast.show = true } finally { submitting.value = false }
 }
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
-}
-
-function doctorName(item?: Doctor | null) {
-  return displayText(item?.doctorName || item?.fullName || '')
-}
-
-function displayDoctorTitle(item?: Doctor | null) {
-  const name = doctorName(item)
-  if (!name) return 'Bác sĩ chưa cập nhật'
-  return name.toLowerCase().startsWith('bs') ? name : `BS. ${name}`
-}
-
-function isSelectedDoctor(item: Doctor) {
-  return Number(selectedDoctor.value) === item.doctorId
-}
-
-function selectDoctorForSchedule(item: Doctor) {
-  const shouldReload = isSelectedDoctor(item)
-  selectedDoctor.value = String(item.doctorId)
-  if (shouldReload) void findSlots()
-  nextTick(() => {
-    slotControls.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  })
-}
-
-function mergeSlots(...groups: string[][]) {
-  return Array.from(new Set(groups.flat().map((slot) => String(slot || '').slice(0, 5)).filter(Boolean))).sort((a, b) => a.localeCompare(b))
-}
-
-function formatDisplayDate(value: string) {
-  if (!value) return ''
-  const [year, month, day] = value.slice(0, 10).split('-')
-  return year && month && day ? `${day}/${month}/${year}` : value
-}
+function goBackFromStep3() { selectedDoctor.value = ''; selectedSlot.value = '' }
+function goBackFromStep4() { selectedSlot.value = '' }
+function goToStep4() {}
+function formatCurrency(v: number) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v) }
+function doctorName(d?: Doctor | null) { return displayText(d?.doctorName || d?.fullName || '') }
+function displayDoctorTitle(d?: Doctor | null) { const n = doctorName(d); if (!n) return 'BS chưa cập nhật'; return n.toLowerCase().startsWith('bs') ? n : `BS. ${n}` }
+function isSelectedDoctor(d: Doctor) { return Number(selectedDoctor.value) === d.doctorId }
+function selectDoctorForSchedule(d: Doctor) { const r = isSelectedDoctor(d); selectedDoctor.value = String(d.doctorId); if (r) void findSlots() }
+function handleSelectDoctorFromModal(d: Doctor) { selectDoctorForSchedule(d); activeDetailDoctor.value = null }
+function mergeSlots(...g: string[][]) { return [...new Set(g.flat().map((s) => String(s||'').slice(0,5)).filter(Boolean))].sort() }
+function formatDisplayDate(v: string) { if (!v) return ''; const [y,m,d] = v.slice(0,10).split('-'); return y&&m&&d ? `${d}/${m}/${y}` : v }
 </script>
+
+<style scoped>
+/* Full-height wrapper that fills the available viewport */
+.bk { display: flex; flex-direction: column; gap: 6px; max-width: 100%; margin: 0 auto; }
+
+/* Header */
+.bk-hdr { text-align: center; padding: 0; }
+.bk-h1 { font-size: 16px; font-weight: 700; color: #1e3a5f; margin: 0; }
+.bk-sub { font-size: 11px; color: #64748b; margin: 1px 0 4px; }
+
+/* Stepper */
+.stp { display: flex; justify-content: center; max-width: 440px; margin: 0 auto; }
+.stp-i { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; }
+.stp-c { display: flex; align-items: center; width: 100%; height: 22px; }
+.stp-l { flex: 1; height: 2px; background: #cbd5e1; transition: background .3s; }
+.stp-la { background: #0F52BA; }
+.stp-d { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; z-index: 1; }
+.stp-dd { background: #0F52BA; color: #fff; border: 1.5px solid #0F52BA; }
+.stp-da { background: #0F52BA; color: #fff; border: 1.5px solid #0F52BA; }
+.stp-dp { background: #fff; color: #0F52BA; border: 1.5px solid #0F52BA; }
+.stp-ck { width: 11px; height: 11px; }
+.stp-t { font-size: 9.5px; font-weight: 600; color: #475569; }
+
+/* Card */
+.cd { background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 12px; }
+.cd-h { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.bg { width: 20px; height: 20px; border-radius: 4px; background: #0F52BA; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.cd-t { font-size: 12.5px; font-weight: 700; color: #0f172a; margin: 0; }
+.cd-s { font-size: 10.5px; color: #64748b; margin: 0; font-weight: 500; }
+.cd-sb { font-size: 10.5px; color: #0F52BA; margin: 0; font-weight: 600; }
+
+/* Step 1 */
+.r2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fl { display: flex; flex-direction: column; gap: 2px; }
+.lb { font-size: 11px; font-weight: 600; color: #334155; }
+.sl, .ip { height: 32px; width: 100%; padding: 0 8px; border: 1px solid #cbd5e1; border-radius: 5px; background: #fff; font-size: 12.5px; color: #0f172a; outline: none; transition: border-color .2s; box-sizing: border-box; }
+.sl { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'/%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 8px center; padding-right: 28px; cursor: pointer; }
+.sl:focus, .ip:focus { border-color: #0F52BA; box-shadow: 0 0 0 2px rgba(15,82,186,.06); }
+.am { margin-top: 4px; padding: 4px 10px; border-radius: 5px; background: #eff6ff; border: 1px solid #bfdbfe; font-size: 11px; color: #1e40af; }
+
+/* Step 2 doctors */
+.dg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 106px; overflow-y: auto; padding-right: 4px; }
+.dc { border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px; transition: border-color .2s; background: #fff; }
+.dc:hover { border-color: #bfdbfe; }
+.dc-s { border-color: #0F52BA !important; background: #f0f7ff; }
+.di { display: flex; gap: 8px; }
+.da { width: 56px; height: 56px; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 2px solid #e8effa; background: #f1f5f9; }
+.da img { width: 100%; height: 100%; object-fit: cover; }
+.db { flex: 1; min-width: 0; }
+.dn { font-size: 12.5px; font-weight: 700; color: #0f172a; margin: 0 0 1px; }
+.dl { display: flex; align-items: center; gap: 2.5px; font-size: 10.5px; color: #475569; margin: 0 0 1px; line-height: 1.25; }
+.dk { width: 11px; height: 11px; color: #0F52BA; flex-shrink: 0; }
+.df { display: flex; align-items: center; justify-content: space-between; margin-top: 3px; padding-top: 3px; border-top: 1px solid #f1f5f9; gap: 4px; }
+.dp { font-size: 11px; font-weight: 600; color: #334155; }
+.dp b { color: #0F52BA; }
+.d-btns { display: flex; gap: 4px; align-items: center; }
+.dbt-info { padding: 3px 8px; border: 1.5px solid #cbd5e1; border-radius: 4px; background: #fff; color: #475569; font-size: 9.5px; font-weight: 700; cursor: pointer; transition: all .2s; white-space: nowrap; }
+.dbt-info:hover { background: #f8fafc; border-color: #94a3b8; color: #0F52BA; }
+.dbt { padding: 3px 8px; border: 1.5px solid #0F52BA; border-radius: 4px; background: #fff; color: #0F52BA; font-size: 9.5px; font-weight: 700; cursor: pointer; transition: all .2s; white-space: nowrap; }
+.dbt:hover { background: #0F52BA; color: #fff; }
+.dbt-a { background: #0F52BA; color: #fff; }
+
+/* Empty */
+.eb { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; background: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 6px; box-sizing: border-box; }
+.ei { width: 16px; height: 16px; color: #cbd5e1; }
+.eb p { margin: 0; font-size: 11px; font-weight: 600; color: #64748b; }
+.eb-doc { height: 96px; }
+.eb-frm { height: 74px; }
+
+/* Nav */
+.nr { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; padding-top: 4px; border-top: 1px solid #f1f5f9; }
+.nb { display: inline-flex; align-items: center; gap: 3px; padding: 4px 12px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all .2s; }
+.nb:disabled { opacity: .5; cursor: not-allowed; }
+.nb-b { background: #fff; color: #475569; border-color: #e2e8f0; }
+.nb-b:hover:not(:disabled) { background: #f8fafc; }
+.nb-n { background: #0F52BA; color: #fff; border-color: #0F52BA; }
+.nb-n:hover:not(:disabled) { background: #0b4296; }
+.ni { width: 12px; height: 12px; }
+
+@media (max-width: 768px) { .r2, .dg { grid-template-columns: 1fr; } }
+</style>

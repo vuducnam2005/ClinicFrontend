@@ -325,7 +325,7 @@
             </tr>
           </tbody>
         </table>
-
+        
         <!-- Pagination Footer -->
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 p-4 bg-slate-50/50">
           <div class="flex items-center gap-2 text-sm text-slate-500">
