@@ -276,7 +276,7 @@
                   <td class="px-4 py-3 font-mono text-xs font-semibold text-[#0F52BA]">{{ medicalRecordDisplayCode(record) }}</td>
                   <td class="px-4 py-3">
                     <p class="line-clamp-1 font-medium text-slate-800">{{ record.diagnosisText || record.diagnosis || 'Chưa cập nhật chẩn đoán' }}</p>
-                    <p class="mt-1 text-xs text-slate-400">{{ record.doctorName || 'Bác sĩ chưa cập nhật' }}</p>
+                    <p class="mt-1 text-xs text-slate-400">{{ doctorNameForRecord(record) || 'Bác sĩ chưa cập nhật' }}</p>
                   </td>
                   <td class="whitespace-nowrap px-4 py-3 text-slate-600">{{ formatDate(record.examDate || record.createdAt) }}</td>
                   <td class="px-4 py-3">
@@ -334,6 +334,7 @@ import { medicalRecordApi } from '@/services/medicalRecordApi'
 import { getApiErrorMessage } from '@/services/apiClient'
 import type { Appointment } from '@/types/appointment'
 import type { Invoice, Prescription } from '@/types/billing'
+import type { Doctor } from '@/types/doctor'
 import type { MedicalRecord } from '@/types/medicalRecord'
 
 type TimelineData = { visits: unknown[]; medicalRecords: MedicalRecord[]; prescriptions: Prescription[] }
@@ -346,7 +347,21 @@ const appointments = ref<Appointment[]>([])
 const invoices = ref<Invoice[]>([])
 const records = ref<MedicalRecord[]>([])
 const prescriptions = ref<Prescription[]>([])
+const doctorsList = ref<Doctor[]>([])
 const MAX_DASHBOARD_ROWS = 5
+
+const doctorNamesMap: Record<number, string> = {
+  1: 'BS. Nguyễn Văn An',
+  2: 'BS. Trần Thị Bình',
+  3: 'BS. Lê Vân Châu',
+  4: 'BS. Phạm Quốc Dũng',
+  5: 'BS. Hoàng Thu Hà',
+  6: 'BS. Đỗ Minh Khang',
+  7: 'BS. Võ Lan Anh',
+  8: 'BS. Nguyễn Đức Huy',
+  9: 'BS. Bùi Thanh Tâm',
+  10: 'BS. Trịnh Quang Minh',
+}
 
 const displayName = computed(() => authStore.user?.fullName || authStore.user?.username || 'bệnh nhân')
 
@@ -534,7 +549,7 @@ async function loadData() {
       authStore.user.patientId = patientId
     }
 
-    const [appts, timeline, invs, prescriptionList] = await Promise.all([
+    const [appts, timeline, invs, prescriptionList, doctors] = await Promise.all([
       Number.isFinite(patientId) && patientId > 0
         ? appointmentApi.getAppointmentsByPatient(patientId).catch(() => [] as Appointment[])
         : Promise.resolve([] as Appointment[]),
@@ -551,12 +566,14 @@ async function loadData() {
       Number.isFinite(patientId) && patientId > 0
         ? billingApi.getPrescriptions(patientId).catch(() => [] as Prescription[])
         : Promise.resolve([] as Prescription[]),
+      appointmentApi.getDoctors().catch(() => [] as Doctor[]),
     ])
 
     appointments.value = uniqueList(appts, appointmentIdentity)
     records.value = uniqueList(timeline.medicalRecords || [], recordIdentity)
     prescriptions.value = mergePrescriptions(timeline.prescriptions || [], prescriptionList)
     invoices.value = uniqueList(invs, invoiceIdentity)
+    doctorsList.value = doctors
   } catch (err) {
     const status = (err as any)?.response?.status
     error.value = status === 403
@@ -601,6 +618,42 @@ function invoiceIdentity(invoice: Invoice & Record<string, any>) {
 
 function medicalRecordDisplayCode(record: MedicalRecord & Record<string, any>) {
   return String(record.medicalRecordCode || record.medicalRecordIdCode || record.recordIdCode || record.recordId || record.medicalRecordId || record.id || '-')
+}
+
+function getDoctorName(doctorId?: number | string) {
+  if (!doctorId) return ''
+  const docId = Number(doctorId)
+  if (!Number.isFinite(docId) || docId <= 0) return ''
+
+  const appointment = appointments.value.find(item => Number(item.doctorId) === docId)
+  if (appointment?.doctorName) return appointment.doctorName
+
+  const doctor = doctorsList.value.find(item => Number(item.doctorId) === docId)
+  if (doctor?.doctorName || doctor?.fullName) return doctor.doctorName || doctor.fullName || ''
+
+  return doctorNamesMap[docId] || `Bác sĩ #${docId}`
+}
+
+function appointmentForRecord(record?: MedicalRecord | null) {
+  if (!record) return null
+  const appointmentId = Number(record.appointmentId || 0)
+  if (appointmentId) {
+    const direct = appointments.value.find(appointment => Number(appointment.appointmentId) === appointmentId)
+    if (direct) return direct
+  }
+
+  const recordDate = normalizeDateOnly(record.examDate || record.createdAt || record.completedAt)
+  return appointments.value.find((appointment) => {
+    const doctorMatches = !record.doctorId || Number(appointment.doctorId) === Number(record.doctorId)
+    const dateMatches = !recordDate || normalizeDateOnly(appointment.appointmentDate) === recordDate
+    return doctorMatches && dateMatches
+  }) || null
+}
+
+function doctorNameForRecord(record?: MedicalRecord | null) {
+  if (!record) return ''
+  const appointment = appointmentForRecord(record)
+  return record.doctorName || appointment?.doctorName || getDoctorName(record.doctorId || appointment?.doctorId) || ''
 }
 
 function invoiceDisplayCode(invoice: Invoice & Record<string, any>) {

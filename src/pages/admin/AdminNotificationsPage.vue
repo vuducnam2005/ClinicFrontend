@@ -1,5 +1,7 @@
 <template>
   <section class="space-y-6">
+    <FullscreenLoader :show="loadingRecipients" />
+
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
       <div class="border-b border-slate-100 bg-gradient-to-r from-blue-50 via-white to-teal-50 p-6 sm:p-7">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -155,6 +157,7 @@ import { BellRing, RefreshCw, Send, ShieldCheck, UserRound, Users } from 'lucide
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSelect, { type SelectOption } from '@/components/ui/BaseSelect.vue'
+import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
 import Toast from '@/components/ui/Toast.vue'
 import { useNotificationStore, type ManualNotificationPayload } from '@/stores/notificationStore'
 import { getApiErrorMessage } from '@/services/apiClient'

@@ -1,51 +1,48 @@
 <template>
-  <section class="space-y-6">
-    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-card sm:p-7">
-      <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex gap-4">
-          <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
-            <component :is="config.icon || Stethoscope" class="h-6 w-6" />
-          </span>
-          <div>
-            <p class="text-sm font-semibold uppercase tracking-wide text-teal-700">{{ config.service }}</p>
-            <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{{ config.description }}</p>
-          </div>
+  <section class="min-h-screen bg-[#f8fafc] py-2 sm:py-3">
+    <FullscreenLoader :show="loading" />
+
+    <div class="mx-auto max-w-none space-y-6 px-4 sm:px-6 lg:px-8">
+      <header class="flex flex-col gap-3 px-1 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 class="text-[1.75rem] font-bold leading-tight tracking-normal text-slate-950">{{ config.title }}</h1>
+          <p class="mt-1.5 text-[13px] font-medium leading-5 text-slate-500">{{ config.description }}</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <BaseButton v-if="canCreate" @click="openForm()">
-            <template #icon><Plus class="h-4 w-4" /></template>
-            Thêm mới
-          </BaseButton>
-          <BaseButton v-if="key === 'schedules'" variant="outline" @click="openBulkScheduleForm">
-            <template #icon><CalendarPlus class="h-4 w-4" /></template>
+          <button
+            v-if="canCreate"
+            type="button"
+            class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#0F52BA] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#003c90]"
+            @click="openForm()"
+          >
+            <Plus class="h-4 w-4" />
+            {{ createButtonLabel }}
+          </button>
+          <button
+            v-if="key === 'schedules'"
+            type="button"
+            class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-[#0F52BA]"
+            @click="openBulkScheduleForm"
+          >
+            <CalendarPlus class="h-4 w-4" />
             Tạo hàng loạt
-          </BaseButton>
-          <BaseButton variant="outline" :disabled="loading" @click="loadData">
-            <template #icon><RefreshCw class="h-4 w-4" /></template>
+          </button>
+          <button
+            type="button"
+            :disabled="loading"
+            class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-[#0F52BA] disabled:cursor-not-allowed disabled:opacity-60"
+            @click="loadData"
+          >
+            <RefreshCw :class="['h-4 w-4', loading ? 'animate-spin' : '']" />
             Tải lại
-          </BaseButton>
+          </button>
         </div>
-      </div>
-    </div>
+      </header>
 
     <div v-if="note" class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">{{ note }}</div>
     <div v-if="error" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">{{ error }}</div>
 
-    <div v-if="loading && key === 'schedules'" class="space-y-4">
-      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <LoadingSkeleton v-for="item in 5" :key="item" />
-      </div>
-      <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
-        <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <LoadingSkeleton v-for="item in 6" :key="item" />
-        </div>
-      </div>
-    </div>
-    <div v-else-if="loading" class="grid gap-4 md:grid-cols-3">
-      <LoadingSkeleton v-for="item in 3" :key="item" />
-    </div>
-
-    <div v-else-if="key === 'schedules'" class="space-y-4">
+    <div v-if="key === 'schedules'" class="space-y-4">
       <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <div
           v-for="stat in scheduleStats"
@@ -336,136 +333,105 @@
       </div>
     </div>
 
-    <div v-else class="rounded-2xl border border-slate-200 bg-white shadow-card">
-      <div class="grid gap-3 border-b border-slate-100 bg-slate-50/60 p-4 lg:grid-cols-[1fr_auto_auto] lg:items-center">
-        <label class="relative block">
-          <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            v-model="query"
-            class="h-12 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
-            :placeholder="key === 'medicines' ? 'Nhập tên thuốc...' : 'Tìm kiếm'"
-          />
-        </label>
+    <div v-else class="admin-table-shell">
+      <div v-if="key === 'medicines'" class="grid gap-3 border-b border-slate-100 bg-white px-3 py-3 lg:grid-cols-[1fr_auto] lg:items-center">
         <select
-          v-if="key === 'medicines'"
           v-model="medicineTypeFilter"
-          class="h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+          class="h-10 rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 outline-none transition focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
         >
           <option value="">Tất cả chuyên khoa</option>
           <option v-for="option in medicineTypeOptions" :key="String(option.value)" :value="option.value">{{ option.label }}</option>
         </select>
-        <span class="inline-flex h-12 items-center justify-center rounded-xl bg-teal-50 px-4 text-sm font-bold text-teal-700">{{ filteredRows.length }} dòng</span>
+        <span class="inline-flex h-10 items-center justify-center rounded-lg bg-blue-50 px-3 text-xs font-semibold text-[#0F52BA]">{{ filteredRows.length }} dòng</span>
       </div>
-      <div v-if="filteredRows.length" class="overflow-x-auto">
-        <table :class="['min-w-full divide-y divide-slate-100 text-sm', key === 'medicines' ? 'min-w-[1420px] table-fixed' : '']">
-          <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <tr>
-              <th v-for="col in config.columns" :key="col.key" :class="columnHeaderClass(col)">{{ col.label }}</th>
-              <th v-if="hasActions" :class="actionHeaderClass">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            <tr
-              v-for="row in paginatedRows"
-              :key="String(row.id)"
-              :class="['hover:bg-slate-50', key === 'appointments' ? 'cursor-pointer' : '']"
-              @click="openAppointmentDetails(row)"
+      <ATable
+        :columns="adminTableColumns"
+        :custom-row="adminTableCustomRow"
+        :data-source="filteredRows"
+        :pagination="adminTablePagination"
+        :scroll="{ x: adminTableScrollX }"
+        row-key="id"
+        size="middle"
+        @change="handleAdminTableChange"
+      >
+        <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+          <div class="admin-filter">
+            <p class="admin-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+            <AInput
+              :value="selectedKeys[0]"
+              :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+              allow-clear
+              autofocus
+              @change="setSelectedKeys(getFilterKeys($event))"
+              @press-enter="confirm()"
             >
-              <td v-for="col in config.columns" :key="col.key" :class="columnCellClass(col)">
-                <span v-if="col.badge" :class="['inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold', statusClass(row[col.key])]">{{ value(row[col.key]) }}</span>
-                <span v-else :class="[col.strong ? 'font-semibold text-slate-950' : 'text-slate-700', compactTextClass(col)]">{{ value(row[col.key]) }}</span>
-              </td>
-              <td v-if="hasActions" :class="actionCellClass">
-                <div class="flex items-center justify-end gap-2 whitespace-nowrap">
-                  <button
-                    v-for="action in actions(row)"
-                    :key="action.key"
-                    type="button"
-                    :disabled="actingId === row.id || action.key === 'noop'"
-                    :class="['inline-flex h-9 min-w-14 items-center justify-center whitespace-nowrap rounded-lg px-3 text-xs font-semibold transition disabled:opacity-100', action.className]"
-                    @click.stop="runAction(action.key, row)"
-                  >
-                    {{ action.label }}
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="flex flex-col gap-4 border-t border-slate-100 bg-slate-50/50 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div class="flex items-center gap-2 text-sm text-slate-500">
-            <span>Hiển thị</span>
-            <select
-              v-model="itemsPerPage"
-              class="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold outline-none transition focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
-            >
-              <option :value="10">10</option>
-              <option :value="20">20</option>
-              <option :value="50">50</option>
-              <option :value="100">100</option>
-            </select>
-            <span>bản ghi mỗi trang</span>
+              <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+            </AInput>
+            <div class="admin-filter-actions">
+              <AButton size="small" @click="clearAdminFilter(clearFilters, confirm)">Đặt lại</AButton>
+              <AButton type="primary" size="small" @click="confirm()">Áp dụng</AButton>
+            </div>
           </div>
-
-          <div class="text-sm font-medium text-slate-500">
-            Hiển thị {{ Math.min(filteredRows.length, (currentPage - 1) * itemsPerPage + 1) }} - {{ Math.min(filteredRows.length, currentPage * itemsPerPage) }} trên {{ filteredRows.length }} kết quả
+        </template>
+        <template #customFilterIcon="{ filtered, column }">
+          <CheckSquare v-if="column.key === 'status'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+        </template>
+        <template #emptyText>
+          <div class="py-8 text-center">
+            <SearchX class="mx-auto h-9 w-9 text-slate-300" />
+            <p class="mt-3 font-semibold text-slate-800">Chưa có dữ liệu phù hợp</p>
+            <p class="mt-1 text-sm text-slate-500">Thử đổi bộ lọc hoặc tải lại dữ liệu.</p>
           </div>
-
-          <div v-if="totalPages > 1" class="flex items-center gap-1.5">
-            <button
-              type="button"
-              :disabled="currentPage === 1"
-              class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-500"
-              @click="currentPage--"
-            >
-              <ChevronLeft class="h-4 w-4" />
-            </button>
-            <button
-              v-for="page in totalPages"
-              :key="page"
-              type="button"
-              :class="[
-                'h-8 min-w-8 rounded-lg px-2 text-sm font-bold transition',
-                currentPage === page
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800',
-              ]"
-              @click="currentPage = page"
-            >
-              {{ page }}
-            </button>
-            <button
-              type="button"
-              :disabled="currentPage === totalPages"
-              class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-slate-500"
-              @click="currentPage++"
-            >
-              <ChevronRight class="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-      <div v-else class="p-10 text-center">
-        <SearchX class="mx-auto h-10 w-10 text-slate-400" />
-        <h2 class="mt-4 text-lg font-semibold text-slate-950">Chưa có dữ liệu</h2>
-        <p class="mt-2 text-sm text-slate-500">Service có thể chưa có dữ liệu hoặc endpoint chưa sẵn sàng.</p>
-      </div>
+        </template>
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'actions'">
+            <div class="flex items-center justify-center gap-2 whitespace-nowrap">
+              <button
+                v-for="action in actions(record)"
+                :key="action.key"
+                type="button"
+                :disabled="actingId === record.id || action.key === 'noop'"
+                :class="adminActionButtonClass(action)"
+                :title="action.label"
+                @click.stop="runAction(action.key, record)"
+              >
+                <component :is="actionIcon(action.key)" class="h-4 w-4" />
+                <span :class="adminActionTextClass(action.key)">{{ action.label }}</span>
+              </button>
+            </div>
+          </template>
+          <template v-else-if="adminColumnKey(column) === 'id' || adminColumnKey(column) === 'patientCode'">
+            <span class="font-mono text-xs font-semibold text-[#0F52BA]">{{ value(record[adminColumnKey(column)]) }}</span>
+          </template>
+          <template v-else-if="isAdminBadgeColumn(column)">
+            <ATag :bordered="false" :class="['admin-status', statusClass(record[adminColumnKey(column)])]">{{ value(record[adminColumnKey(column)]) }}</ATag>
+          </template>
+          <template v-else>
+            <span :class="[isAdminStrongColumn(column) ? 'font-semibold text-slate-950' : 'text-slate-700', compactTextClassByKey(adminColumnKey(column))]">{{ value(record[adminColumnKey(column)]) }}</span>
+          </template>
+        </template>
+      </ATable>
     </div>
-
-    <div v-if="formOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div class="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
-        <div class="flex items-start justify-between gap-4 border-b border-slate-100 pb-5">
-          <div>
-            <p class="text-sm font-bold uppercase tracking-wide text-teal-700">{{ config.service }}</p>
-            <h2 class="mt-2 text-2xl font-bold text-slate-950 sm:text-3xl">{{ formTitle }}</h2>
+    <Teleport to="body">
+      <Transition name="admin-drawer-fade">
+        <div v-if="formOpen" class="fixed inset-0 z-[120] bg-slate-950/40 backdrop-blur-sm" @click="closeForm"></div>
+      </Transition>
+      <Transition name="admin-drawer-slide">
+        <div v-if="formOpen" :class="['admin-form-drawer', key === 'schedules' ? 'admin-form-drawer--wide' : '']">
+          <div class="flex items-start justify-between gap-4 border-b border-slate-100 bg-white px-5 py-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ config.title }}</p>
+              <h2 class="mt-0.5 text-xl font-bold text-slate-950">{{ formTitle }}</h2>
+              <p class="mt-1 text-xs leading-5 text-slate-500">{{ config.description }}</p>
+            </div>
+            <button type="button" class="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100" @click="closeForm">
+              <X class="h-5 w-5" />
+            </button>
           </div>
-          <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" @click="closeForm">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
 
-        <form v-if="key === 'schedules' && scheduleFormMode === 'single'" class="mt-6 space-y-6" @submit.prevent="submitForm">
+          <div class="flex-1 overflow-y-auto px-5 py-4">
+        <form v-if="key === 'schedules' && scheduleFormMode === 'single'" class="space-y-6" @submit.prevent="submitForm">
           <div v-if="formError" class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">{{ formError }}</div>
 
           <div>
@@ -522,7 +488,7 @@
           </div>
         </form>
 
-        <form v-else-if="key === 'schedules' && scheduleFormMode === 'bulk'" class="mt-6 space-y-6" @submit.prevent="submitBulkSchedules">
+        <form v-else-if="key === 'schedules' && scheduleFormMode === 'bulk'" class="space-y-6" @submit.prevent="submitBulkSchedules">
           <div v-if="formError" class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">{{ formError }}</div>
 
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -604,11 +570,11 @@
           </div>
         </form>
 
-        <form v-else class="mt-6 space-y-6" @submit.prevent="submitForm">
-          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <form v-else class="space-y-5" @submit.prevent="submitForm">
+          <div class="grid gap-4 sm:grid-cols-2">
             <template v-for="field in fields" :key="field.key">
               <BaseSelect v-if="field.type === 'select'" v-model="form[field.key]" :label="field.label" :options="field.options || []" :placeholder="field.placeholder || 'Chọn'" :required="field.required" />
-              <div v-else-if="field.type === 'textarea'" class="col-span-1 sm:col-span-2 lg:col-span-3 block">
+              <div v-else-if="field.type === 'textarea'" class="col-span-1 sm:col-span-2 block">
                 <label class="block">
                   <span class="mb-2 block text-sm font-medium text-slate-700">
                     {{ field.label }} <span v-if="field.required" class="text-rose-600" aria-hidden="true">*</span>
@@ -625,13 +591,15 @@
               <BaseInput v-else v-model="form[field.key]" :label="field.label" :type="field.type || 'text'" :required="field.required" :min="field.type === 'number' ? 0 : undefined" />
             </template>
           </div>
-          <div class="flex justify-end gap-3 border-t border-slate-100 pt-5">
+          <div class="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-5">
             <BaseButton type="button" variant="outline" @click="closeForm">Đóng</BaseButton>
             <BaseButton type="submit" :loading="saving">Lưu</BaseButton>
           </div>
         </form>
-      </div>
-    </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <div v-if="appointmentDetailOpen && selectedAppointment" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
       <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
@@ -689,6 +657,7 @@
         </div>
       </div>
     </div>
+    </div>
   </section>
 </template>
 
@@ -703,13 +672,16 @@ import {
   CalendarRange,
   CalendarX,
   CheckCircle2,
+  CheckSquare,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
   Clock,
   CreditCard,
   FileHeart,
+  LogIn,
   Pill,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
@@ -717,6 +689,7 @@ import {
   Settings,
   Stethoscope,
   Table2,
+  Trash2,
   UserCog,
   UserRound,
   Users,
@@ -725,7 +698,8 @@ import {
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSelect, { type SelectOption } from '@/components/ui/BaseSelect.vue'
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
+import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
+import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from 'ant-design-vue'
 import { appointmentApi } from '@/services/appointmentApi'
 import { authApi } from '@/services/authApi'
 import { billingApi } from '@/services/billingApi'
@@ -814,11 +788,11 @@ const specialtyOptions = ref<SelectOption[]>(fallbackSpecialties.map((s) => ({ l
 const doctorOptions = ref<SelectOption[]>(fallbackDoctors.map((d) => ({ label: d.doctorName, value: d.doctorId })))
 
 const configs: Record<Key, Config> = {
-  doctors: cfg('Quản lý bác sĩ', 'Lịch hẹn & Ca khám', 'Thêm, sửa, xóa thông tin hồ sơ và phòng khám của các bác sĩ.', 'GET/POST/PUT/DELETE /api/doctors', Stethoscope, cols(['id','ID'], ['name','Bác sĩ', false, false, true], ['specialty','Chuyên khoa'], ['degree','Học vị'], ['fee','Phí khám', true], ['phone','SĐT'], ['email','Email'], ['roomNumber','Phòng'], ['status','Trạng thái', false, true])),
-  specialties: cfg('Quản lý chuyên khoa', 'Lịch hẹn & Ca khám', 'Quản lý danh sách các chuyên khoa khám chữa bệnh.', 'GET/POST/PUT/DELETE /api/specialties', Settings, cols(['id','ID'], ['name','Chuyên khoa', false, false, true], ['status','Trạng thái', false, true])),
+  doctors: cfg('Bác sĩ', 'Lịch hẹn & Ca khám', 'Quản lý hồ sơ bác sĩ, chuyên khoa, phòng khám và phí khám.', 'GET/POST/PUT/DELETE /api/doctors', Stethoscope, cols(['id','ID'], ['name','Bác sĩ', false, false, true], ['specialty','Chuyên khoa'], ['degree','Học vị'], ['fee','Phí khám', true], ['phone','SĐT'], ['email','Email'], ['roomNumber','Phòng'], ['status','Trạng thái', false, true])),
+  specialties: cfg('Chuyên khoa', 'Lịch hẹn & Ca khám', 'Quản lý danh sách chuyên khoa đang phục vụ đặt lịch và khám bệnh.', 'GET/POST/PUT/DELETE /api/specialties', Settings, cols(['id','ID'], ['name','Chuyên khoa', false, false, true], ['status','Trạng thái', false, true])),
   schedules: cfg('Lịch làm việc', 'Lịch hẹn & Ca khám', 'Điều phối ca làm việc, slot khám và trạng thái nhận lịch của bác sĩ.', 'GET/POST/PUT/DELETE /api/doctor-schedules', CalendarDays, cols(['id','Mã'], ['doctorName','Bác sĩ', false, false, true], ['specialtyName','Chuyên khoa'], ['workDate','Ngày'], ['weekdayLabel','Thứ'], ['timeRange','Ca'], ['duration','Thời lượng slot', true], ['slotCountLabel','Số slot', true], ['status','Trạng thái', false, true])),
-  patients: cfg('Quản lý bệnh nhân', 'Hồ sơ bệnh án', 'Quản lý hồ sơ thông tin cơ bản và tiền sử của bệnh nhân.', 'GET/POST/PUT/DELETE /api/patients', UserRound, cols(['patientCode','Mã BN'], ['name','Bệnh nhân', false, false, true], ['phone','SĐT'], ['gender','Giới tính'], ['history','Tiền sử'])),
-  appointments: cfg('Quản lý lịch hẹn', 'Lịch hẹn & Ca khám', 'Xác nhận, hủy và hoàn tất lịch hẹn khám của bệnh nhân.', 'GET /api/appointments', ClipboardList, cols(['id','Mã'], ['patientName','Bệnh nhân', false, false, true], ['doctorName','Bác sĩ'], ['dateTime','Ngày giờ'], ['status','Trạng thái', false, true])),
+  patients: cfg('Bệnh nhân', 'Hồ sơ bệnh án', 'Quản lý thông tin bệnh nhân, liên hệ và tiền sử bệnh.', 'GET/POST/PUT/DELETE /api/patients', UserRound, cols(['patientCode','Mã BN'], ['name','Bệnh nhân', false, false, true], ['phone','SĐT'], ['gender','Giới tính'], ['history','Tiền sử'])),
+  appointments: cfg('Lịch hẹn', 'Lịch hẹn & Ca khám', 'Theo dõi, xác nhận, hủy và cập nhật trạng thái lịch khám.', 'GET /api/appointments', ClipboardList, cols(['id','Mã'], ['patientName','Bệnh nhân', false, false, true], ['doctorName','Bác sĩ'], ['dateTime','Ngày giờ'], ['status','Trạng thái', false, true])),
   medicines: cfg('Kho thuốc', 'Kho dược phẩm', 'Quản lý danh mục thuốc, hoạt chất, chuyên khoa, đơn giá và tồn kho.', 'GET/POST/PUT/DELETE /api/medicines', Pill, cols(['id','ID'], ['name','Tên thuốc', false, false, true], ['activeIngredient','Hoạt chất'], ['medicineType','Chuyên khoa'], ['unit','Đơn vị'], ['price','Đơn giá', true], ['stock','Tồn', true], ['minStockLevel','Cảnh báo', true], ['expiryDate','Hạn dùng'], ['stockStatus','Trạng thái', false, true])),
   prescriptions: cfg('Đơn thuốc', 'Hồ sơ bệnh án', 'Theo dõi bệnh án và ghi chú kê đơn của bác sĩ.', 'GET /api/medical-records', FileHeart, cols(['id','Mã BA'], ['patientId','Bệnh nhân', false, false, true], ['diagnosis','Chẩn đoán'], ['doctorNotes','Ghi chú'], ['status','Trạng thái', false, true])),
   bills: cfg('Hóa đơn viện phí', 'Thanh toán viện phí', 'Theo dõi trạng thái thanh toán và thu viện phí của bệnh nhân.', 'GET /api/billing/invoices', CreditCard, cols(['id','Mã HĐ'], ['patientId','Bệnh nhân'], ['appointmentId','Lịch hẹn'], ['amount','Số tiền', true], ['status','Trạng thái', false, true])),
@@ -879,6 +853,55 @@ const paginatedRows = computed(() => {
   const end = start + itemsPerPage.value
   return filteredRows.value.slice(start, end)
 })
+const adminTableScrollX = computed(() => key.value === 'medicines' ? 1420 : Math.max(1080, config.value.columns.length * 150 + (hasActions.value ? 110 : 0)))
+const adminTablePagination = computed(() => ({
+  current: currentPage.value,
+  pageSize: itemsPerPage.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50', '100'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} ${resourceUnitLabel.value}`,
+  locale: { items_per_page: ' / trang' },
+}))
+const adminTableColumns = computed(() => {
+  const columns = config.value.columns.map((col) => {
+    const column: Row = {
+      title: col.label,
+      dataIndex: col.key,
+      key: col.key,
+      width: adminColumnWidth(col),
+      align: col.right ? 'right' : 'left',
+      badge: col.badge,
+      strong: col.strong,
+      customFilterDropdown: !col.badge,
+      onFilter: adminColumnFilter(col.key),
+      sorter: adminColumnSorter(col),
+    }
+
+    if (col.badge) {
+      column.filters = adminColumnFilters(col.key)
+      column.filterReset = 'Đặt lại'
+      column.filterConfirm = 'Áp dụng'
+      delete column.customFilterDropdown
+    }
+
+    return column
+  })
+
+  if (hasActions.value) {
+    columns.push({
+      title: 'Thao tác',
+      key: 'actions',
+      width: 96,
+      align: 'center',
+      fixed: 'right',
+    })
+  }
+
+  return columns
+})
 const canCreate = computed(() => ['doctors', 'specialties', 'schedules', 'patients', 'medicines', 'accounts', 'nurses'].includes(key.value))
 const hasActions = computed(() => ['doctors', 'specialties', 'schedules', 'patients', 'appointments', 'medicines', 'bills', 'accounts', 'nurses'].includes(key.value))
 const canDeleteResource = computed(() => authStore.isAdmin)
@@ -891,6 +914,33 @@ const formTitle = computed(() => {
     return editingRow.value ? 'Cập nhật lịch làm việc' : 'Thêm lịch làm việc'
   }
   return `${editingRow.value ? 'Cập nhật' : 'Thêm mới'} ${config.value.title.toLowerCase()}`
+})
+const createButtonLabel = computed(() => {
+  if (key.value === 'doctors') return 'Thêm bác sĩ'
+  if (key.value === 'specialties') return 'Thêm chuyên khoa'
+  if (key.value === 'patients') return 'Thêm bệnh nhân'
+  if (key.value === 'medicines') return 'Thêm thuốc'
+  if (key.value === 'accounts') return 'Thêm tài khoản'
+  if (key.value === 'nurses') return 'Thêm y tá'
+  if (key.value === 'schedules') return 'Thêm lịch'
+  return 'Thêm mới'
+})
+const paginationSummary = computed(() => {
+  if (!filteredRows.value.length) return `0 ${resourceUnitLabel.value}`
+  const start = Math.min(filteredRows.value.length, (currentPage.value - 1) * itemsPerPage.value + 1)
+  const end = Math.min(filteredRows.value.length, currentPage.value * itemsPerPage.value)
+  return `${start}-${end} trong ${filteredRows.value.length} ${resourceUnitLabel.value}`
+})
+const resourceUnitLabel = computed(() => {
+  if (key.value === 'doctors') return 'bác sĩ'
+  if (key.value === 'specialties') return 'chuyên khoa'
+  if (key.value === 'patients') return 'bệnh nhân'
+  if (key.value === 'appointments') return 'lịch hẹn'
+  if (key.value === 'medicines') return 'thuốc'
+  if (key.value === 'bills') return 'hóa đơn'
+  if (key.value === 'accounts') return 'tài khoản'
+  if (key.value === 'nurses') return 'y tá'
+  return 'dòng'
 })
 
 const medicineTypeOptions = computed<SelectOption[]>(() => {
@@ -1247,6 +1297,33 @@ function actions(row: Row) {
   return a
 }
 function btn(key: Action, label: string, className: string) { return { key, label, className } }
+function actionIcon(action: Action) {
+  const icons: Record<Action, Component> = {
+    edit: Pencil,
+    delete: Trash2,
+    confirm: CheckCircle2,
+    checkin: LogIn,
+    start: Clock,
+    cancel: X,
+    complete: CheckCircle2,
+    pay: CreditCard,
+    noop: CheckCircle2,
+    toggle: Ban,
+  }
+  return icons[action] || CheckCircle2
+}
+function adminActionButtonClass(action: { key: Action; className: string }) {
+  if (action.key === 'edit') {
+    return 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60'
+  }
+  if (action.key === 'delete') {
+    return 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-600 transition hover:border-rose-200 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60'
+  }
+  return ['inline-flex h-9 min-w-14 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60', action.className]
+}
+function adminActionTextClass(action: Action) {
+  return action === 'edit' || action === 'delete' ? 'sr-only' : ''
+}
 async function runAction(action: Action, row: Row) {
   if (action === 'noop') return
   if (action === 'edit') return openForm(row)
@@ -1547,10 +1624,88 @@ function goToCurrentScheduleWeek() {
 
 function cfg(title: string, service: string, description: string, endpoint: string, icon: Component, columns: Column[]): Config { return { title, service, description, endpoint, icon, columns } }
 function cols(...xs: [string, string, boolean?, boolean?, boolean?][]): Column[] { return xs.map(([key,label,right,badge,strong]) => ({ key, label, right, badge, strong })) }
-function columnHeaderClass(col: Column) { return ['px-4 py-3 align-middle', col.right ? 'text-right' : 'text-left', columnWidthClass(col), compactColumnClass(col)] }
-function columnCellClass(col: Column) { return ['px-4 py-4 align-middle', col.right ? 'text-right' : 'text-left', columnWidthClass(col), compactColumnClass(col)] }
+function adminColumnWidth(col: Column) {
+  const widths: Partial<Record<Key, Record<string, number>>> = {
+    doctors: { id: 90, name: 220, specialty: 190, degree: 130, fee: 140, phone: 140, email: 220, roomNumber: 110, status: 150 },
+    specialties: { id: 110, name: 280, status: 150 },
+    patients: { patientCode: 130, name: 240, phone: 150, gender: 120, history: 360 },
+    appointments: { id: 110, patientName: 240, doctorName: 220, dateTime: 210, status: 160 },
+    medicines: { id: 80, name: 260, activeIngredient: 210, medicineType: 180, unit: 110, price: 140, stock: 100, minStockLevel: 120, expiryDate: 140, stockStatus: 150 },
+    bills: { id: 130, patientId: 140, appointmentId: 140, amount: 160, status: 160 },
+    accounts: { id: 120, fullName: 220, username: 160, email: 240, phoneNumber: 150, roleName: 150, status: 150 },
+    nurses: { id: 120, fullName: 220, username: 160, email: 240, phoneNumber: 150, roleName: 150, status: 150 },
+  }
+  return widths[key.value]?.[col.key] || (col.right ? 140 : 180)
+}
+function adminColumnFilter(columnKey: string) {
+  return (filterValue: string | number | boolean, record: Row) =>
+    normalizeSearchText(record[columnKey]).includes(normalizeSearchText(filterValue))
+}
+function adminColumnSorter(col: Column) {
+  if (col.right) {
+    return (a: Row, b: Row) => toNumberAllowZero(a[`${col.key}Value`], a[col.key]) - toNumberAllowZero(b[`${col.key}Value`], b[col.key])
+  }
+  return (a: Row, b: Row) => String(a[col.key] || '').localeCompare(String(b[col.key] || ''), 'vi')
+}
+function adminColumnFilters(columnKey: string) {
+  const values = new Set<string>()
+  rows.value.forEach((row) => {
+    const label = value(row[columnKey])
+    if (label) values.add(label)
+  })
+  return Array.from(values)
+    .sort((a, b) => a.localeCompare(b, 'vi'))
+    .map((item) => ({ text: item, value: item }))
+}
+function handleAdminTableChange(pagination: { current?: number; pageSize?: number }) {
+  currentPage.value = pagination.current || 1
+  itemsPerPage.value = pagination.pageSize || 10
+}
+function adminTableCustomRow(record: Row) {
+  if (key.value !== 'appointments') return {}
+  return {
+    class: 'cursor-pointer',
+    onClick: () => openAppointmentDetails(record),
+  }
+}
+function getFilterKeys(event: Event) {
+  const filterValue = (event.target as HTMLInputElement)?.value || ''
+  return filterValue ? [filterValue] : []
+}
+function clearAdminFilter(clearFilters: (() => void) | undefined, confirm: () => void) {
+  clearFilters?.()
+  confirm()
+}
+function adminColumnKey(column: Row) {
+  return String(column.key || column.dataIndex || '')
+}
+function isAdminBadgeColumn(column: Row) {
+  return Boolean(column.badge)
+}
+function isAdminStrongColumn(column: Row) {
+  return Boolean(column.strong)
+}
+function normalizeSearchText(valueToNormalize: unknown) {
+  return String(valueToNormalize || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim()
+}
+function columnHeaderClass(col: Column) { return ['h-11 px-4 py-2.5 align-middle', col.right ? 'text-right' : 'text-left', columnWidthClass(col), compactColumnClass(col)] }
+function columnCellClass(col: Column) { return ['h-[58px] px-4 py-3 align-middle', col.right ? 'text-right' : 'text-left', columnWidthClass(col), compactColumnClass(col)] }
 function columnWidthClass(col: Column) {
-  if (key.value !== 'medicines') return ''
+  if (key.value !== 'medicines') {
+    const commonWidths: Partial<Record<Key, Record<string, string>>> = {
+      doctors: { id: 'w-24', name: 'w-64', specialty: 'w-52', degree: 'w-36', fee: 'w-36', phone: 'w-36', email: 'w-56', roomNumber: 'w-28', status: 'w-36' },
+      specialties: { id: 'w-28', name: 'w-80', status: 'w-36' },
+      patients: { patientCode: 'w-32', name: 'w-72', phone: 'w-40', gender: 'w-32', history: 'w-[360px]' },
+      appointments: { id: 'w-28', patientName: 'w-72', doctorName: 'w-64', dateTime: 'w-56', status: 'w-40' },
+    }
+    return commonWidths[key.value]?.[col.key] || ''
+  }
   const widths: Record<string, string> = {
     id: 'w-16',
     name: 'w-64',
@@ -1567,8 +1722,9 @@ function columnWidthClass(col: Column) {
 }
 function compactColumnClass(col: Column) { return key.value === 'medicines' && ['id', 'unit', 'price', 'stock', 'minStockLevel', 'expiryDate', 'stockStatus'].includes(col.key) ? 'whitespace-nowrap' : '' }
 function compactTextClass(col: Column) { return key.value === 'medicines' && ['medicineType', 'activeIngredient'].includes(col.key) ? 'break-words leading-6' : '' }
-const actionHeaderClass = computed(() => ['px-4 py-3 text-right align-middle', key.value === 'medicines' ? 'sticky right-0 z-20 w-36 bg-slate-50 shadow-[-12px_0_18px_-18px_rgba(15,23,42,0.6)]' : ''])
-const actionCellClass = computed(() => ['px-4 py-4 text-right align-middle', key.value === 'medicines' ? 'sticky right-0 z-10 w-36 bg-white shadow-[-12px_0_18px_-18px_rgba(15,23,42,0.6)]' : ''])
+function compactTextClassByKey(columnKey: string) { return key.value === 'medicines' && ['medicineType', 'activeIngredient'].includes(columnKey) ? 'break-words leading-6' : '' }
+const actionHeaderClass = computed(() => ['sticky right-0 z-20 h-11 w-32 bg-slate-50 px-4 py-2.5 text-center align-middle shadow-[-12px_0_18px_-18px_rgba(15,23,42,0.65)]'])
+const actionCellClass = computed(() => ['sticky right-0 z-10 h-[58px] w-32 bg-white px-4 py-3 text-center align-middle shadow-[-12px_0_18px_-18px_rgba(15,23,42,0.65)]'])
 
 function scheduleViewTabClass(tab: ScheduleTab) {
   return [
@@ -1822,3 +1978,328 @@ const DetailItem = (props: { label: string; value: unknown; badge?: boolean }) =
     : h('p', { class: 'mt-2 text-sm font-semibold leading-6 text-slate-800' }, value(props.value)),
 ])
 </script>
+
+<style scoped>
+.admin-form-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 121;
+  display: flex;
+  width: min(100vw, 42rem);
+  height: 100vh;
+  height: 100dvh;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: -24px 0 54px rgb(15 23 42 / 0.18);
+}
+
+.admin-form-drawer--wide {
+  width: min(100vw, 56rem);
+}
+
+.admin-drawer-slide-enter-active,
+.admin-drawer-slide-leave-active {
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease;
+}
+
+.admin-drawer-slide-enter-from,
+.admin-drawer-slide-leave-to {
+  opacity: 0.98;
+  transform: translateX(100%);
+}
+
+.admin-drawer-slide-enter-to,
+.admin-drawer-slide-leave-from {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.admin-drawer-fade-enter-active,
+.admin-drawer-fade-leave-active {
+  transition: opacity 220ms ease;
+}
+
+.admin-drawer-fade-enter-from,
+.admin-drawer-fade-leave-to {
+  opacity: 0;
+}
+
+.admin-drawer-fade-enter-to,
+.admin-drawer-fade-leave-from {
+  opacity: 1;
+}
+
+.admin-table-shell {
+  overflow: hidden;
+  border: 1px solid #e5eaf1;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgb(15 23 42 / 0.035);
+}
+
+.admin-table-shell table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.admin-filter {
+  width: 270px;
+  padding: 16px;
+  border: 1px solid #e8edf3;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 14px 36px rgb(15 23 42 / 0.1);
+}
+
+.admin-filter-title {
+  margin-bottom: 10px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.admin-filter :deep(.ant-input-affix-wrapper),
+.admin-filter :deep(.ant-input) {
+  font-size: 12px;
+}
+
+.admin-filter :deep(.ant-input-affix-wrapper) {
+  height: 38px;
+  padding-inline: 11px;
+  border-color: #dfe5ec;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.admin-filter :deep(.ant-input-affix-wrapper:hover),
+.admin-filter :deep(.ant-input-affix-wrapper-focused) {
+  border-color: #93b4e6;
+  box-shadow: 0 0 0 3px rgb(15 82 186 / 0.08);
+}
+
+.admin-filter-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.admin-filter :deep(.ant-btn) {
+  height: 34px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.admin-filter :deep(.ant-btn-primary) {
+  background: #0f52ba;
+  box-shadow: none;
+}
+
+.admin-filter :deep(.ant-btn-primary:hover) {
+  background: #003c90;
+}
+
+:global(.ant-table-filter-dropdown .admin-filter) {
+  margin: -4px;
+}
+
+:global(.ant-table-filter-dropdown .ant-dropdown-menu-title-content),
+:global(.ant-table-filter-dropdown .ant-checkbox-wrapper) {
+  font-size: 12px;
+  font-weight: 400;
+}
+
+:global(.ant-table-filter-dropdown-btns .ant-btn) {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+:deep(.admin-table-shell .ant-table) {
+  color: #334155;
+  font-size: 13px;
+}
+
+:deep(.admin-table-shell .ant-table-thead > tr > th) {
+  height: 44px;
+  padding-block: 10px;
+  border-bottom: 1px solid #e8edf3;
+  background: #f9fbfd;
+  color: #64748b;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+:deep(.admin-table-shell .ant-table-tbody > tr > td) {
+  height: 58px;
+  padding-block: 11px;
+  border-bottom-color: #eef2f7;
+}
+
+:deep(.admin-table-shell .ant-table-tbody > tr:last-child > td) {
+  border-bottom: 0;
+}
+
+:deep(.admin-table-shell .ant-table-tbody > tr:hover > td) {
+  background: #f7faff;
+}
+
+:deep(.admin-table-shell .ant-table-tbody > tr > td.ant-table-cell-fix-right),
+:deep(.admin-table-shell .ant-table-thead > tr > th.ant-table-cell-fix-right) {
+  background: #ffffff;
+}
+
+:deep(.admin-table-shell .ant-table-thead > tr > th.ant-table-cell-fix-right) {
+  background: #f9fbfd;
+}
+
+:deep(.admin-table-shell .ant-table-tbody > tr:hover > td.ant-table-cell-fix-right) {
+  background: #f7faff;
+}
+
+:deep(.admin-table-shell .ant-table-cell-fix-right-first::after) {
+  box-shadow: inset -8px 0 8px -8px rgb(15 23 42 / 0.16);
+}
+
+:deep(.admin-table-shell .ant-table-column-sorter),
+:deep(.admin-table-shell .ant-table-filter-trigger) {
+  color: #94a3b8;
+  opacity: 0.45;
+  transition: color 160ms ease, opacity 160ms ease;
+}
+
+:deep(.admin-table-shell th:hover .ant-table-column-sorter),
+:deep(.admin-table-shell th:hover .ant-table-filter-trigger),
+:deep(.admin-table-shell .ant-table-filter-trigger.active) {
+  opacity: 1;
+}
+
+:deep(.admin-table-shell .ant-table-filter-trigger:hover),
+:deep(.admin-table-shell .ant-table-filter-trigger.active),
+:deep(.admin-table-shell .ant-table-column-sorter-up.active),
+:deep(.admin-table-shell .ant-table-column-sorter-down.active) {
+  color: #0f52ba;
+}
+
+:deep(.admin-table-shell .ant-pagination) {
+  min-height: 58px;
+  margin: 0;
+  padding: 13px 16px;
+  border-top: 1px solid #eef2f7;
+  background: #fbfcfe;
+  gap: 4px;
+}
+
+:deep(.admin-table-shell .ant-pagination-total-text) {
+  margin-right: auto;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 30px;
+}
+
+:deep(.admin-table-shell .ant-pagination-item),
+:deep(.admin-table-shell .ant-pagination-prev .ant-pagination-item-link),
+:deep(.admin-table-shell .ant-pagination-next .ant-pagination-item-link) {
+  min-width: 30px;
+  height: 30px;
+  margin-inline-end: 0;
+  border-color: transparent;
+  border-radius: 8px;
+  background: transparent;
+  line-height: 28px;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+:deep(.admin-table-shell .ant-pagination-item:hover),
+:deep(.admin-table-shell .ant-pagination-prev:not(.ant-pagination-disabled) .ant-pagination-item-link:hover),
+:deep(.admin-table-shell .ant-pagination-next:not(.ant-pagination-disabled) .ant-pagination-item-link:hover) {
+  border-color: transparent;
+  background: #eaf2ff;
+  color: #0f52ba;
+}
+
+:deep(.admin-table-shell .ant-pagination-item-active) {
+  border-color: transparent;
+  background: #0f52ba;
+  box-shadow: 0 4px 12px rgb(15 82 186 / 0.2);
+}
+
+:deep(.admin-table-shell .ant-pagination-item-active:hover) {
+  border-color: transparent;
+  background: #003c90;
+}
+
+:deep(.admin-table-shell .ant-pagination-item-active a),
+:deep(.admin-table-shell .ant-pagination-item-active:hover a),
+:deep(.admin-table-shell .ant-pagination-item-active:focus a) {
+  color: #ffffff;
+}
+
+:deep(.admin-table-shell .ant-pagination-options) {
+  margin-inline-start: 8px;
+}
+
+:deep(.admin-table-shell .ant-pagination-options .ant-select-selector) {
+  height: 30px;
+  border-color: #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: none;
+  font-size: 12px;
+}
+
+:deep(.admin-table-shell .ant-pagination-options .ant-select-selection-item) {
+  line-height: 28px;
+}
+
+:deep(.admin-status) {
+  margin: 0;
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.admin-table-shell thead th {
+  border-bottom: 1px solid #e8edf3;
+}
+
+.admin-table-shell tbody td {
+  border-bottom: 1px solid #eef2f7;
+}
+
+.admin-table-shell tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-table-shell tbody tr:hover td {
+  background: #f7faff;
+}
+
+.admin-table-shell tbody tr:hover td:last-child {
+  background: #f7faff;
+}
+
+.admin-table-shell ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.admin-table-shell ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.admin-table-shell ::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #94a3b8;
+}
+
+.admin-table-shell ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+</style>
