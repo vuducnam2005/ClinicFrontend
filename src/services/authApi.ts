@@ -88,6 +88,17 @@ export interface UpdateUserRequest {
   status?: string
 }
 
+export interface ChangePasswordRequest {
+  currentPassword: string
+  newPassword: string
+  confirmPassword: string
+}
+
+export interface ResetPasswordRequest {
+  newPassword: string
+  confirmPassword: string
+}
+
 export const authApi = {
   async login(payload: LoginRequest) {
     const identifier = payload.identifier.trim()
@@ -143,6 +154,11 @@ export const authApi = {
     return normalizeUser(readApiResponse<any>(response.data))
   },
 
+  async changePassword(payload: ChangePasswordRequest) {
+    const response = await client.put('/api/auth/profile/password', payload)
+    return response.data
+  },
+
   async getUsers() {
     try {
       const response = await client.get('/api/auth/users')
@@ -185,6 +201,11 @@ export const authApi = {
       status: payload.status || 'Active',
     })
     return normalizeUser(readApiResponse<any>(response.data))
+  },
+
+  async resetUserPassword(id: string | number, payload: ResetPasswordRequest) {
+    const response = await client.put(`/api/auth/users/${id}/password`, payload)
+    return response.data
   },
 
   async deleteUser(id: string | number) {

@@ -625,6 +625,43 @@
 
     <Teleport to="body">
       <Transition name="admin-confirm-fade">
+        <div v-if="passwordResetOpen" class="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" @click="closePasswordReset">
+          <form class="w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.24)]" @click.stop @submit.prevent="submitPasswordReset">
+            <div class="flex items-start gap-4 border-b border-slate-100 px-5 py-4">
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#0F52BA]">
+                <KeyRound class="h-5 w-5" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-xs font-semibold text-slate-400">Bảo mật tài khoản</p>
+                <h2 class="mt-1 text-lg font-bold text-slate-950">Đặt lại mật khẩu</h2>
+                <p class="mt-1 truncate text-sm text-slate-500">{{ passwordResetTarget?.fullName || passwordResetTarget?.username }}</p>
+              </div>
+              <button type="button" :disabled="saving" class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-60" @click="closePasswordReset">
+                <X class="h-4 w-4" />
+              </button>
+            </div>
+
+            <div class="space-y-4 px-5 py-5">
+              <div v-if="passwordResetError" class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm font-medium text-rose-700">{{ passwordResetError }}</div>
+              <BaseInput v-model="passwordResetForm.newPassword" label="Mật khẩu mới" type="password" required />
+              <BaseInput v-model="passwordResetForm.confirmPassword" label="Xác nhận mật khẩu mới" type="password" required />
+              <p class="text-xs leading-5 text-slate-500">Mật khẩu cần tối thiểu 6 ký tự. Người dùng sẽ đăng nhập bằng mật khẩu mới ngay sau khi cập nhật.</p>
+            </div>
+
+            <div class="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:flex-row sm:justify-end">
+              <button type="button" :disabled="saving" class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60" @click="closePasswordReset">Hủy</button>
+              <button type="submit" :disabled="saving" class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#0F52BA] px-4 text-sm font-semibold text-white transition hover:bg-[#003c90] disabled:cursor-not-allowed disabled:opacity-60">
+                <KeyRound class="h-4 w-4" />
+                {{ saving ? 'Đang cập nhật...' : 'Cập nhật mật khẩu' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <Transition name="admin-confirm-fade">
         <div v-if="deleteConfirmOpen" class="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" @click="closeDeleteConfirm">
           <div class="admin-confirm-card w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.24)]" @click.stop>
             <div class="flex items-start gap-4 border-b border-slate-100 px-5 py-4">
@@ -747,6 +784,7 @@ import {
   Clock,
   CreditCard,
   FileHeart,
+  KeyRound,
   LogIn,
   Pill,
   Pencil,
@@ -790,7 +828,7 @@ import { displayText } from '@/utils/displayText'
 
 type Key = 'doctors' | 'specialties' | 'schedules' | 'patients' | 'appointments' | 'medicines' | 'prescriptions' | 'bills' | 'accounts' | 'nurses' | 'reports'
 type Row = Record<string, any>
-type Action = 'edit' | 'delete' | 'confirm' | 'checkin' | 'start' | 'cancel' | 'complete' | 'pay' | 'noop' | 'toggle' | 'lock' | 'unlock'
+type Action = 'edit' | 'delete' | 'confirm' | 'checkin' | 'start' | 'cancel' | 'complete' | 'pay' | 'noop' | 'toggle' | 'lock' | 'unlock' | 'password'
 type ScheduleTab = 'week' | 'table'
 type ScheduleQuickRange = 'today' | 'week' | 'month' | 'clear'
 type SchedulePresetKey = 'custom' | 'morning' | 'afternoon' | 'evening'
@@ -824,6 +862,7 @@ const toast = reactive({
 })
 const formOpen = ref(false)
 const deleteConfirmOpen = ref(false)
+const passwordResetOpen = ref(false)
 const editingRow = ref<Row | null>(null)
 const form = reactive<Record<string, string>>({})
 const formError = ref('')
@@ -831,6 +870,12 @@ const medicineTypeFilter = ref('')
 const appointmentDetailOpen = ref(false)
 const selectedAppointmentRow = ref<Row | null>(null)
 const pendingDeleteRow = ref<Row | null>(null)
+const passwordResetTarget = ref<Row | null>(null)
+const passwordResetError = ref('')
+const passwordResetForm = reactive({
+  newPassword: '',
+  confirmPassword: '',
+})
 const hiddenAppointmentIds = ref<Set<string>>(readHiddenAppointmentIds())
 
 const scheduleTab = ref<ScheduleTab>('week')
@@ -944,7 +989,7 @@ const paginatedRows = computed(() => {
   const end = start + itemsPerPage.value
   return filteredRows.value.slice(start, end)
 })
-const adminActionsWidth = computed(() => ['accounts', 'appointments'].includes(key.value) ? 132 : 96)
+const adminActionsWidth = computed(() => key.value === 'accounts' ? 176 : key.value === 'appointments' ? 132 : 96)
 const adminTableScrollX = computed(() => key.value === 'medicines' ? 1420 : Math.max(1080, config.value.columns.length * 150 + (hasActions.value ? adminActionsWidth.value : 0)))
 const adminTablePagination = computed(() => ({
   current: currentPage.value,
@@ -1286,8 +1331,8 @@ function buildFields(k: Key): Field[] {
     field('medicalHistory','Tiền sử bệnh','textarea'),
   ]
   if (k === 'medicines') return [field('medicineName','Tên thuốc','text',true), field('activeIngredient','Hoạt chất'), field('medicineType','Chuyên khoa/nhóm thuốc','select',false, medicineTypeOptions.value), field('unit','Đơn vị tính','text',true), field('price','Đơn giá','number',true), field('stockQuantity','Tồn kho','number',true), field('minStockLevel','Ngưỡng cảnh báo','number',true), field('expiryDate','Hạn dùng','date'), field('status','Trạng thái','select',true,[{label:'Đang bán',value:'Active'},{label:'Tạm ngưng',value:'Inactive'},{label:'Hết hàng',value:'OutOfStock'}])]
-  if (k === 'accounts') return [field('username','Username','text',true), field('password','Mật khẩu','password',!editingRow.value), field('fullName','Họ tên','text',true), field('email','Email','email',true), field('phoneNumber','Số điện thoại'), field('roleId','Vai trò','select',true,[{label:'Admin',value:RoleId.Admin},{label:'Bác sĩ',value:RoleId.Doctor},{label:'Y tá',value:RoleId.Receptionist},{label:'Bệnh nhân',value:RoleId.Patient}]), field('status','Trạng thái','select',true,[{label:'Đang hoạt động',value:'Active'},{label:'Đã khóa',value:'Locked'}])]
-  if (k === 'nurses') return [field('username','Username','text',true), field('password','Mật khẩu','password',!editingRow.value), field('fullName','Họ tên','text',true), field('email','Email','email',true), field('phoneNumber','Số điện thoại'), field('status','Trạng thái','select',true,[{label:'Đang hoạt động',value:'Active'},{label:'Đã khóa',value:'Locked'}])]
+  if (k === 'accounts') return [field('username','Username','text',true), ...(!editingRow.value ? [field('password','Mật khẩu','password',true)] : []), field('fullName','Họ tên','text',true), field('email','Email','email',true), field('phoneNumber','Số điện thoại'), field('roleId','Vai trò','select',true,[{label:'Admin',value:RoleId.Admin},{label:'Bác sĩ',value:RoleId.Doctor},{label:'Y tá',value:RoleId.Receptionist},{label:'Bệnh nhân',value:RoleId.Patient}]), field('status','Trạng thái','select',true,[{label:'Đang hoạt động',value:'Active'},{label:'Đã khóa',value:'Locked'}])]
+  if (k === 'nurses') return [field('username','Username','text',true), ...(!editingRow.value ? [field('password','Mật khẩu','password',true)] : []), field('fullName','Họ tên','text',true), field('email','Email','email',true), field('phoneNumber','Số điện thoại'), field('status','Trạng thái','select',true,[{label:'Đang hoạt động',value:'Active'},{label:'Đã khóa',value:'Locked'}])]
   return []
 }
 function field(key: string, label: string, type = 'text', required = false, options?: SelectOption[]): Field { return { key, label, type, required, options } }
@@ -1432,6 +1477,7 @@ function actions(row: Row) {
   }
   if (key.value === 'accounts') {
     a.push(btn('edit','Sửa','bg-slate-100 text-slate-700 hover:bg-slate-200'))
+    a.push(btn('password','Đặt lại mật khẩu','bg-blue-50 text-blue-700 hover:bg-blue-100'))
     if (!isAdminAccount(row)) {
       a.push(isLockedAccount(row) ? btn('unlock','Mở khóa','bg-teal-50 text-teal-700 hover:bg-teal-100') : btn('lock','Khóa','bg-amber-50 text-amber-800 hover:bg-amber-100'))
       if (canDeleteResource.value) a.push(btn('delete','Xóa','bg-rose-50 text-rose-700 hover:bg-rose-100'))
@@ -1466,6 +1512,7 @@ function actionIcon(action: Action) {
     toggle: Ban,
     lock: Ban,
     unlock: CheckCircle2,
+    password: KeyRound,
   }
   return icons[action] || CheckCircle2
 }
@@ -1490,14 +1537,18 @@ function adminActionButtonClass(action: { key: Action; className: string }) {
   if (action.key === 'unlock') {
     return 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-teal-100 bg-teal-50 text-teal-700 transition hover:border-teal-200 hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-60'
   }
+  if (action.key === 'password') {
+    return 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-700 transition hover:border-blue-200 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60'
+  }
   return ['inline-flex h-9 min-w-14 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60', action.className]
 }
 function adminActionTextClass(action: Action) {
-  return ['edit', 'delete', 'confirm', 'checkin', 'lock', 'unlock'].includes(action) ? 'sr-only' : ''
+  return ['edit', 'delete', 'confirm', 'checkin', 'lock', 'unlock', 'password'].includes(action) ? 'sr-only' : ''
 }
 async function runAction(action: Action, row: Row) {
   if (action === 'noop') return
   if (action === 'edit') return openForm(row)
+  if (action === 'password') return openPasswordReset(row)
   if (action === 'delete') return openDeleteConfirm(row)
   const wasAvailable = row.isAvailable !== false
   actingId.value = row.id
@@ -1534,6 +1585,51 @@ function closeDeleteConfirm() {
   if (saving.value) return
   deleteConfirmOpen.value = false
   pendingDeleteRow.value = null
+}
+function openPasswordReset(row: Row) {
+  passwordResetTarget.value = row
+  passwordResetForm.newPassword = ''
+  passwordResetForm.confirmPassword = ''
+  passwordResetError.value = ''
+  passwordResetOpen.value = true
+}
+function clearPasswordResetState() {
+  passwordResetOpen.value = false
+  passwordResetTarget.value = null
+  passwordResetError.value = ''
+  passwordResetForm.newPassword = ''
+  passwordResetForm.confirmPassword = ''
+}
+function closePasswordReset() {
+  if (saving.value) return
+  clearPasswordResetState()
+}
+async function submitPasswordReset() {
+  const row = passwordResetTarget.value
+  if (!row) return
+  if (passwordResetForm.newPassword.length < 6) {
+    passwordResetError.value = 'Mật khẩu mới phải có ít nhất 6 ký tự.'
+    return
+  }
+  if (passwordResetForm.newPassword !== passwordResetForm.confirmPassword) {
+    passwordResetError.value = 'Xác nhận mật khẩu mới không khớp.'
+    return
+  }
+
+  saving.value = true
+  passwordResetError.value = ''
+  try {
+    await authApi.resetUserPassword(row.raw?.id || row.id, {
+      newPassword: passwordResetForm.newPassword,
+      confirmPassword: passwordResetForm.confirmPassword,
+    })
+    clearPasswordResetState()
+    note.value = `Đã cập nhật mật khẩu cho tài khoản ${row.username || row.fullName || row.id}.`
+  } catch (apiError) {
+    passwordResetError.value = getApiErrorMessage(apiError)
+  } finally {
+    saving.value = false
+  }
 }
 async function confirmDeleteAction() {
   const row = pendingDeleteRow.value
