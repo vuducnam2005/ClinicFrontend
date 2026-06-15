@@ -41,50 +41,140 @@
               </p>
 
               <div class="mt-6 grid gap-4 sm:grid-cols-2">
-                <InfoItem label="Chuyên khoa" :value="displayText(doctor.specialtyName)">
-                  <Stethoscope class="h-5 w-5" />
-                </InfoItem>
-                <InfoItem label="Học vị" :value="doctor.degree || 'Chưa cập nhật'">
-                  <GraduationCap class="h-5 w-5" />
-                </InfoItem>
-                <InfoItem label="Kinh nghiệm" :value="doctor.experienceYears ? `${doctor.experienceYears} năm` : 'Chưa cập nhật'">
-                  <BadgeCheck class="h-5 w-5" />
-                </InfoItem>
-                <InfoItem label="Phí khám" :value="formatCurrency(doctor.examFee)">
-                  <WalletCards class="h-5 w-5" />
-                </InfoItem>
-                <InfoItem label="Phòng khám" :value="doctor.roomNumber || 'Chưa cập nhật'">
-                  <DoorOpen class="h-5 w-5" />
-                </InfoItem>
-                <InfoItem label="Giới tính" :value="genderLabel(doctor.gender)">
-                  <UserRound class="h-5 w-5" />
-                </InfoItem>
+                <!-- Chuyên khoa -->
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div class="flex items-center gap-3">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                      <Stethoscope class="h-5 w-5" />
+                    </span>
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Chuyên khoa</p>
+                      <p class="mt-1 truncate font-bold text-slate-950">{{ displayText(doctor.specialtyName) }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Học vị -->
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div class="flex items-center gap-3">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                      <GraduationCap class="h-5 w-5" />
+                    </span>
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Học vị</p>
+                      <p class="mt-1 truncate font-bold text-slate-950">{{ doctor.degree || 'Chưa cập nhật' }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Kinh nghiệm -->
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div class="flex items-center gap-3">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                      <BadgeCheck class="h-5 w-5" />
+                    </span>
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Kinh nghiệm</p>
+                      <p class="mt-1 truncate font-bold text-slate-950">{{ doctor.experienceYears ? `${doctor.experienceYears} năm` : 'Chưa cập nhật' }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Phí khám -->
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div class="flex items-center gap-3">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                      <WalletCards class="h-5 w-5" />
+                    </span>
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Phí khám</p>
+                      <p class="mt-1 truncate font-bold text-slate-950">{{ formatCurrency(doctor.examFee) }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Phòng khám -->
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div class="flex items-center gap-3">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                      <DoorOpen class="h-5 w-5" />
+                    </span>
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Phòng khám</p>
+                      <p class="mt-1 truncate font-bold text-slate-950">{{ doctor.roomNumber || 'Chưa cập nhật' }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Giới tính -->
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div class="flex items-center gap-3">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                      <UserRound class="h-5 w-5" />
+                    </span>
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Giới tính</p>
+                      <p class="mt-1 truncate font-bold text-slate-950">{{ genderLabel(doctor.gender) }}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
             <aside class="border-t border-slate-100 bg-slate-50 p-5 sm:p-8 lg:border-l lg:border-t-0">
               <h3 class="text-xl font-semibold text-slate-950">Thông tin liên hệ</h3>
               <div class="mt-5 space-y-3">
-                <ContactRow label="Số điện thoại" :value="doctor.phone || 'Chưa cập nhật'">
-                  <Phone class="h-5 w-5" />
-                </ContactRow>
-                <ContactRow label="Email" :value="doctor.email || 'Chưa cập nhật'">
-                  <Mail class="h-5 w-5" />
-                </ContactRow>
-                <ContactRow label="Ngày sinh" :value="formatDate(doctor.dateOfBirth)">
-                  <CalendarDays class="h-5 w-5" />
-                </ContactRow>
-                <ContactRow label="Mã bác sĩ" :value="formatDoctorId(doctor.doctorId)">
-                  <BadgeCheck class="h-5 w-5" />
-                </ContactRow>
+                <!-- Số điện thoại -->
+                <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                    <Phone class="h-5 w-5" />
+                  </span>
+                  <div class="min-w-0">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Số điện thoại</p>
+                    <p class="mt-1 break-all font-bold text-slate-950">{{ doctor.phone || 'Chưa cập nhật' }}</p>
+                  </div>
+                </div>
+
+                <!-- Email -->
+                <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                    <Mail class="h-5 w-5" />
+                  </span>
+                  <div class="min-w-0">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Email</p>
+                    <p class="mt-1 break-all font-bold text-slate-950">{{ doctor.email || 'Chưa cập nhật' }}</p>
+                  </div>
+                </div>
+
+                <!-- Ngày sinh -->
+                <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                    <CalendarDays class="h-5 w-5" />
+                  </span>
+                  <div class="min-w-0">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Ngày sinh</p>
+                    <p class="mt-1 break-all font-bold text-slate-950">{{ formatDate(doctor.dateOfBirth) }}</p>
+                  </div>
+                </div>
+
+                <!-- Mã bác sĩ -->
+                <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+                    <BadgeCheck class="h-5 w-5" />
+                  </span>
+                  <div class="min-w-0">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Mã bác sĩ</p>
+                    <p class="mt-1 break-all font-bold text-slate-950">{{ formatDoctorId(doctor.doctorId) }}</p>
+                  </div>
+                </div>
               </div>
 
-              <div class="mt-6 rounded-2xl border border-teal-100 bg-white p-4">
+              <div class="mt-6 rounded-2xl border border-teal-100 bg-white p-4 shadow-sm">
                 <p class="text-sm font-semibold text-slate-950">Sẵn sàng đặt lịch</p>
                 <template v-if="enableSelect">
                   <BaseButton class="mt-4 w-full" size="lg" @click="emit('select', doctor)">
                     <template #icon><CalendarPlus class="h-4 w-4" /></template>
-                    Đặt lịch với bác sĩ này   
+                    Đặt lịch với bác sĩ này
                   </BaseButton>
                 </template>
                 <template v-else>
@@ -105,7 +195,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineComponent, h, computed } from 'vue'
+import { computed } from 'vue'
 import {
   BadgeCheck,
   CalendarDays,
@@ -148,40 +238,6 @@ const doctorDescription = computed(() => {
     return `Bác sĩ chuyên khoa có nhiều năm kinh nghiệm công tác trong lĩnh vực ${spec.toLowerCase()}. Bác sĩ luôn tận tâm, chu đáo và cam kết mang lại dịch vụ chăm sóc y tế chất lượng cao, an toàn nhất cho từng bệnh nhân.`
   }
   return desc
-})
-
-const InfoItem = defineComponent({
-  props: {
-    label: { type: String, required: true },
-    value: { type: String, required: true },
-  },
-  setup(props, { slots }) {
-    return () => h('div', { class: 'rounded-2xl border border-slate-200 bg-white p-4' }, [
-      h('div', { class: 'flex items-center gap-3' }, [
-        h('span', { class: 'flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700' }, slots.default?.()),
-        h('div', { class: 'min-w-0' }, [
-          h('p', { class: 'text-xs font-medium uppercase tracking-wide text-slate-400' }, props.label),
-          h('p', { class: 'mt-1 truncate font-semibold text-slate-950' }, props.value),
-        ]),
-      ]),
-    ])
-  },
-})
-
-const ContactRow = defineComponent({
-  props: {
-    label: { type: String, required: true },
-    value: { type: String, required: true },
-  },
-  setup(props, { slots }) {
-    return () => h('div', { class: 'flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4' }, [
-      h('span', { class: 'flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700' }, slots.default?.()),
-      h('div', { class: 'min-w-0' }, [
-        h('p', { class: 'text-xs font-medium uppercase tracking-wide text-slate-400' }, props.label),
-        h('p', { class: 'mt-1 break-all font-semibold text-slate-950' }, props.value),
-      ]),
-    ])
-  },
 })
 
 function doctorName(doctor?: Doctor | null) {
