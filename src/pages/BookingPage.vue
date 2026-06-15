@@ -66,7 +66,7 @@
         <span class="bg">3</span>
         <div><h2 class="cd-t">CHỌN GIỜ</h2><p class="cd-s">{{ doctor ? `Bác sĩ: ${displayDoctorTitle(doctor)} · Ngày ${formatDisplayDate(selectedDate)}` : 'Chưa chọn bác sĩ' }}</p></div>
       </div>
-      <SlotPicker v-model="selectedSlot" :slots="slots" :all-slots="displaySlots" :booked-slots="bookedSlots" :loading="loadingSlots" :empty-message="slotEmptyMessage" />
+      <SlotPicker v-model="selectedSlot" :slots="slots" :all-slots="displaySlots" :booked-slots="bookedSlots" :selected-date="selectedDate" :loading="loadingSlots" :empty-message="slotEmptyMessage" />
       <div v-if="doctor" class="nr">
         <button class="nb nb-b" @click="goBackFromStep3"><ChevronLeft class="ni" /> Quay lại</button>
         <button class="nb nb-n" :disabled="!selectedSlot" @click="goToStep4">Tiếp theo <ChevronRight class="ni" /></button>
