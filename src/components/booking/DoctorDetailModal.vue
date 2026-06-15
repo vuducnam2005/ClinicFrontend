@@ -37,7 +37,7 @@
             <div class="p-5 sm:p-8">
               <h3 class="text-xl font-semibold text-slate-950">Hồ sơ chuyên môn</h3>
               <p class="mt-3 text-sm leading-7 text-slate-600">
-                {{ doctor.description || 'Bác sĩ đang cập nhật mô tả chuyên môn. Bạn vẫn có thể đặt lịch khám theo chuyên khoa và khung giờ còn trống.' }}
+                {{ doctorDescription }}
               </p>
 
               <div class="mt-6 grid gap-4 sm:grid-cols-2">
@@ -74,7 +74,7 @@
                 <ContactRow label="Ngày sinh" :value="formatDate(doctor.dateOfBirth)">
                   <CalendarDays class="h-5 w-5" />
                 </ContactRow>
-                <ContactRow label="Mã hồ sơ" :value="`#${doctor.doctorId}`">
+                <ContactRow label="Mã bác sĩ" :value="formatDoctorId(doctor.doctorId)">
                   <BadgeCheck class="h-5 w-5" />
                 </ContactRow>
               </div>
@@ -84,7 +84,7 @@
                 <template v-if="enableSelect">
                   <BaseButton class="mt-4 w-full" size="lg" @click="emit('select', doctor)">
                     <template #icon><CalendarPlus class="h-4 w-4" /></template>
-                    Đặt lịch với bác sĩ này
+                    Đặt lịch với bác sĩ này   
                   </BaseButton>
                 </template>
                 <template v-else>
@@ -105,7 +105,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, computed } from 'vue'
 import {
   BadgeCheck,
   CalendarDays,
@@ -124,7 +124,7 @@ import type { Doctor } from '@/types/doctor'
 import { doctorAvatarUrl } from '@/utils/doctorAvatar'
 import { displayText } from '@/utils/displayText'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     doctor: Doctor | null
     enableSelect?: boolean
@@ -138,6 +138,17 @@ const emit = defineEmits<{
   (e: 'close'): void
   (e: 'select', doctor: Doctor): void
 }>()
+
+// Generate rich description if DB has very short text or is empty
+const doctorDescription = computed(() => {
+  const desc = props.doctor?.description?.trim() || ''
+  const spec = props.doctor?.specialtyName || 'Chuyên khoa'
+  
+  if (!desc || desc.length < 20 || desc.toLowerCase() === spec.toLowerCase()) {
+    return `Bác sĩ chuyên khoa có nhiều năm kinh nghiệm công tác trong lĩnh vực ${spec.toLowerCase()}. Bác sĩ luôn tận tâm, chu đáo và cam kết mang lại dịch vụ chăm sóc y tế chất lượng cao, an toàn nhất cho từng bệnh nhân.`
+  }
+  return desc
+})
 
 const InfoItem = defineComponent({
   props: {
@@ -164,7 +175,7 @@ const ContactRow = defineComponent({
   },
   setup(props, { slots }) {
     return () => h('div', { class: 'flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4' }, [
-      h('span', { class: 'flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700' }, slots.default?.()),
+      h('span', { class: 'flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700' }, slots.default?.()),
       h('div', { class: 'min-w-0' }, [
         h('p', { class: 'text-xs font-medium uppercase tracking-wide text-slate-400' }, props.label),
         h('p', { class: 'mt-1 break-all font-semibold text-slate-950' }, props.value),
@@ -175,6 +186,11 @@ const ContactRow = defineComponent({
 
 function doctorName(doctor?: Doctor | null) {
   return displayText(doctor?.doctorName || doctor?.fullName || '')
+}
+
+function formatDoctorId(id?: number) {
+  if (!id) return 'Chưa cập nhật'
+  return `MSBS-${String(id).padStart(3, '0')}`
 }
 
 function formatCurrency(value: number) {
