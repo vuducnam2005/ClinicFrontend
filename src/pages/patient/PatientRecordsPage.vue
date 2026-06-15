@@ -81,8 +81,8 @@
           :data-source="filteredRecords"
           :pagination="medicalRecordPagination"
           :row-key="recordIdentity"
-          :scroll="{ x: 1180 }"
           size="middle"
+          table-layout="fixed"
           @change="handleMedicalRecordTableChange"
         >
             <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
@@ -831,7 +831,7 @@ const medicalRecordTableColumns = [
   {
     title: 'Mã BA',
     key: 'code',
-    width: 150,
+    width: 112,
     customFilterDropdown: true,
     onFilter: recordColumnFilter('code'),
     sorter: (a: MedicalRecord, b: MedicalRecord) => recordCode(a).localeCompare(recordCode(b), 'vi'),
@@ -839,7 +839,7 @@ const medicalRecordTableColumns = [
   {
     title: 'Chẩn đoán',
     key: 'diagnosis',
-    width: 300,
+    width: 250,
     customFilterDropdown: true,
     onFilter: recordColumnFilter('diagnosis'),
     sorter: (a: MedicalRecord, b: MedicalRecord) => recordDiagnosis(a).localeCompare(recordDiagnosis(b), 'vi'),
@@ -848,7 +848,7 @@ const medicalRecordTableColumns = [
     title: 'Mã ICD',
     dataIndex: 'diagnosisCode',
     key: 'diagnosisCode',
-    width: 170,
+    width: 146,
     customFilterDropdown: true,
     onFilter: recordColumnFilter('diagnosisCode'),
   },
@@ -856,7 +856,7 @@ const medicalRecordTableColumns = [
     title: 'Ngày tạo',
     dataIndex: 'createdAt',
     key: 'createdAt',
-    width: 170,
+    width: 142,
     customFilterDropdown: true,
     onFilter: recordColumnFilter('createdAt'),
     sorter: (a: MedicalRecord, b: MedicalRecord) => recordTimestamp(a.createdAt) - recordTimestamp(b.createdAt),
@@ -866,7 +866,7 @@ const medicalRecordTableColumns = [
     title: 'Tái khám',
     dataIndex: 'followUpDate',
     key: 'followUpDate',
-    width: 170,
+    width: 136,
     customFilterDropdown: true,
     onFilter: recordColumnFilter('followUpDate'),
     sorter: (a: MedicalRecord, b: MedicalRecord) => recordTimestamp(a.followUpDate) - recordTimestamp(b.followUpDate),
@@ -875,7 +875,7 @@ const medicalRecordTableColumns = [
     title: 'Trạng thái',
     dataIndex: 'status',
     key: 'status',
-    width: 210,
+    width: 156,
     filters: [
       { text: 'Đã hoàn tất', value: 'Đã hoàn tất' },
       { text: 'Bản nháp', value: 'Bản nháp' },
@@ -889,9 +889,8 @@ const medicalRecordTableColumns = [
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 116,
+    width: 104,
     align: 'center' as const,
-    fixed: 'right' as const,
   },
 ]
 
@@ -1617,6 +1616,16 @@ function isPaidInvoice(status?: string) {
   font-size: 13px;
 }
 
+.medical-record-table-shell :deep(.ant-table-container),
+.medical-record-table-shell :deep(.ant-table-content) {
+  overflow-x: hidden !important;
+}
+
+.medical-record-table-shell :deep(.ant-table table) {
+  width: 100% !important;
+  table-layout: fixed !important;
+}
+
 .medical-record-table-shell :deep(.ant-table-thead > tr > th) {
   height: 44px;
   background: #f9fbfd;
@@ -1625,13 +1634,16 @@ function isPaidInvoice(status?: string) {
   font-size: 11.5px;
   font-weight: 650;
   padding-block: 10px;
+  padding-inline: 12px;
 }
 
 .medical-record-table-shell :deep(.ant-table-tbody > tr > td) {
   height: 52px;
   border-bottom-color: #eef2f7;
   padding-block: 11px;
+  padding-inline: 12px;
   vertical-align: middle;
+  overflow-wrap: anywhere;
 }
 
 .medical-record-table-shell :deep(.ant-table-tbody > tr:last-child > td) {
@@ -1754,28 +1766,28 @@ function isPaidInvoice(status?: string) {
 }
 
 .medical-record-action-primary {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #64748b;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #4338ca;
 }
 
 .medical-record-action-primary:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #334155;
+  background: #e0e7ff;
+  border-color: #a5b4fc;
+  color: #3730a3;
   transform: translateY(-1px);
 }
 
 .medical-record-action-muted {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #64748b;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #b45309;
 }
 
 .medical-record-action-muted:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #334155;
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
   transform: translateY(-1px);
 }
 

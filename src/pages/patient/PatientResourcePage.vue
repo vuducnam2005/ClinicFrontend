@@ -169,9 +169,9 @@
         :columns="appointmentTableColumns"
         :data-source="rows"
         :pagination="appointmentPagination"
-        :scroll="{ x: 1460 }"
         row-key="id"
         size="middle"
+        table-layout="fixed"
         @change="handleAppointmentTableChange"
       >
         <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
@@ -233,7 +233,7 @@
           <template v-else-if="column.key === 'actions'">
             <button
               type="button"
-              class="appointment-action-button"
+              class="appointment-action-button appointment-action-appointment"
               title="Xem chi tiết lịch hẹn"
               aria-label="Xem chi tiết lịch hẹn"
               @click="openDetail(record)"
@@ -254,8 +254,8 @@
         :data-source="filteredRows"
         :pagination="prescriptionPagination"
         row-key="id"
-        :scroll="{ x: 1080 }"
         size="middle"
+        table-layout="fixed"
         @change="handlePrescriptionTableChange"
       >
         <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
@@ -293,7 +293,21 @@
             <span class="font-mono text-xs font-semibold text-[#0F52BA]">{{ record.id }}</span>
           </template>
           <template v-else-if="column.key === 'medicine'">
-            <span class="line-clamp-2 text-[13px] font-medium leading-5 text-slate-700" :title="record.medicine">{{ record.medicine }}</span>
+            <div
+              :class="['medicine-chip-group', medicineChipDensityClass(prescriptionMedicineNames(record).length)]"
+              :title="record.medicine"
+            >
+              <button
+                v-for="(medicine, index) in prescriptionMedicineNames(record)"
+                :key="`${record.id}-${medicine}-${index}`"
+                type="button"
+                :class="['medicine-chip-button', medicineChipClass(index)]"
+                :aria-label="medicine"
+              >
+                {{ medicine }}
+              </button>
+              <span v-if="!prescriptionMedicineNames(record).length" class="text-[13px] font-medium text-slate-400">Chưa có thuốc</span>
+            </div>
           </template>
           <template v-else-if="column.key === 'quantity'">
             <span class="text-[13px] font-medium text-slate-600">{{ record.quantity }}</span>
@@ -307,7 +321,7 @@
           <template v-else-if="column.key === 'actions'">
             <button
               type="button"
-              class="appointment-action-button"
+              class="appointment-action-button appointment-action-prescription"
               title="Xem chi tiết đơn thuốc"
               aria-label="Xem chi tiết đơn thuốc"
               @click="openDetail(record)"
@@ -325,8 +339,8 @@
         :data-source="filteredRows"
         :pagination="billPagination"
         :row-key="billRowKey"
-        :scroll="{ x: 1420 }"
         size="middle"
+        table-layout="fixed"
         @change="handleBillTableChange"
       >
         <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
@@ -391,7 +405,7 @@
             <div class="bill-action-group">
               <button
                 type="button"
-                class="appointment-action-button"
+                class="appointment-action-button appointment-action-bill"
                 title="Xem chi tiết viện phí"
                 aria-label="Xem chi tiết viện phí"
                 @click="openDetail(record)"
@@ -730,7 +744,7 @@ const appointmentTableColumns = [
     title: 'Mã lịch',
     dataIndex: 'id',
     key: 'id',
-    width: 130,
+    width: 104,
     customFilterDropdown: true,
     onFilter: appointmentColumnFilter('id'),
   },
@@ -738,7 +752,7 @@ const appointmentTableColumns = [
     title: 'Bác sĩ',
     dataIndex: 'doctorName',
     key: 'doctorName',
-    width: 230,
+    width: 180,
     customFilterDropdown: true,
     onFilter: appointmentColumnFilter('doctorName'),
     sorter: (a: Row, b: Row) => String(a.doctorName || '').localeCompare(String(b.doctorName || ''), 'vi'),
@@ -747,7 +761,7 @@ const appointmentTableColumns = [
     title: 'Chuyên khoa',
     dataIndex: 'specialtyName',
     key: 'specialtyName',
-    width: 190,
+    width: 150,
     customFilterDropdown: true,
     onFilter: appointmentColumnFilter('specialtyName'),
     sorter: (a: Row, b: Row) => String(a.specialtyName || '').localeCompare(String(b.specialtyName || ''), 'vi'),
@@ -756,7 +770,7 @@ const appointmentTableColumns = [
     title: 'Phòng',
     dataIndex: 'room',
     key: 'room',
-    width: 130,
+    width: 94,
     customFilterDropdown: true,
     onFilter: appointmentColumnFilter('room'),
     sorter: (a: Row, b: Row) => String(a.room || '').localeCompare(String(b.room || ''), 'vi'),
@@ -765,7 +779,7 @@ const appointmentTableColumns = [
     title: 'Ngày giờ hẹn',
     dataIndex: 'dateTime',
     key: 'dateTime',
-    width: 210,
+    width: 158,
     sorter: (a: Row, b: Row) => appointmentTimestamp(a) - appointmentTimestamp(b),
     defaultSortOrder: 'descend' as const,
   },
@@ -773,7 +787,7 @@ const appointmentTableColumns = [
     title: 'Lý do khám',
     dataIndex: 'reason',
     key: 'reason',
-    width: 360,
+    width: 260,
     customFilterDropdown: true,
     onFilter: appointmentColumnFilter('reason'),
   },
@@ -781,7 +795,7 @@ const appointmentTableColumns = [
     title: 'Trạng thái',
     dataIndex: 'status',
     key: 'status',
-    width: 150,
+    width: 132,
     filters: [
       { text: 'Đang chờ', value: 'Đang chờ' },
       { text: 'Đã xác nhận', value: 'Đã xác nhận' },
@@ -797,8 +811,7 @@ const appointmentTableColumns = [
   {
     title: 'Thao t\u00e1c',
     key: 'actions',
-    width: 82,
-    fixed: 'right' as const,
+    width: 74,
     align: 'center' as const,
   },
 ]
@@ -820,7 +833,7 @@ const prescriptionTableColumns = [
     title: 'Mã đơn',
     dataIndex: 'id',
     key: 'id',
-    width: 150,
+    width: 124,
     customFilterDropdown: true,
     onFilter: appointmentColumnFilter('id'),
     sorter: (a: Row, b: Row) => String(a.id || '').localeCompare(String(b.id || ''), 'vi'),
@@ -829,7 +842,7 @@ const prescriptionTableColumns = [
     title: 'Thuốc',
     dataIndex: 'medicine',
     key: 'medicine',
-    width: 300,
+    width: 260,
     customFilterDropdown: true,
     onFilter: appointmentColumnFilter('medicine'),
     sorter: (a: Row, b: Row) => String(a.medicine || '').localeCompare(String(b.medicine || ''), 'vi'),
@@ -838,14 +851,14 @@ const prescriptionTableColumns = [
     title: 'Số lượng',
     dataIndex: 'quantity',
     key: 'quantity',
-    width: 140,
+    width: 104,
     sorter: (a: Row, b: Row) => Number(a.quantity || 0) - Number(b.quantity || 0),
   },
   {
     title: 'Ghi chú',
     dataIndex: 'note',
     key: 'note',
-    width: 300,
+    width: 240,
     customFilterDropdown: true,
     onFilter: appointmentColumnFilter('note'),
   },
@@ -853,7 +866,7 @@ const prescriptionTableColumns = [
     title: 'Trạng thái',
     dataIndex: 'status',
     key: 'status',
-    width: 160,
+    width: 140,
     filters: [
       { text: 'Đã thanh toán', value: 'Đã thanh toán' },
       { text: 'Chưa thanh toán', value: 'Chưa thanh toán' },
@@ -868,8 +881,7 @@ const prescriptionTableColumns = [
   {
     title: 'Thao t\u00e1c',
     key: 'actions',
-    width: 82,
-    fixed: 'right' as const,
+    width: 74,
     align: 'center' as const,
   },
 ]
@@ -891,7 +903,7 @@ const billTableColumns = [
     title: 'Mã HĐ',
     dataIndex: 'id',
     key: 'id',
-    width: 130,
+    width: 112,
     customFilterDropdown: true,
     onFilter: billColumnFilter('id'),
     sorter: (a: Row, b: Row) => String(a.id || '').localeCompare(String(b.id || ''), 'vi'),
@@ -900,7 +912,7 @@ const billTableColumns = [
     title: 'Lịch hẹn',
     dataIndex: 'appointmentId',
     key: 'appointmentId',
-    width: 130,
+    width: 104,
     customFilterDropdown: true,
     onFilter: billColumnFilter('appointmentId'),
   },
@@ -908,7 +920,7 @@ const billTableColumns = [
     title: 'Ngày tạo',
     dataIndex: 'createdAt',
     key: 'createdAt',
-    width: 150,
+    width: 132,
     customFilterDropdown: true,
     onFilter: billColumnFilter('createdAt'),
     sorter: (a: Row, b: Row) => dateTimestamp(b.createdAtValue) - dateTimestamp(a.createdAtValue),
@@ -917,7 +929,7 @@ const billTableColumns = [
     title: 'Phí khám',
     dataIndex: 'examFee',
     key: 'examFee',
-    width: 150,
+    width: 124,
     customFilterDropdown: true,
     onFilter: billColumnFilter('examFee'),
     sorter: (a: Row, b: Row) => Number(a.examFeeValue || 0) - Number(b.examFeeValue || 0),
@@ -926,7 +938,7 @@ const billTableColumns = [
     title: 'Tiền thuốc',
     dataIndex: 'medicineTotal',
     key: 'medicineTotal',
-    width: 150,
+    width: 124,
     customFilterDropdown: true,
     onFilter: billColumnFilter('medicineTotal'),
     sorter: (a: Row, b: Row) => Number(a.medicineTotalValue || 0) - Number(b.medicineTotalValue || 0),
@@ -935,7 +947,7 @@ const billTableColumns = [
     title: 'Tổng tiền',
     dataIndex: 'amount',
     key: 'amount',
-    width: 160,
+    width: 138,
     customFilterDropdown: true,
     onFilter: billColumnFilter('amount'),
     sorter: (a: Row, b: Row) => Number(a.amountValue || 0) - Number(b.amountValue || 0),
@@ -944,7 +956,7 @@ const billTableColumns = [
     title: 'Đã trả',
     dataIndex: 'paidAmount',
     key: 'paidAmount',
-    width: 150,
+    width: 124,
     customFilterDropdown: true,
     onFilter: billColumnFilter('paidAmount'),
     sorter: (a: Row, b: Row) => Number(a.paidAmountValue || 0) - Number(b.paidAmountValue || 0),
@@ -953,7 +965,7 @@ const billTableColumns = [
     title: 'Trạng thái',
     dataIndex: 'status',
     key: 'status',
-    width: 170,
+    width: 144,
     filters: [
       { text: 'Đã thanh toán', value: 'Đã thanh toán' },
       { text: 'Chưa thanh toán', value: 'Chưa thanh toán' },
@@ -967,9 +979,8 @@ const billTableColumns = [
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 82,
+    width: 112,
     align: 'center' as const,
-    fixed: 'right' as const,
   },
 ]
 
@@ -1471,16 +1482,35 @@ function mapRecord(item: MedicalRecord): Row {
 
 function mapPrescription(item: Prescription & Record<string, any>): Row {
   const items = item.items || item.Items || []
-  const medicines = items.map((line: any) => line.medicineNameSnapshot || line.MedicineNameSnapshot || line.medicineName || line.MedicineName).filter(Boolean).join(', ')
+  const medicineNames = items.map((line: any) => line.medicineNameSnapshot || line.MedicineNameSnapshot || line.medicineName || line.MedicineName).filter(Boolean)
+  const medicines = medicineNames.join(', ')
   const quantity = items.reduce((total: number, line: any) => total + Number(line.quantity || line.Quantity || 0), 0)
   return {
     id: prescriptionDisplayCode(item),
     medicine: medicines || 'Chưa có thuốc',
+    medicineNames,
     quantity: quantity || '-',
     note: item.note || item.Note || 'Không có ghi chú',
     status: statusLabel(item.status || item.Status),
     raw: item,
   }
+}
+
+function prescriptionMedicineNames(row: Row) {
+  if (Array.isArray(row.medicineNames) && row.medicineNames.length) return row.medicineNames.map(String)
+  const medicineText = String(row.medicine || '').trim()
+  if (!medicineText || medicineText === 'Chưa có thuốc') return []
+  return medicineText.split(',').map((name) => name.trim()).filter(Boolean)
+}
+
+function medicineChipClass(index: number) {
+  return `medicine-chip-${index % 8}`
+}
+
+function medicineChipDensityClass(count: number) {
+  if (count >= 5) return 'medicine-chip-group-dense'
+  if (count >= 3) return 'medicine-chip-group-compact'
+  return 'medicine-chip-group-roomy'
 }
 
 function mapInvoice(item: Invoice & Record<string, any>): Row {
@@ -1865,9 +1895,20 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
   font-size: 13px;
 }
 
+:deep(.appointment-table-shell .ant-table-container),
+:deep(.appointment-table-shell .ant-table-content) {
+  overflow-x: hidden !important;
+}
+
+:deep(.appointment-table-shell .ant-table table) {
+  width: 100% !important;
+  table-layout: fixed !important;
+}
+
 :deep(.appointment-table-shell .ant-table-thead > tr > th) {
   height: 44px;
   padding-block: 10px;
+  padding-inline: 12px;
   border-bottom: 1px solid #e8edf3;
   background: #f9fbfd;
   color: #64748b;
@@ -1876,9 +1917,11 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
 }
 
 :deep(.appointment-table-shell .ant-table-tbody > tr > td) {
-  height: 52px;
-  padding-block: 11px;
+  min-height: 52px;
+  padding-block: 9px;
+  padding-inline: 12px;
   border-bottom-color: #eef2f7;
+  overflow-wrap: anywhere;
 }
 
 :deep(.appointment-table-shell .ant-table-tbody > tr:last-child > td) {
@@ -1996,11 +2039,44 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
   transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
+:deep(.appointment-action-appointment) {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+:deep(.appointment-action-prescription) {
+  border-color: #a5f3fc;
+  background: #ecfeff;
+  color: #0e7490;
+}
+
+:deep(.appointment-action-bill) {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
 :deep(.appointment-action-button:hover) {
-  border-color: #cbd5e1;
-  background: #f1f5f9;
-  color: #334155;
   transform: translateY(-1px);
+}
+
+:deep(.appointment-action-appointment:hover) {
+  border-color: #93c5fd;
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+:deep(.appointment-action-prescription:hover) {
+  border-color: #67e8f9;
+  background: #cffafe;
+  color: #155e75;
+}
+
+:deep(.appointment-action-bill:hover) {
+  border-color: #86efac;
+  background: #dcfce7;
+  color: #166534;
 }
 
 :deep(.appointment-action-button:focus-visible) {
@@ -2034,12 +2110,93 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
   line-height: 18px;
 }
 
+.medicine-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow: visible;
+}
+
+.medicine-chip-button {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  height: 24px;
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.medicine-chip-group-compact {
+  gap: 3px;
+}
+
+.medicine-chip-group-compact .medicine-chip-button {
+  height: 21px;
+  padding-inline: 7px;
+  font-size: 10.75px;
+}
+
+.medicine-chip-group-dense {
+  gap: 3px;
+}
+
+.medicine-chip-group-dense .medicine-chip-button {
+  height: 19px;
+  padding-inline: 6px;
+  font-size: 10px;
+}
+
+.medicine-chip-0 {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.medicine-chip-1 {
+  background: #ecfeff;
+  color: #0e7490;
+}
+
+.medicine-chip-2 {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.medicine-chip-3 {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.medicine-chip-4 {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.medicine-chip-5 {
+  background: #fdf2f8;
+  color: #be185d;
+}
+
+.medicine-chip-6 {
+  background: #fefce8;
+  color: #a16207;
+}
+
+.medicine-chip-7 {
+  background: #f0fdfa;
+  color: #0f766e;
+}
+
 .bill-pay-button {
   align-items: center;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
   border-radius: 7px;
-  color: #475569;
+  color: #c2410c;
   display: inline-flex;
   font-size: 12px;
   font-weight: 650;
@@ -2051,9 +2208,9 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
 }
 
 .bill-pay-button:hover:not(:disabled) {
-  background: #eaf2ff;
-  border-color: #bfdbfe;
-  color: #0f52ba;
+  background: #ffedd5;
+  border-color: #fdba74;
+  color: #9a3412;
   transform: translateY(-1px);
 }
 

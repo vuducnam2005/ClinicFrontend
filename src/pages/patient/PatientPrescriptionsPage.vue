@@ -32,8 +32,8 @@
           :data-source="filteredPrescriptions"
           :pagination="prescriptionPagination"
           :row-key="prescriptionRowKey"
-          :scroll="{ x: 1080 }"
           size="middle"
+          table-layout="fixed"
           @change="handlePrescriptionTableChange"
         >
           <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
@@ -78,7 +78,21 @@
               </div>
             </template>
             <template v-else-if="column.key === 'medicines'">
-              <span class="line-clamp-2 text-[13px] leading-5 text-slate-600" :title="allMedicinesText(record)">{{ displayMedicines(record) }}</span>
+              <div
+                :class="['medicine-chip-group', medicineChipDensityClass(prescriptionMedicineNames(record).length)]"
+                :title="allMedicinesText(record)"
+              >
+                <button
+                  v-for="(medicine, index) in prescriptionMedicineNames(record)"
+                  :key="`${prescriptionRowKey(record)}-${medicine}-${index}`"
+                  type="button"
+                  :class="['medicine-chip-button', medicineChipClass(index)]"
+                  :aria-label="medicine"
+                >
+                  {{ medicine }}
+                </button>
+                <span v-if="!prescriptionMedicineNames(record).length" class="text-[13px] font-medium text-slate-400">Chưa kê thuốc</span>
+              </div>
             </template>
             <template v-else-if="column.key === 'medicineCount'">
               <span class="text-[13px] text-slate-600">{{ prescriptionMedicineCount(record) || '-' }}</span>
@@ -463,7 +477,7 @@ const prescriptionTableColumns = [
   {
     title: 'Mã đơn',
     key: 'code',
-    width: 150,
+    width: 124,
     customFilterDropdown: true,
     onFilter: prescriptionColumnFilter('code'),
     sorter: (a: Prescription, b: Prescription) => prescriptionCode(a).localeCompare(prescriptionCode(b), 'vi'),
@@ -472,7 +486,7 @@ const prescriptionTableColumns = [
     title: 'Ngày kê',
     dataIndex: 'createdAt',
     key: 'createdAt',
-    width: 210,
+    width: 162,
     customFilterDropdown: true,
     onFilter: prescriptionColumnFilter('createdAt'),
     sorter: (a: Prescription, b: Prescription) => prescriptionTimestamp(a) - prescriptionTimestamp(b),
@@ -481,14 +495,14 @@ const prescriptionTableColumns = [
   {
     title: 'Thuốc',
     key: 'medicines',
-    width: 360,
+    width: 270,
     customFilterDropdown: true,
     onFilter: prescriptionColumnFilter('medicines'),
   },
   {
     title: 'Số loại',
     key: 'medicineCount',
-    width: 140,
+    width: 92,
     align: 'center' as const,
     customFilterDropdown: true,
     onFilter: prescriptionColumnFilter('medicineCount'),
@@ -497,7 +511,7 @@ const prescriptionTableColumns = [
   {
     title: 'Trạng thái',
     key: 'status',
-    width: 190,
+    width: 158,
     filters: [
       { text: 'Chờ xử lý', value: 'Chờ xử lý' },
       { text: 'Đang xử lý', value: 'Đang xử lý' },
@@ -514,9 +528,8 @@ const prescriptionTableColumns = [
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 82,
+    width: 74,
     align: 'center' as const,
-    fixed: 'right' as const,
   },
 ]
 
@@ -696,6 +709,16 @@ function allMedicinesText(prescription: Prescription) {
   const names = prescriptionMedicineNames(prescription)
   if (names.length) return names.join(', ')
   return prescription.note || 'Chưa kê thuốc'
+}
+
+function medicineChipClass(index: number) {
+  return `medicine-chip-${index % 8}`
+}
+
+function medicineChipDensityClass(count: number) {
+  if (count >= 5) return 'medicine-chip-group-dense'
+  if (count >= 3) return 'medicine-chip-group-compact'
+  return 'medicine-chip-group-roomy'
 }
 
 const doctorNamesMap: Record<number, string> = {
@@ -980,9 +1003,20 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
   font-size: 13px;
 }
 
+.prescription-table-shell :deep(.ant-table-container),
+.prescription-table-shell :deep(.ant-table-content) {
+  overflow-x: hidden !important;
+}
+
+.prescription-table-shell :deep(.ant-table table) {
+  width: 100% !important;
+  table-layout: fixed !important;
+}
+
 .prescription-table-shell :deep(.ant-table-thead > tr > th) {
   height: 44px;
   padding-block: 10px;
+  padding-inline: 12px;
   border-bottom: 1px solid #e8edf3;
   background: #f9fbfd;
   color: #64748b;
@@ -991,9 +1025,11 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
 }
 
 .prescription-table-shell :deep(.ant-table-tbody > tr > td) {
-  height: 52px;
-  padding-block: 11px;
+  min-height: 52px;
+  padding-block: 9px;
+  padding-inline: 12px;
   border-bottom-color: #eef2f7;
+  overflow-wrap: anywhere;
 }
 
 .prescription-table-shell :deep(.ant-table-tbody > tr:last-child > td) {
@@ -1176,23 +1212,104 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
   line-height: 18px;
 }
 
+.medicine-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow: visible;
+}
+
+.medicine-chip-button {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  height: 24px;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  padding: 0 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.medicine-chip-group-compact {
+  gap: 3px;
+}
+
+.medicine-chip-group-compact .medicine-chip-button {
+  height: 21px;
+  padding-inline: 7px;
+  font-size: 10.75px;
+}
+
+.medicine-chip-group-dense {
+  gap: 3px;
+}
+
+.medicine-chip-group-dense .medicine-chip-button {
+  height: 19px;
+  padding-inline: 6px;
+  font-size: 10px;
+}
+
+.medicine-chip-0 {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.medicine-chip-1 {
+  background: #ecfeff;
+  color: #0e7490;
+}
+
+.medicine-chip-2 {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.medicine-chip-3 {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.medicine-chip-4 {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.medicine-chip-5 {
+  background: #fdf2f8;
+  color: #be185d;
+}
+
+.medicine-chip-6 {
+  background: #fefce8;
+  color: #a16207;
+}
+
+.medicine-chip-7 {
+  background: #f0fdfa;
+  color: #0f766e;
+}
+
 .prescription-action-button {
   display: inline-flex;
   width: 32px;
   height: 32px;
   align-items: center;
   justify-content: center;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #a5f3fc;
   border-radius: 7px;
-  background: #f8fafc;
-  color: #64748b;
+  background: #ecfeff;
+  color: #0e7490;
   transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
 .prescription-action-button:hover {
-  border-color: #cbd5e1;
-  background: #f1f5f9;
-  color: #334155;
+  border-color: #67e8f9;
+  background: #cffafe;
+  color: #155e75;
   transform: translateY(-1px);
 }
 
