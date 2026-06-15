@@ -164,6 +164,16 @@ export const authApi = {
     return readApiResponse<any[]>(response.data).map(normalizeUser)
   },
 
+  async lockUser(id: string | number) {
+    const response = await client.put(`/api/auth/users/${id}/lock`)
+    return response.data
+  },
+
+  async unlockUser(id: string | number) {
+    const response = await client.put(`/api/auth/users/${id}/unlock`)
+    return response.data
+  },
+
   async updateUser(id: string | number, payload: UpdateUserRequest) {
     const response = await client.put(`/api/auth/users/${id}`, {
       fullName: payload.fullName,

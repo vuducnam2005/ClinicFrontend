@@ -39,61 +39,52 @@
         </div>
       </header>
 
-    <div v-if="note" class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">{{ note }}</div>
-    <div v-if="error" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">{{ error }}</div>
-
-    <div v-if="key === 'schedules'" class="space-y-4">
-      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <div
-          v-for="stat in scheduleStats"
-          :key="stat.label"
-          :class="['rounded-2xl border p-4 shadow-sm', scheduleStatToneClass(stat.tone)]"
-        >
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="text-xs font-bold uppercase tracking-wide text-slate-500">{{ stat.label }}</p>
-              <p class="mt-2 text-2xl font-black text-slate-950">{{ stat.value }}</p>
-            </div>
-            <span :class="['flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', scheduleStatIconClass(stat.tone)]">
-              <component :is="stat.icon" class="h-5 w-5" />
-            </span>
-          </div>
+    <div v-if="key === 'schedules'" class="schedule-workspace space-y-4">
+      <div class="schedule-summary">
+        <div v-for="stat in scheduleStats" :key="stat.label" class="schedule-summary-item">
+          <span :class="['schedule-summary-icon', scheduleStatIconClass(stat.tone)]">
+            <component :is="stat.icon" class="h-4 w-4" />
+          </span>
+          <span class="min-w-0">
+            <span class="block text-[11px] font-semibold text-slate-500">{{ stat.label }}</span>
+            <span class="mt-0.5 block text-lg font-bold text-slate-950">{{ stat.value }}</span>
+          </span>
         </div>
       </div>
 
-      <div class="rounded-2xl border border-slate-200 bg-white shadow-card">
+      <div class="schedule-filter-panel">
         <div class="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-6">
           <label class="block">
-            <span class="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">Tìm bác sĩ</span>
+            <span class="schedule-field-label">Tìm bác sĩ</span>
             <span class="relative block">
               <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 v-model="query"
-                class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
+                class="schedule-control pl-10"
                 placeholder="Tên bác sĩ"
               />
             </span>
           </label>
 
           <label class="block">
-            <span class="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">Bác sĩ</span>
-            <select v-model="scheduleDoctorFilter" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100">
+            <span class="schedule-field-label">Bác sĩ</span>
+            <select v-model="scheduleDoctorFilter" class="schedule-control px-3">
               <option value="">Tất cả</option>
               <option v-for="option in doctorOptions" :key="String(option.value)" :value="option.value">{{ option.label }}</option>
             </select>
           </label>
 
           <label class="block">
-            <span class="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">Chuyên khoa</span>
-            <select v-model="scheduleSpecialtyFilter" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100">
+            <span class="schedule-field-label">Chuyên khoa</span>
+            <select v-model="scheduleSpecialtyFilter" class="schedule-control px-3">
               <option value="">Tất cả</option>
               <option v-for="option in specialtyOptions" :key="String(option.value)" :value="option.value">{{ option.label }}</option>
             </select>
           </label>
 
           <label class="block">
-            <span class="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">Trạng thái</span>
-            <select v-model="scheduleStatusFilter" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100">
+            <span class="schedule-field-label">Trạng thái</span>
+            <select v-model="scheduleStatusFilter" class="schedule-control px-3">
               <option value="">Tất cả</option>
               <option value="open">Đang mở</option>
               <option value="paused">Tạm ngưng</option>
@@ -104,7 +95,7 @@
           <BaseInput v-model="scheduleDateTo" label="Đến ngày" type="date" />
         </div>
 
-        <div class="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+        <div class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div class="flex flex-wrap gap-2">
             <button
               v-for="button in scheduleQuickButtons"
@@ -116,15 +107,16 @@
               {{ button.label }}
             </button>
           </div>
-          <span class="inline-flex h-10 items-center justify-center rounded-xl bg-teal-50 px-4 text-sm font-bold text-teal-700">
-            {{ filteredRows.length }} lịch
-          </span>
+          <div class="flex items-center gap-2 text-sm text-slate-500">
+            <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+            <span><strong class="font-bold text-slate-900">{{ filteredRows.length }}</strong> lịch phù hợp</span>
+          </div>
         </div>
       </div>
 
-      <div class="rounded-2xl border border-slate-200 bg-white shadow-card">
-        <div class="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/70 p-4 xl:flex-row xl:items-center xl:justify-between">
-          <div class="inline-flex w-full rounded-xl border border-slate-200 bg-white p-1 sm:w-auto">
+      <div class="schedule-board-shell">
+        <div class="schedule-board-toolbar">
+          <div class="inline-flex w-full rounded-lg border border-slate-200 bg-slate-100 p-1 sm:w-auto">
             <button type="button" :class="scheduleViewTabClass('week')" @click="scheduleTab = 'week'">
               <CalendarDays class="h-4 w-4" />
               Lịch tuần
@@ -136,64 +128,92 @@
           </div>
 
           <div v-if="scheduleTab === 'week'" class="flex flex-wrap items-center gap-2">
-            <button type="button" class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50" @click="moveScheduleWeek(-1)">
+            <button type="button" class="schedule-icon-button" title="Tuần trước" @click="moveScheduleWeek(-1)">
               <ChevronLeft class="h-4 w-4" />
-              Tuần trước
             </button>
-            <button type="button" class="inline-flex h-10 items-center rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700" @click="goToCurrentScheduleWeek">Tuần này</button>
-            <button type="button" class="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50" @click="moveScheduleWeek(1)">
-              Tuần sau
+            <div class="min-w-[170px] text-center">
+              <p class="text-[11px] font-semibold text-slate-400">Tuần làm việc</p>
+              <p class="mt-0.5 text-sm font-bold text-slate-900">{{ weekRangeLabel }}</p>
+            </div>
+            <button type="button" class="schedule-icon-button" title="Tuần sau" @click="moveScheduleWeek(1)">
               <ChevronRight class="h-4 w-4" />
             </button>
-            <span class="inline-flex h-10 items-center rounded-xl bg-slate-100 px-3 text-sm font-bold text-slate-700">{{ weekRangeLabel }}</span>
+            <button type="button" class="inline-flex h-9 items-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-blue-700 transition hover:bg-blue-100" @click="goToCurrentScheduleWeek">Hôm nay</button>
           </div>
         </div>
 
-        <div v-if="scheduleTab === 'week'" class="p-4">
-          <div v-if="weeklyScheduleCount" class="hidden overflow-hidden rounded-xl border border-slate-200 lg:block">
-            <div class="grid grid-cols-7 divide-x divide-slate-200 bg-slate-50">
-              <div v-for="day in weeklyDays" :key="day.key" class="px-3 py-3">
-                <div class="flex items-center justify-between gap-2">
-                  <p class="text-sm font-black text-slate-900">{{ day.label }}</p>
-                  <span :class="['rounded-full px-2 py-1 text-xs font-bold', day.isToday ? 'bg-blue-600 text-white' : 'bg-white text-slate-500']">{{ day.shortDate }}</span>
+        <div v-if="scheduleTab === 'week'">
+          <div v-if="weeklyScheduleCount" class="hidden overflow-x-auto lg:block">
+            <div class="schedule-calendar min-w-[1180px]">
+              <div class="schedule-calendar-corner">
+                <Clock class="h-4 w-4 text-slate-400" />
+                <span>Ca làm việc</span>
+              </div>
+              <div
+                v-for="day in weeklyDays"
+                :key="day.key"
+                :class="['schedule-day-header', day.isToday ? 'schedule-day-header--today' : '']"
+              >
+                <span class="text-xs font-semibold text-slate-500">{{ day.label }}</span>
+                <span :class="['schedule-day-number', day.isToday ? 'schedule-day-number--today' : '']">{{ day.dayNumber }}</span>
+                <span class="text-[11px] font-medium text-slate-400">{{ day.monthLabel }}</span>
+              </div>
+
+              <template v-for="shift in scheduleShiftDefinitions" :key="shift.key">
+                <div class="schedule-shift-label">
+                  <span :class="['schedule-shift-dot', shift.dotClass]"></span>
+                  <span class="font-bold text-slate-800">{{ shift.label }}</span>
+                  <span class="text-[11px] font-medium text-slate-400">{{ shift.timeLabel }}</span>
                 </div>
-              </div>
-            </div>
-            <div class="grid grid-cols-7 divide-x divide-slate-100 bg-white">
-              <div v-for="day in weeklyDays" :key="`${day.key}-items`" class="min-h-[420px] space-y-3 p-3">
-                <button
-                  v-for="item in day.items"
-                  :key="String(item.id)"
-                  type="button"
-                  :class="scheduleCardClass(item)"
-                  @click="openForm(item)"
+                <div
+                  v-for="day in weeklyDays"
+                  :key="`${shift.key}-${day.key}`"
+                  :class="['schedule-calendar-cell', day.isToday ? 'schedule-calendar-cell--today' : '']"
                 >
-                  <span class="flex items-start justify-between gap-2">
-                    <span class="min-w-0">
-                      <span class="block break-words text-sm font-black text-slate-950">{{ item.doctorName }}</span>
-                      <span class="mt-1 block break-words text-xs font-semibold text-slate-500">{{ item.specialtyName }}</span>
+                  <button
+                    v-for="item in scheduleItemsForShift(day.items, shift.key)"
+                    :key="String(item.id)"
+                    type="button"
+                    :class="scheduleCardClass(item)"
+                    @click="openForm(item)"
+                  >
+                    <span class="flex items-start justify-between gap-2">
+                      <span class="min-w-0">
+                        <span class="block truncate text-[13px] font-bold text-slate-950">{{ item.doctorName }}</span>
+                        <span class="mt-0.5 block truncate text-[11px] font-medium text-slate-500">{{ item.specialtyName }}</span>
+                      </span>
+                      <span :class="scheduleStatusDotClass(item)" :title="item.status"></span>
                     </span>
-                    <span :class="scheduleStatusBadgeClass(item)">{{ item.status }}</span>
-                  </span>
-                  <span class="mt-3 flex items-center gap-2 text-sm font-black text-slate-800">
-                    <Clock class="h-4 w-4 shrink-0 text-slate-500" />
-                    {{ item.timeRange }}
-                  </span>
-                  <span class="mt-2 flex flex-wrap items-center gap-2">
-                    <span class="rounded-full bg-white/80 px-2.5 py-1 text-xs font-bold text-slate-600">{{ item.duration }}</span>
-                    <span class="rounded-full bg-white/80 px-2.5 py-1 text-xs font-bold text-slate-600">{{ item.slotCountLabel }} slot</span>
-                    <span v-if="item.hasConflict" class="rounded-full bg-amber-500 px-2.5 py-1 text-xs font-black text-white">Trùng ca</span>
-                  </span>
-                </button>
-              </div>
+                    <span class="mt-2 flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                      <Clock class="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                      {{ item.timeRange }}
+                    </span>
+                    <span class="mt-2 flex items-center justify-between gap-2 border-t border-current/10 pt-2 text-[10px] font-semibold text-slate-500">
+                      <span>{{ item.slotCountLabel }} slot</span>
+                      <span>{{ item.duration }}</span>
+                    </span>
+                    <span v-if="item.hasConflict" class="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-amber-700">
+                      <AlertTriangle class="h-3 w-3" />
+                      Trùng ca
+                    </span>
+                  </button>
+                  <span v-if="!scheduleItemsForShift(day.items, shift.key).length" class="schedule-empty-cell">—</span>
+                </div>
+              </template>
             </div>
           </div>
 
-          <div v-if="weeklyScheduleCount" class="space-y-3 lg:hidden">
-            <div v-for="day in weeklyDays" :key="`${day.key}-mobile`" class="rounded-xl border border-slate-200 bg-white">
-              <div class="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3">
-                <p class="font-black text-slate-950">{{ day.label }}</p>
-                <span :class="['rounded-full px-2.5 py-1 text-xs font-bold', day.isToday ? 'bg-blue-600 text-white' : 'bg-white text-slate-500']">{{ day.shortDate }}</span>
+          <div v-if="weeklyScheduleCount" class="space-y-3 p-3 lg:hidden">
+            <div v-for="day in weeklyDays" :key="`${day.key}-mobile`" :class="['schedule-mobile-day', day.isToday ? 'border-blue-300' : '']">
+              <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+                <div class="flex items-center gap-3">
+                  <span :class="['schedule-day-number', day.isToday ? 'schedule-day-number--today' : '']">{{ day.dayNumber }}</span>
+                  <span>
+                    <span class="block text-sm font-bold text-slate-900">{{ day.label }}</span>
+                    <span class="block text-[11px] font-medium text-slate-400">{{ day.monthLabel }}</span>
+                  </span>
+                </div>
+                <span class="text-xs font-semibold text-slate-500">{{ day.items.length }} lịch</span>
               </div>
               <div class="space-y-3 p-3">
                 <button
@@ -205,29 +225,31 @@
                 >
                   <span class="flex items-start justify-between gap-2">
                     <span class="min-w-0">
-                      <span class="block break-words text-sm font-black text-slate-950">{{ item.doctorName }}</span>
-                      <span class="mt-1 block break-words text-xs font-semibold text-slate-500">{{ item.specialtyName }}</span>
+                      <span class="block break-words text-sm font-bold text-slate-950">{{ item.doctorName }}</span>
+                      <span class="mt-1 block break-words text-xs font-medium text-slate-500">{{ item.specialtyName }}</span>
                     </span>
                     <span :class="scheduleStatusBadgeClass(item)">{{ item.status }}</span>
                   </span>
-                  <span class="mt-3 flex items-center gap-2 text-sm font-black text-slate-800">
+                  <span class="mt-3 flex items-center gap-2 text-sm font-bold text-slate-800">
                     <Clock class="h-4 w-4 shrink-0 text-slate-500" />
                     {{ item.timeRange }}
                   </span>
                   <span class="mt-2 flex flex-wrap items-center gap-2">
-                    <span class="rounded-full bg-white/80 px-2.5 py-1 text-xs font-bold text-slate-600">{{ item.duration }}</span>
-                    <span class="rounded-full bg-white/80 px-2.5 py-1 text-xs font-bold text-slate-600">{{ item.slotCountLabel }} slot</span>
-                    <span v-if="item.hasConflict" class="rounded-full bg-amber-500 px-2.5 py-1 text-xs font-black text-white">Trùng ca</span>
+                    <span class="text-xs font-semibold text-slate-500">{{ item.duration }}</span>
+                    <span class="text-slate-300">·</span>
+                    <span class="text-xs font-semibold text-slate-500">{{ item.slotCountLabel }} slot</span>
+                    <span v-if="item.hasConflict" class="rounded-md bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-800">Trùng ca</span>
                   </span>
                 </button>
-                <p v-if="!day.items.length" class="rounded-xl border border-dashed border-slate-200 px-4 py-5 text-center text-sm font-semibold text-slate-400">Chưa có lịch</p>
+                <p v-if="!day.items.length" class="px-4 py-5 text-center text-sm font-medium text-slate-400">Chưa có lịch</p>
               </div>
             </div>
           </div>
 
-          <div v-if="!weeklyScheduleCount" class="px-4 py-14 text-center">
+          <div v-if="!weeklyScheduleCount" class="px-4 py-16 text-center">
             <CalendarX class="mx-auto h-11 w-11 text-slate-300" />
-            <h2 class="mt-4 text-lg font-black text-slate-950">Chưa có lịch trong khoảng này</h2>
+            <h2 class="mt-4 text-lg font-bold text-slate-950">Chưa có lịch trong tuần này</h2>
+            <p class="mt-1 text-sm text-slate-500">Thử đổi bộ lọc hoặc chuyển sang tuần khác.</p>
           </div>
         </div>
 
@@ -601,6 +623,45 @@
       </Transition>
     </Teleport>
 
+    <Teleport to="body">
+      <Transition name="admin-confirm-fade">
+        <div v-if="deleteConfirmOpen" class="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" @click="closeDeleteConfirm">
+          <div class="admin-confirm-card w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.24)]" @click.stop>
+            <div class="flex items-start gap-4 border-b border-slate-100 px-5 py-4">
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+                <Trash2 class="h-5 w-5" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-xs font-semibold uppercase tracking-wide text-rose-500">Xác nhận xóa</p>
+                <h2 class="mt-1 text-lg font-bold text-slate-950">{{ deleteConfirmTitle }}</h2>
+                <p class="mt-1 text-sm leading-6 text-slate-500">{{ deleteConfirmText }}</p>
+              </div>
+              <button type="button" :disabled="saving" class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60" @click="closeDeleteConfirm">
+                <X class="h-4 w-4" />
+              </button>
+            </div>
+
+            <div v-if="deleteConfirmTarget" class="px-5 pt-4">
+              <div class="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                <p class="text-xs font-semibold text-slate-400">Dữ liệu sẽ xóa</p>
+                <p class="mt-1 truncate text-sm font-semibold text-slate-800">{{ deleteConfirmTarget }}</p>
+              </div>
+            </div>
+
+            <div class="flex flex-col-reverse gap-3 px-5 py-4 sm:flex-row sm:justify-end">
+              <button type="button" :disabled="saving" class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60" @click="closeDeleteConfirm">
+                Hủy
+              </button>
+              <button type="button" :disabled="saving" class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60" @click="confirmDeleteAction">
+                <Trash2 class="h-4 w-4" />
+                {{ saving ? 'Đang xóa...' : 'Xóa dữ liệu' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <div v-if="appointmentDetailOpen && selectedAppointment" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
       <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
         <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
@@ -657,6 +718,13 @@
         </div>
       </div>
     </div>
+    <Toast
+      :show="toast.show"
+      :title="toast.title"
+      :message="toast.message"
+      :type="toast.type"
+      @close="toast.show = false"
+    />
     </div>
   </section>
 </template>
@@ -699,6 +767,7 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSelect, { type SelectOption } from '@/components/ui/BaseSelect.vue'
 import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
+import Toast from '@/components/ui/Toast.vue'
 import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from 'ant-design-vue'
 import { appointmentApi } from '@/services/appointmentApi'
 import { authApi } from '@/services/authApi'
@@ -721,11 +790,12 @@ import { displayText } from '@/utils/displayText'
 
 type Key = 'doctors' | 'specialties' | 'schedules' | 'patients' | 'appointments' | 'medicines' | 'prescriptions' | 'bills' | 'accounts' | 'nurses' | 'reports'
 type Row = Record<string, any>
-type Action = 'edit' | 'delete' | 'confirm' | 'checkin' | 'start' | 'cancel' | 'complete' | 'pay' | 'noop' | 'toggle'
+type Action = 'edit' | 'delete' | 'confirm' | 'checkin' | 'start' | 'cancel' | 'complete' | 'pay' | 'noop' | 'toggle' | 'lock' | 'unlock'
 type ScheduleTab = 'week' | 'table'
 type ScheduleQuickRange = 'today' | 'week' | 'month' | 'clear'
 type SchedulePresetKey = 'custom' | 'morning' | 'afternoon' | 'evening'
 type ScheduleTone = 'blue' | 'teal' | 'slate' | 'amber' | 'rose'
+type ScheduleShiftKey = 'morning' | 'afternoon' | 'evening'
 
 interface Column { key: string; label: string; right?: boolean; badge?: boolean; strong?: boolean }
 interface Config { title: string; service: string; description: string; endpoint: string; icon: Component; columns: Column[] }
@@ -746,13 +816,21 @@ const error = ref('')
 const note = ref('')
 const query = ref('')
 const actingId = ref<string | number | null>(null)
+const toast = reactive({
+  show: false,
+  title: '',
+  message: '',
+  type: 'success' as 'success' | 'error',
+})
 const formOpen = ref(false)
+const deleteConfirmOpen = ref(false)
 const editingRow = ref<Row | null>(null)
 const form = reactive<Record<string, string>>({})
 const formError = ref('')
 const medicineTypeFilter = ref('')
 const appointmentDetailOpen = ref(false)
 const selectedAppointmentRow = ref<Row | null>(null)
+const pendingDeleteRow = ref<Row | null>(null)
 const hiddenAppointmentIds = ref<Set<string>>(readHiddenAppointmentIds())
 
 const scheduleTab = ref<ScheduleTab>('week')
@@ -789,9 +867,9 @@ const doctorOptions = ref<SelectOption[]>(fallbackDoctors.map((d) => ({ label: d
 
 const configs: Record<Key, Config> = {
   doctors: cfg('Bác sĩ', 'Lịch hẹn & Ca khám', 'Quản lý hồ sơ bác sĩ, chuyên khoa, phòng khám và phí khám.', 'GET/POST/PUT/DELETE /api/doctors', Stethoscope, cols(['id','ID'], ['name','Bác sĩ', false, false, true], ['specialty','Chuyên khoa'], ['degree','Học vị'], ['fee','Phí khám', true], ['phone','SĐT'], ['email','Email'], ['roomNumber','Phòng'], ['status','Trạng thái', false, true])),
-  specialties: cfg('Chuyên khoa', 'Lịch hẹn & Ca khám', 'Quản lý danh sách chuyên khoa đang phục vụ đặt lịch và khám bệnh.', 'GET/POST/PUT/DELETE /api/specialties', Settings, cols(['id','ID'], ['name','Chuyên khoa', false, false, true], ['status','Trạng thái', false, true])),
+  specialties: cfg('Chuyên khoa', 'Lịch hẹn & Ca khám', 'Quản lý danh sách chuyên khoa đang phục vụ đặt lịch và khám bệnh.', 'GET/POST/PUT/DELETE /api/specialties', Settings, cols(['id','ID'], ['name','Chuyên khoa', false, false, true], ['doctorCount','Bác sĩ', true], ['activeDoctorCount','BS hoạt động', true], ['rooms','Phòng'], ['feeRange','Khoảng phí'], ['status','Trạng thái', false, true])),
   schedules: cfg('Lịch làm việc', 'Lịch hẹn & Ca khám', 'Điều phối ca làm việc, slot khám và trạng thái nhận lịch của bác sĩ.', 'GET/POST/PUT/DELETE /api/doctor-schedules', CalendarDays, cols(['id','Mã'], ['doctorName','Bác sĩ', false, false, true], ['specialtyName','Chuyên khoa'], ['workDate','Ngày'], ['weekdayLabel','Thứ'], ['timeRange','Ca'], ['duration','Thời lượng slot', true], ['slotCountLabel','Số slot', true], ['status','Trạng thái', false, true])),
-  patients: cfg('Bệnh nhân', 'Hồ sơ bệnh án', 'Quản lý thông tin bệnh nhân, liên hệ và tiền sử bệnh.', 'GET/POST/PUT/DELETE /api/patients', UserRound, cols(['patientCode','Mã BN'], ['name','Bệnh nhân', false, false, true], ['phone','SĐT'], ['gender','Giới tính'], ['history','Tiền sử'])),
+  patients: cfg('Bệnh nhân', 'Hồ sơ bệnh án', 'Quản lý thông tin bệnh nhân, liên hệ và tiền sử bệnh.', 'GET/POST/PUT/DELETE /api/patients', UserRound, cols(['patientCode','Mã BN'], ['name','Bệnh nhân', false, false, true], ['dateOfBirth','Ngày sinh'], ['age','Tuổi', true], ['gender','Giới tính'], ['phone','SĐT'], ['email','Email'], ['citizenId','CCCD'], ['bloodType','Nhóm máu'], ['address','Địa chỉ'], ['allergyNote','Dị ứng'], ['history','Tiền sử'], ['status','Trạng thái', false, true])),
   appointments: cfg('Lịch hẹn', 'Lịch hẹn & Ca khám', 'Theo dõi, xác nhận, hủy và cập nhật trạng thái lịch khám.', 'GET /api/appointments', ClipboardList, cols(['id','Mã'], ['patientName','Bệnh nhân', false, false, true], ['doctorName','Bác sĩ'], ['dateTime','Ngày giờ'], ['status','Trạng thái', false, true])),
   medicines: cfg('Kho thuốc', 'Kho dược phẩm', 'Quản lý danh mục thuốc, hoạt chất, chuyên khoa, đơn giá và tồn kho.', 'GET/POST/PUT/DELETE /api/medicines', Pill, cols(['id','ID'], ['name','Tên thuốc', false, false, true], ['activeIngredient','Hoạt chất'], ['medicineType','Chuyên khoa'], ['unit','Đơn vị'], ['price','Đơn giá', true], ['stock','Tồn', true], ['minStockLevel','Cảnh báo', true], ['expiryDate','Hạn dùng'], ['stockStatus','Trạng thái', false, true])),
   prescriptions: cfg('Đơn thuốc', 'Hồ sơ bệnh án', 'Theo dõi bệnh án và ghi chú kê đơn của bác sĩ.', 'GET /api/medical-records', FileHeart, cols(['id','Mã BA'], ['patientId','Bệnh nhân', false, false, true], ['diagnosis','Chẩn đoán'], ['doctorNotes','Ghi chú'], ['status','Trạng thái', false, true])),
@@ -806,6 +884,11 @@ const schedulePresets: SchedulePreset[] = [
   { key: 'morning', label: 'Ca sáng', startTime: '08:00', endTime: '11:00' },
   { key: 'afternoon', label: 'Ca chiều', startTime: '13:00', endTime: '17:00' },
   { key: 'evening', label: 'Ca tối', startTime: '18:00', endTime: '21:00' },
+]
+const scheduleShiftDefinitions: Array<{ key: ScheduleShiftKey; label: string; timeLabel: string; dotClass: string }> = [
+  { key: 'morning', label: 'Ca sáng', timeLabel: '06:00 - 12:00', dotClass: 'bg-amber-400' },
+  { key: 'afternoon', label: 'Ca chiều', timeLabel: '12:00 - 18:00', dotClass: 'bg-blue-500' },
+  { key: 'evening', label: 'Ca tối', timeLabel: '18:00 - 22:00', dotClass: 'bg-indigo-500' },
 ]
 const weekdayOptions = [
   { value: 1, label: 'Thứ 2' },
@@ -846,6 +929,14 @@ watch([key, query, medicineTypeFilter, scheduleDoctorFilter, scheduleSpecialtyFi
   currentPage.value = 1
 })
 
+watch(note, (message) => {
+  if (message) showToast('Thành công', message, 'success')
+})
+
+watch(error, (message) => {
+  if (message) showToast('Không thể thực hiện', message, 'error')
+})
+
 const totalPages = computed(() => Math.ceil(filteredRows.value.length / itemsPerPage.value))
 
 const paginatedRows = computed(() => {
@@ -853,7 +944,8 @@ const paginatedRows = computed(() => {
   const end = start + itemsPerPage.value
   return filteredRows.value.slice(start, end)
 })
-const adminTableScrollX = computed(() => key.value === 'medicines' ? 1420 : Math.max(1080, config.value.columns.length * 150 + (hasActions.value ? 110 : 0)))
+const adminActionsWidth = computed(() => ['accounts', 'appointments'].includes(key.value) ? 132 : 96)
+const adminTableScrollX = computed(() => key.value === 'medicines' ? 1420 : Math.max(1080, config.value.columns.length * 150 + (hasActions.value ? adminActionsWidth.value : 0)))
 const adminTablePagination = computed(() => ({
   current: currentPage.value,
   pageSize: itemsPerPage.value,
@@ -894,7 +986,7 @@ const adminTableColumns = computed(() => {
     columns.push({
       title: 'Thao tác',
       key: 'actions',
-      width: 96,
+      width: adminActionsWidth.value,
       align: 'center',
       fixed: 'right',
     })
@@ -942,6 +1034,26 @@ const resourceUnitLabel = computed(() => {
   if (key.value === 'nurses') return 'y tá'
   return 'dòng'
 })
+const deleteConfirmTitle = computed(() => {
+  if (key.value === 'schedules') return 'Xóa lịch làm việc?'
+  if (key.value === 'doctors') return 'Xóa bác sĩ?'
+  if (key.value === 'specialties') return 'Xóa chuyên khoa?'
+  if (key.value === 'patients') return 'Xóa bệnh nhân?'
+  if (key.value === 'appointments') return 'Xóa lịch hẹn?'
+  if (key.value === 'medicines') return 'Xóa thuốc?'
+  if (key.value === 'accounts') return 'Xóa tài khoản?'
+  if (key.value === 'nurses') return 'Xóa y tá?'
+  return 'Xóa dữ liệu?'
+})
+const deleteConfirmText = computed(() => deleteConfirmMessage())
+const deleteConfirmTarget = computed(() => {
+  const row = pendingDeleteRow.value
+  if (!row) return ''
+  const label = row.name || row.fullName || row.patientName || row.doctorName || row.username || row.patientCode
+  const id = row.patientCode || row.id
+  if (label && id && String(label) !== String(id)) return `${label} · ${id}`
+  return String(label || id || '')
+})
 
 const medicineTypeOptions = computed<SelectOption[]>(() => {
   const values = new Set<string>()
@@ -979,6 +1091,8 @@ const weeklyDays = computed(() => {
       iso,
       label: weekdayLabel(iso),
       shortDate: formatShortDate(iso),
+      dayNumber: String(dateValue.getDate()).padStart(2, '0'),
+      monthLabel: `Tháng ${dateValue.getMonth() + 1}`,
       isToday: iso === localDateIso(new Date()),
       items,
     }
@@ -1040,7 +1154,11 @@ async function loadData() {
       updateDoctorCatalog(doctors)
       rows.value = mapList(doctors, fallbackDoctors, mapDoctor)
     } else if (key.value === 'specialties') {
-      const specialties = await appointmentApi.getSpecialties()
+      const [specialties, doctors] = await Promise.all([
+        appointmentApi.getSpecialties(),
+        appointmentApi.getDoctors().catch(() => fallbackDoctors),
+      ])
+      updateDoctorCatalog(doctors)
       updateSpecialtyCatalog(specialties)
       rows.value = mapList(specialties, fallbackSpecialties, mapSpecialty)
     } else if (key.value === 'schedules') {
@@ -1048,7 +1166,7 @@ async function loadData() {
     } else if (key.value === 'patients') {
       rows.value = mapList(await medicalRecordApi.getPatients(), fallbackPatients, mapPatient)
     } else if (key.value === 'appointments') {
-      rows.value = visibleAppointmentRows(mapList(await appointmentApi.getAppointments(), fallbackAppointments, mapAppointment))
+      rows.value = visibleAppointmentRows(mapList(await appointmentApi.getAppointments(), fallbackAppointments, mapAppointment).filter(isValidAppointmentRow))
     } else if (key.value === 'medicines') {
       rows.value = mapList(await medicineApi.getMedicines({ pageSize: 200 }), fallbackMedicines, mapMedicine)
     } else if (key.value === 'prescriptions') {
@@ -1115,8 +1233,8 @@ function fallbackRows(k: Key) {
     doctors: fallbackDoctors.map(mapDoctor),
     specialties: fallbackSpecialties.map(mapSpecialty),
     schedules: withScheduleConflicts(fallbackSchedules.map(mapSchedule)),
-    patients: fallbackPatients.map(mapPatient),
-    appointments: visibleAppointmentRows(fallbackAppointments.map(mapAppointment)),
+    patients: fallbackPatients.map((patient) => mapPatient(patient)),
+    appointments: visibleAppointmentRows(fallbackAppointments.map(mapAppointment).filter(isValidAppointmentRow)),
     medicines: fallbackMedicines.map(mapMedicine),
     prescriptions: fallbackRecords.map(mapPrescription),
     bills: fallbackInvoices.map(mapInvoice),
@@ -1154,7 +1272,19 @@ function buildFields(k: Key): Field[] {
   ]
   if (k === 'specialties') return [field('specialtyName','Tên chuyên khoa','text',true)]
   if (k === 'schedules') return [field('doctorId','Bác sĩ','select',true, doctorOptions.value), field('workDate','Ngày làm','date',true), field('startTime','Giờ bắt đầu','time',true), field('endTime','Giờ kết thúc','time',true), field('slotDurationMinutes','Phút/slot','number', true), field('isAvailable','Trạng thái','select',true,[{label:'Đang mở',value:'true'},{label:'Tạm ngưng',value:'false'}])]
-  if (k === 'patients') return [field('fullName','Họ tên','text',true), field('phone','Số điện thoại','text',true), field('gender','Giới tính','select',false,[{label:'Nam',value:'Male'},{label:'Nữ',value:'Female'}]), field('medicalHistory','Tiền sử bệnh')]
+  if (k === 'patients') return [
+    field('fullName','Họ tên','text',true),
+    field('phone','Số điện thoại','text',true),
+    field('email','Email','email'),
+    field('dateOfBirth','Ngày sinh','date'),
+    field('gender','Giới tính','select',false,[{label:'Nam',value:'Nam'},{label:'Nữ',value:'Nữ'},{label:'Khác',value:'Khác'}]),
+    field('citizenId','Số CCCD'),
+    field('bloodType','Nhóm máu','select',false,[{label:'Chưa cập nhật',value:''},{label:'O+',value:'O+'},{label:'O-',value:'O-'},{label:'A+',value:'A+'},{label:'A-',value:'A-'},{label:'B+',value:'B+'},{label:'B-',value:'B-'},{label:'AB+',value:'AB+'},{label:'AB-',value:'AB-'}]),
+    field('status','Trạng thái','select',false,[{label:'Đang hoạt động',value:'Đang hoạt động'},{label:'Đã khóa',value:'Đã khóa'}]),
+    field('address','Địa chỉ','textarea'),
+    field('allergyNote','Ghi chú dị ứng','textarea'),
+    field('medicalHistory','Tiền sử bệnh','textarea'),
+  ]
   if (k === 'medicines') return [field('medicineName','Tên thuốc','text',true), field('activeIngredient','Hoạt chất'), field('medicineType','Chuyên khoa/nhóm thuốc','select',false, medicineTypeOptions.value), field('unit','Đơn vị tính','text',true), field('price','Đơn giá','number',true), field('stockQuantity','Tồn kho','number',true), field('minStockLevel','Ngưỡng cảnh báo','number',true), field('expiryDate','Hạn dùng','date'), field('status','Trạng thái','select',true,[{label:'Đang bán',value:'Active'},{label:'Tạm ngưng',value:'Inactive'},{label:'Hết hàng',value:'OutOfStock'}])]
   if (k === 'accounts') return [field('username','Username','text',true), field('password','Mật khẩu','password',!editingRow.value), field('fullName','Họ tên','text',true), field('email','Email','email',true), field('phoneNumber','Số điện thoại'), field('roleId','Vai trò','select',true,[{label:'Admin',value:RoleId.Admin},{label:'Bác sĩ',value:RoleId.Doctor},{label:'Y tá',value:RoleId.Receptionist},{label:'Bệnh nhân',value:RoleId.Patient}]), field('status','Trạng thái','select',true,[{label:'Đang hoạt động',value:'Active'},{label:'Đã khóa',value:'Locked'}])]
   if (k === 'nurses') return [field('username','Username','text',true), field('password','Mật khẩu','password',!editingRow.value), field('fullName','Họ tên','text',true), field('email','Email','email',true), field('phoneNumber','Số điện thoại'), field('status','Trạng thái','select',true,[{label:'Đang hoạt động',value:'Active'},{label:'Đã khóa',value:'Locked'}])]
@@ -1268,7 +1398,21 @@ function doctorPayload() {
 function schedulePayload() { return { doctorId: Number(form.doctorId), workDate: form.workDate, startTime: normalizeTime(form.startTime), endTime: normalizeTime(form.endTime), slotDurationMinutes: Number(form.slotDurationMinutes || 30), isAvailable: form.isAvailable !== 'false' } }
 function schedulePayloadFromRow(row: Row, isAvailable = row.isAvailable !== false) { return { doctorId: Number(row.doctorId), workDate: row.workDateRaw, startTime: normalizeTime(row.startTime), endTime: normalizeTime(row.endTime), slotDurationMinutes: Number(row.slotDurationMinutes || 30), isAvailable } }
 function bulkSchedulePayload(workDate: string) { return { doctorId: Number(bulkScheduleForm.doctorId), workDate, startTime: normalizeTime(bulkScheduleForm.startTime), endTime: normalizeTime(bulkScheduleForm.endTime), slotDurationMinutes: Number(bulkScheduleForm.slotDurationMinutes || 30), isAvailable: bulkScheduleForm.isAvailable !== 'false' } }
-function patientPayload() { return { fullName: form.fullName, phone: form.phone, phoneNumber: form.phone, gender: form.gender, medicalHistory: form.medicalHistory } }
+function patientPayload() {
+  return {
+    fullName: form.fullName,
+    dateOfBirth: form.dateOfBirth || undefined,
+    gender: form.gender || undefined,
+    phoneNumber: form.phone || undefined,
+    email: form.email || undefined,
+    address: form.address || undefined,
+    citizenId: form.citizenId || undefined,
+    bloodType: form.bloodType || undefined,
+    allergyNote: form.allergyNote || undefined,
+    medicalHistory: form.medicalHistory || undefined,
+    status: form.status || undefined,
+  }
+}
 function userPayload() { return { username: form.username, password: form.password || undefined, fullName: form.fullName, email: form.email, phoneNumber: form.phoneNumber, roleId: Number(form.roleId) as RoleId, status: form.status || 'Active' } }
 function nursePayload() { return { username: form.username, password: form.password || undefined, fullName: form.fullName, email: form.email, phoneNumber: form.phoneNumber, roleId: RoleId.Receptionist, roleName: 'Nurse', status: form.status || 'Active' } }
 function medicinePayload(): MedicinePayload { return { medicineName: (form.medicineName || '').trim(), activeIngredient: (form.activeIngredient || '').trim() || undefined, medicineType: form.medicineType || 'Khác', unit: (form.unit || '').trim(), price: Number(form.price || 0), stockQuantity: Number(form.stockQuantity || 0), minStockLevel: Number(form.minStockLevel || 10), expiryDate: form.expiryDate || undefined, status: Number(form.stockQuantity || 0) === 0 ? 'OutOfStock' : (form.status || 'Active') } }
@@ -1282,16 +1426,27 @@ function actions(row: Row) {
     if (canDeleteResource.value) a.push(btn('delete','Xóa','bg-rose-50 text-rose-700 hover:bg-rose-100'))
     return a
   }
-  if (['doctors','specialties','patients','medicines','accounts','nurses'].includes(key.value)) {
+  if (key.value === 'patients') {
+    a.push(btn('edit','Sửa','bg-slate-100 text-slate-700 hover:bg-slate-200'))
+    return a
+  }
+  if (key.value === 'accounts') {
+    a.push(btn('edit','Sửa','bg-slate-100 text-slate-700 hover:bg-slate-200'))
+    if (!isAdminAccount(row)) {
+      a.push(isLockedAccount(row) ? btn('unlock','Mở khóa','bg-teal-50 text-teal-700 hover:bg-teal-100') : btn('lock','Khóa','bg-amber-50 text-amber-800 hover:bg-amber-100'))
+      if (canDeleteResource.value) a.push(btn('delete','Xóa','bg-rose-50 text-rose-700 hover:bg-rose-100'))
+    }
+    return a
+  }
+  if (['doctors','specialties','medicines','nurses'].includes(key.value)) {
     a.push(btn('edit','Sửa','bg-slate-100 text-slate-700 hover:bg-slate-200'))
     if (canDeleteResource.value) a.push(btn('delete','Xóa','bg-rose-50 text-rose-700 hover:bg-rose-100'))
   }
   if (key.value === 'appointments') {
-    if (st.includes('pending')) a.push(btn('confirm','Xác nhận','bg-teal-600 text-white hover:bg-teal-700'))
-    if (st.includes('confirmed')) a.push(btn('checkin','Check-in','bg-emerald-600 text-white hover:bg-emerald-700'))
-    if (st.includes('checked')) a.push(btn('noop','Đã check-in','bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'))
-    if (!st.includes('cancel') && !st.includes('completed') && !st.includes('checked')) a.push(btn('cancel','Hủy','bg-rose-50 text-rose-700 hover:bg-rose-100'))
-    if (st.includes('inprogress')) a.push(btn('complete','Hoàn tất','bg-indigo-600 text-white hover:bg-indigo-700'))
+    const bucket = statusBucket(row.statusRaw || row.status)
+    if (bucket === 'pending') a.push(btn('confirm','Duyệt lịch','bg-blue-50 text-blue-700 hover:bg-blue-100'))
+    if (bucket === 'confirmed') a.push(btn('checkin','Check-in','bg-emerald-50 text-emerald-700 hover:bg-emerald-100'))
+    if (canDeleteResource.value) a.push(btn('delete','Xóa','bg-rose-50 text-rose-700 hover:bg-rose-100'))
   }
   if (key.value === 'bills' && !st.includes('paid')) a.push(btn('pay','Thu tiền','bg-teal-600 text-white hover:bg-teal-700'))
   return a
@@ -1309,31 +1464,46 @@ function actionIcon(action: Action) {
     pay: CreditCard,
     noop: CheckCircle2,
     toggle: Ban,
+    lock: Ban,
+    unlock: CheckCircle2,
   }
   return icons[action] || CheckCircle2
 }
 function adminActionButtonClass(action: { key: Action; className: string }) {
+  if (key.value === 'appointments' && ['confirm', 'checkin', 'delete'].includes(action.key)) {
+    const colors: Partial<Record<Action, string>> = {
+      confirm: 'border-blue-100 bg-blue-50 text-blue-700 hover:border-blue-200 hover:bg-blue-100',
+      checkin: 'border-emerald-100 bg-emerald-50 text-emerald-700 hover:border-emerald-200 hover:bg-emerald-100',
+      delete: 'border-rose-100 bg-rose-50 text-rose-600 hover:border-rose-200 hover:bg-rose-100',
+    }
+    return ['inline-flex h-9 w-9 items-center justify-center rounded-lg border transition disabled:cursor-not-allowed disabled:opacity-60', colors[action.key]]
+  }
   if (action.key === 'edit') {
     return 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60'
   }
   if (action.key === 'delete') {
     return 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-600 transition hover:border-rose-200 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60'
   }
+  if (action.key === 'lock') {
+    return 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-100 bg-amber-50 text-amber-700 transition hover:border-amber-200 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60'
+  }
+  if (action.key === 'unlock') {
+    return 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-teal-100 bg-teal-50 text-teal-700 transition hover:border-teal-200 hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-60'
+  }
   return ['inline-flex h-9 min-w-14 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60', action.className]
 }
 function adminActionTextClass(action: Action) {
-  return action === 'edit' || action === 'delete' ? 'sr-only' : ''
+  return ['edit', 'delete', 'confirm', 'checkin', 'lock', 'unlock'].includes(action) ? 'sr-only' : ''
 }
 async function runAction(action: Action, row: Row) {
   if (action === 'noop') return
   if (action === 'edit') return openForm(row)
-  if (action === 'delete' && !window.confirm(deleteConfirmMessage())) return
+  if (action === 'delete') return openDeleteConfirm(row)
   const wasAvailable = row.isAvailable !== false
   actingId.value = row.id
   error.value = ''
   try {
     const id = Number(row.invoiceId || row.id)
-    if (action === 'delete') await deleteRow(id)
     if (action === 'toggle') await appointmentApi.updateDoctorSchedule(id, schedulePayloadFromRow(row, !wasAvailable))
     if (action === 'confirm') await appointmentApi.confirmAppointment(id)
     if (action === 'checkin') { await appointmentApi.checkInAppointment(id); row.status = 'CheckedIn'; if (row.raw) row.raw.status = 'CheckedIn' }
@@ -1341,20 +1511,79 @@ async function runAction(action: Action, row: Row) {
     if (action === 'cancel') await appointmentApi.cancelAppointment(id)
     if (action === 'complete') await appointmentApi.completeAppointmentSafely(id, String(row.raw?.appointmentDate || row.appointmentDate || ''))
     if (action === 'pay') await billingApi.payInvoice(id, row.amountValue)
+    if (action === 'lock' || action === 'unlock') await updateAccountLock(row, action === 'lock')
     await loadData()
-    if (action === 'delete') note.value = key.value === 'schedules' ? 'Đã xóa lịch làm việc thành công.' : 'Đã xóa dữ liệu thành công.'
+    if (action === 'confirm') note.value = 'Đã duyệt lịch hẹn.'
+    if (action === 'checkin') note.value = 'Đã check-in lịch hẹn.'
     if (action === 'toggle') note.value = wasAvailable ? 'Đã tạm ngưng lịch làm việc.' : 'Đã mở lại lịch làm việc.'
     if (action === 'pay') note.value = 'Đã gửi yêu cầu thanh toán thành công.'
+    if (action === 'lock') note.value = 'Đã khóa tài khoản.'
+    if (action === 'unlock') note.value = 'Đã mở khóa tài khoản.'
   } catch(e) {
     const message = getApiErrorMessage(e)
-    error.value = key.value === 'schedules' && action === 'delete' ? scheduleDeleteErrorMessage(message) : message
+    error.value = message
   } finally {
     actingId.value = null
   }
 }
-async function deleteRow(id: number) { if (key.value === 'doctors') await appointmentApi.deleteDoctor(id); if (key.value === 'specialties') await appointmentApi.deleteSpecialty(id); if (key.value === 'schedules') await appointmentApi.deleteDoctorSchedule(id); if (key.value === 'patients') await medicalRecordApi.deletePatient(id); if (key.value === 'medicines') await medicineApi.deleteMedicine(id); if (key.value === 'accounts' || key.value === 'nurses') await authApi.deleteUser(id) }
+function openDeleteConfirm(row: Row) {
+  pendingDeleteRow.value = row
+  deleteConfirmOpen.value = true
+}
+function closeDeleteConfirm() {
+  if (saving.value) return
+  deleteConfirmOpen.value = false
+  pendingDeleteRow.value = null
+}
+async function confirmDeleteAction() {
+  const row = pendingDeleteRow.value
+  if (!row) return
+  const deletingSchedule = key.value === 'schedules'
+  const deletingAppointment = key.value === 'appointments'
+  actingId.value = row.id
+  saving.value = true
+  error.value = ''
+  try {
+    await deleteRow(Number(row.invoiceId || row.id))
+    deleteConfirmOpen.value = false
+    pendingDeleteRow.value = null
+    await loadData()
+    note.value = deletingSchedule
+      ? 'Đã xóa lịch làm việc thành công.'
+      : deletingAppointment
+        ? deleteAppointmentMessage(row.statusRaw || row.status)
+        : 'Đã xóa dữ liệu thành công.'
+  } catch (e) {
+    const message = getApiErrorMessage(e)
+    deleteConfirmOpen.value = false
+    pendingDeleteRow.value = null
+    error.value = deletingSchedule ? scheduleDeleteErrorMessage(message) : message
+  } finally {
+    saving.value = false
+    actingId.value = null
+  }
+}
+async function updateAccountLock(row: Row, locked: boolean) {
+  const accountId = row.raw?.id || row.id
+  if (locked) await authApi.lockUser(accountId)
+  else await authApi.unlockUser(accountId)
+}
+async function deleteRow(id: number) {
+  if (key.value === 'doctors') await appointmentApi.deleteDoctor(id)
+  if (key.value === 'specialties') await appointmentApi.deleteSpecialty(id)
+  if (key.value === 'schedules') await appointmentApi.deleteDoctorSchedule(id)
+  if (key.value === 'appointments') {
+    hideAppointmentId(id)
+  }
+  if (key.value === 'medicines') await medicineApi.deleteMedicine(id)
+  if (key.value === 'accounts' || key.value === 'nurses') await authApi.deleteUser(id)
+}
 function deleteConfirmMessage() {
   if (key.value === 'schedules') return 'Bạn chắc chắn muốn xóa lịch làm việc này? Nếu lịch đã có cuộc hẹn liên quan, backend có thể từ chối để bảo toàn dữ liệu.'
+  if (key.value === 'appointments') return 'Bạn chắc chắn muốn xóa lịch hẹn này? Nếu backend chưa hỗ trợ xóa, lịch sẽ được ẩn khỏi danh sách quản trị.'
+  if (key.value === 'accounts' && normalizeSearchText(pendingDeleteRow.value?.roleName).includes('patient')) {
+    return 'Tài khoản bệnh nhân và hồ sơ bệnh nhân liên kết sẽ được xóa khỏi hệ thống. Dữ liệu khám đã phát sinh vẫn được lưu trữ an toàn.'
+  }
   return 'Bạn chắc chắn muốn xóa dữ liệu này? Thao tác này sẽ xóa khỏi database.'
 }
 function scheduleDeleteErrorMessage(message: string) {
@@ -1383,7 +1612,100 @@ async function deleteSelectedAppointment() {
 }
 
 function mapDoctor(x: Doctor): Row { return { id: x.doctorId, name: displayText(x.doctorName || x.fullName), specialty: displayText(x.specialtyName), degree: x.degree || 'Chưa cập nhật', fee: money(x.examFee), feeValue: x.examFee, phone: x.phone || 'Chưa cập nhật', email: x.email || 'Chưa cập nhật', roomNumber: x.roomNumber || 'Chưa cập nhật', status: x.isActive === false ? 'Tạm ngưng' : 'Đang hoạt động', raw: x } }
-function mapSpecialty(x: Specialty): Row { return { id: x.specialtyId, name: displayText(x.specialtyName), specialtyName: x.specialtyName, status: 'Đang hoạt động', raw: x } }
+function mapSpecialty(x: Specialty): Row {
+  const relatedDoctors = doctorsForSpecialty(x)
+  const activeDoctors = relatedDoctors.filter(isActiveDoctorProfile)
+  const rooms = specialtyRoomSummary(relatedDoctors)
+  const feeRange = specialtyFeeRange(relatedDoctors)
+
+  return {
+    id: x.specialtyId,
+    name: displayText(x.specialtyName),
+    specialtyName: x.specialtyName,
+    doctorCount: relatedDoctors.length,
+    doctorCountValue: relatedDoctors.length,
+    activeDoctorCount: activeDoctors.length,
+    activeDoctorCountValue: activeDoctors.length,
+    rooms,
+    feeRange,
+    status: relatedDoctors.length ? (activeDoctors.length ? 'Đang hoạt động' : 'Tạm ngưng') : 'Chưa có bác sĩ',
+    raw: x,
+  }
+}
+function doctorsForSpecialty(specialty: Specialty) {
+  const id = Number(specialty.specialtyId)
+  const name = normalizeSearchText(specialty.specialtyName)
+  return doctorCatalog.value.filter((doctor) =>
+    Number(doctor.specialtyId) === id || normalizeSearchText(doctor.specialtyName) === name)
+}
+function isActiveDoctorProfile(doctor: Doctor & Record<string, any>) {
+  const explicit = doctor.isActive ?? doctor.IsActive
+  if (explicit === false || explicit === 'false') return false
+  const status = normalizeSearchText(doctor.status || doctor.Status)
+  return !status.includes('tam ngung') && !status.includes('inactive') && !status.includes('khoa')
+}
+function specialtyRoomSummary(doctors: Doctor[]) {
+  const rooms = Array.from(new Set(doctors.map((doctor) => displayText(doctor.roomNumber)).filter((room) => room && room !== 'Chưa cập nhật')))
+  if (!rooms.length) return 'Chưa cập nhật'
+  return rooms.length <= 3 ? rooms.join(', ') : `${rooms.slice(0, 3).join(', ')} +${rooms.length - 3}`
+}
+function specialtyFeeRange(doctors: Doctor[]) {
+  const fees = doctors.map((doctor) => Number(doctor.examFee || 0)).filter((fee) => Number.isFinite(fee) && fee > 0)
+  if (!fees.length) return 'Chưa cập nhật'
+  const min = Math.min(...fees)
+  const max = Math.max(...fees)
+  return min === max ? money(min) : `${money(min)} - ${money(max)}`
+}
+function patientGenderLabel(gender?: string) {
+  const valueToCheck = normalizeSearchText(gender)
+  if (valueToCheck === 'male' || valueToCheck === 'nam') return 'Nam'
+  if (valueToCheck === 'female' || valueToCheck === 'nu') return 'Nữ'
+  return gender || 'Chưa cập nhật'
+}
+function patientStatusLabel(status?: string) {
+  const valueToCheck = normalizeSearchText(status)
+  if (!valueToCheck || valueToCheck === 'active' || valueToCheck.includes('dang hoat dong')) return 'Đang hoạt động'
+  if (valueToCheck === 'inactive' || valueToCheck === 'locked' || valueToCheck.includes('tam ngung') || valueToCheck.includes('khoa')) return 'Đã khóa'
+  return status || 'Đang hoạt động'
+}
+function accountStatusLabel(status?: string) {
+  const valueToCheck = normalizeSearchText(status)
+  if (valueToCheck === 'locked' || valueToCheck.includes('khoa') || valueToCheck === 'inactive') return 'Đã khóa'
+  return 'Đang hoạt động'
+}
+function isLockedAccount(row: Row) {
+  const status = normalizeSearchText(row.raw?.status || row.raw?.Status || row.status)
+  return status.includes('khoa') || status.includes('locked') || status.includes('inactive')
+}
+function isAdminAccount(row: Row) {
+  const role = normalizeSearchText(row.raw?.roleName || row.raw?.role || row.roleName)
+  return role === 'admin'
+}
+function patientAgeValue(dateOfBirth?: string) {
+  const birthDate = parseInputDate(dateOfBirth)
+  if (!birthDate) return 0
+  const today = new Date()
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const monthDiff = today.getMonth() - birthDate.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age -= 1
+  return Math.max(age, 0)
+}
+function patientAgeLabel(dateOfBirth?: string) {
+  const age = patientAgeValue(dateOfBirth)
+  return age > 0 ? `${age}` : 'Chưa cập nhật'
+}
+function appointmentStatusLabel(status?: string) {
+  const bucket = statusBucket(status)
+  if (bucket === 'pending') return 'Chờ duyệt'
+  if (bucket === 'confirmed') return 'Đã duyệt'
+  if (bucket === 'checkedin') return 'Đã check-in'
+  if (bucket === 'inprogress') return 'Đang khám'
+  if (bucket === 'completed') return 'Hoàn tất'
+  if (bucket === 'cancelled') return 'Đã hủy'
+  if (bucket === 'expired') return 'Quá hạn'
+  if (bucket === 'noshow') return 'Không đến'
+  return status || 'Chờ duyệt'
+}
 function mapSchedule(x: DoctorSchedule & Record<string, any>): Row {
   const scheduleId = toNumber(x.scheduleId, x.ScheduleId, x.id, x.Id)
   const doctorId = toNumber(x.doctorId, x.DoctorId)
@@ -1421,12 +1743,72 @@ function mapSchedule(x: DoctorSchedule & Record<string, any>): Row {
     raw: x,
   }
 }
-function mapPatient(x: Patient): Row { const id = toNumber(x.id, x.patientId); return { id: id || x.patientId, patientCode: x.patientCode || x.patientIdCode || x.patientId || id, name: displayText(x.fullName), phone: x.phone || x.phoneNumber || 'Chưa cập nhật', gender: x.gender || 'Chưa cập nhật', history: x.medicalHistory || 'Chưa ghi nhận', raw: x } }
-function mapAppointment(x: Appointment & Record<string, any>): Row { return { id: toNumber(x.appointmentId, x.AppointmentId, x.id), appointmentDate: x.appointmentDate || x.AppointmentDate, patientId: toNumber(x.patientId, x.PatientId), doctorId: toNumber(x.doctorId, x.DoctorId), patientName: displayText(x.patientName || x.PatientName || x.patientNameSnapshot), doctorName: displayText(x.doctorName || x.DoctorName), dateTime: `${date(x.appointmentDate || x.AppointmentDate)} · ${x.slotTime || x.SlotTime || '-'}`, status: x.status || x.Status, feeValue: toNumber(x.examFee, x.ExamFee, x.doctor?.examFee, x.Doctor?.ExamFee), raw: x } }
+function mapPatient(x: Patient): Row {
+  const id = toNumber(x.id, x.patientId)
+  const dateOfBirth = x.dateOfBirth || ''
+  return {
+    id: id || x.patientId,
+    patientCode: x.patientCode || x.patientIdCode || x.patientId || id,
+    name: displayText(x.fullName),
+    dateOfBirth: date(dateOfBirth),
+    age: patientAgeLabel(dateOfBirth),
+    ageValue: patientAgeValue(dateOfBirth),
+    phone: x.phone || x.phoneNumber || 'Chưa cập nhật',
+    email: x.email || 'Chưa cập nhật',
+    gender: patientGenderLabel(x.gender),
+    citizenId: x.citizenId || 'Chưa cập nhật',
+    bloodType: x.bloodType || 'Chưa cập nhật',
+    address: x.address || 'Chưa cập nhật',
+    allergyNote: x.allergyNote || x.allergies || 'Không ghi nhận',
+    history: x.medicalHistory || 'Không ghi nhận',
+    status: patientStatusLabel(x.status),
+    raw: x,
+  }
+}
+function mapAppointment(x: Appointment & Record<string, any>): Row {
+  const appointmentId = toNumber(x.appointmentId, x.AppointmentId, x.id, x.Id)
+  const patient = x.patient || x.Patient
+  const doctor = x.doctor || x.Doctor
+  const specialty = x.specialty || x.Specialty
+  const appointmentDate = x.appointmentDate || x.AppointmentDate
+  const slotTime = x.slotTime || x.SlotTime || x.time || x.Time || ''
+  const statusRaw = String(x.status || x.Status || 'Pending')
+  const patientId = x.patientId ?? x.PatientId ?? patient?.patientId ?? patient?.PatientId ?? patient?.id ?? patient?.Id
+  const doctorId = toNumber(x.doctorId, x.DoctorId, doctor?.doctorId, doctor?.DoctorId, doctor?.id, doctor?.Id)
+  const patientName = displayText(x.patientName || x.PatientName || x.patientNameSnapshot || x.PatientNameSnapshot || patient?.fullName || patient?.FullName || '')
+  const doctorName = displayText(x.doctorName || x.DoctorName || doctor?.doctorName || doctor?.DoctorName || doctor?.fullName || doctor?.FullName || '')
+  return {
+    id: appointmentId,
+    appointmentId,
+    appointmentCode: x.appointmentCode || x.AppointmentCode || '',
+    appointmentDate,
+    patientId,
+    patientPhone: x.patientPhone || x.PatientPhone || x.patientPhoneSnapshot || x.PatientPhoneSnapshot || patient?.phoneNumber || patient?.PhoneNumber || patient?.phone || patient?.Phone || '',
+    doctorId,
+    specialtyId: toNumber(x.specialtyId, x.SpecialtyId, specialty?.specialtyId, specialty?.SpecialtyId),
+    specialtyName: displayText(x.specialtyName || x.SpecialtyName || specialty?.specialtyName || specialty?.SpecialtyName || doctor?.specialtyName || doctor?.SpecialtyName || ''),
+    patientName,
+    doctorName,
+    dateTime: `${date(appointmentDate)} · ${slotTime ? String(slotTime).slice(0, 5) : '-'}`,
+    slotTime,
+    queueNumber: x.queueNumber ?? x.QueueNumber ?? null,
+    reason: x.reason || x.Reason || '',
+    status: appointmentStatusLabel(statusRaw),
+    statusRaw,
+    feeValue: toNumber(x.examFee, x.ExamFee, doctor?.examFee, doctor?.ExamFee),
+    raw: x,
+  }
+}
+function isValidAppointmentRow(row: Row) {
+  const appointmentId = Number(row.appointmentId || row.id)
+  const hasPatient = Boolean(row.patientId || String(row.patientName || '').trim())
+  const hasDoctor = Boolean(row.doctorId || String(row.doctorName || '').trim())
+  return Number.isFinite(appointmentId) && appointmentId > 0 && hasPatient && hasDoctor
+}
 function mapMedicine(x: Medicine & Record<string, any>): Row { const price = toNumber(x.price, x.Price, x.unitPrice, x.UnitPrice); const stock = toNumberAllowZero(x.stockQuantity, x.StockQuantity, x.stock, x.Stock); const minStock = toNumberAllowZero(x.minStockLevel, x.MinStockLevel) || 10; const status = String(x.status || x.Status || (stock <= 0 ? 'OutOfStock' : 'Active')); return { id: toNumber(x.medicineId, x.MedicineId, x.id), name: x.medicineName || x.MedicineName || x.name, activeIngredient: x.activeIngredient || x.ActiveIngredient || 'Chưa cập nhật', medicineType: x.medicineType || x.MedicineType || 'Khác', unit: x.unit || x.Unit || x.dosageForm || x.DosageForm || 'Chưa cập nhật', price: money(price), priceValue: price, stock, minStockLevel: minStock, expiryDate: dateOnly(x.expiryDate || x.ExpiryDate), stockStatus: medicineStatusLabel(status, stock, minStock), status, raw: x } }
 function mapPrescription(x: MedicalRecord): Row { return { id: x.medicalRecordCode || x.medicalRecordIdCode || x.recordIdCode || x.recordId || x.medicalRecordId || 'MR', patientId: x.patientCode || x.patientIdCode || x.patientId, diagnosis: x.diagnosis || 'Chưa chẩn đoán', doctorNotes: x.doctorNotes || 'Chưa ghi chú', status: 'Chờ kê đơn', raw: x } }
 function mapInvoice(x: Invoice & Record<string, any>): Row { const amount = invoiceAmount(x); const invoiceId = toNumber(x.invoiceId, x.InvoiceId, x.id, x.Id); return { id: x.invoiceCode || x.invoiceIdCode || x.InvoiceCode || x.InvoiceIdCode || invoiceId, invoiceId, patientId: x.patientCode || x.patientIdCode || x.PatientCode || x.PatientIdCode || x.patientId || x.PatientId || 'Chưa cập nhật', appointmentId: x.appointmentId || x.AppointmentId ? `#${x.appointmentId || x.AppointmentId}` : '-', amount: money(amount), amountValue: amount, status: x.status || x.Status || 'Unpaid', raw: x } }
-function mapUser(x: User): Row { return { id: x.id, fullName: displayText(x.fullName), username: x.username, email: x.email || 'Chưa cập nhật', phoneNumber: x.phoneNumber || 'Chưa cập nhật', roleName: x.roleName, status: (x as any).status || 'Active', raw: x } }
+function mapUser(x: User): Row { return { id: x.id, fullName: displayText(x.fullName), username: x.username, email: x.email || 'Chưa cập nhật', phoneNumber: x.phoneNumber || 'Chưa cập nhật', roleName: x.roleName, status: accountStatusLabel(x.status), raw: x } }
 
 function matchesScheduleFilters(row: Row, q: string) {
   const doctorMatches = !q || [row.doctorName, row.specialtyName, row.timeRange].some((value) => String(value || '').toLowerCase().includes(q))
@@ -1627,8 +2009,8 @@ function cols(...xs: [string, string, boolean?, boolean?, boolean?][]): Column[]
 function adminColumnWidth(col: Column) {
   const widths: Partial<Record<Key, Record<string, number>>> = {
     doctors: { id: 90, name: 220, specialty: 190, degree: 130, fee: 140, phone: 140, email: 220, roomNumber: 110, status: 150 },
-    specialties: { id: 110, name: 280, status: 150 },
-    patients: { patientCode: 130, name: 240, phone: 150, gender: 120, history: 360 },
+    specialties: { id: 90, name: 240, doctorCount: 110, activeDoctorCount: 140, rooms: 180, feeRange: 220, status: 150 },
+    patients: { patientCode: 130, name: 230, dateOfBirth: 140, age: 90, gender: 110, phone: 145, email: 220, citizenId: 160, bloodType: 110, address: 260, allergyNote: 240, history: 280, status: 150 },
     appointments: { id: 110, patientName: 240, doctorName: 220, dateTime: 210, status: 160 },
     medicines: { id: 80, name: 260, activeIngredient: 210, medicineType: 180, unit: 110, price: 140, stock: 100, minStockLevel: 120, expiryDate: 140, stockStatus: 150 },
     bills: { id: 130, patientId: 140, appointmentId: 140, amount: 160, status: 160 },
@@ -1700,8 +2082,8 @@ function columnWidthClass(col: Column) {
   if (key.value !== 'medicines') {
     const commonWidths: Partial<Record<Key, Record<string, string>>> = {
       doctors: { id: 'w-24', name: 'w-64', specialty: 'w-52', degree: 'w-36', fee: 'w-36', phone: 'w-36', email: 'w-56', roomNumber: 'w-28', status: 'w-36' },
-      specialties: { id: 'w-28', name: 'w-80', status: 'w-36' },
-      patients: { patientCode: 'w-32', name: 'w-72', phone: 'w-40', gender: 'w-32', history: 'w-[360px]' },
+      specialties: { id: 'w-24', name: 'w-64', doctorCount: 'w-28', activeDoctorCount: 'w-36', rooms: 'w-48', feeRange: 'w-56', status: 'w-36' },
+      patients: { patientCode: 'w-32', name: 'w-64', dateOfBirth: 'w-36', age: 'w-24', gender: 'w-28', phone: 'w-36', email: 'w-56', citizenId: 'w-40', bloodType: 'w-28', address: 'w-64', allergyNote: 'w-60', history: 'w-72', status: 'w-36' },
       appointments: { id: 'w-28', patientName: 'w-72', doctorName: 'w-64', dateTime: 'w-56', status: 'w-40' },
     }
     return commonWidths[key.value]?.[col.key] || ''
@@ -1728,15 +2110,15 @@ const actionCellClass = computed(() => ['sticky right-0 z-10 h-[58px] w-32 bg-wh
 
 function scheduleViewTabClass(tab: ScheduleTab) {
   return [
-    'inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg px-4 text-sm font-black transition sm:flex-none',
-    scheduleTab.value === tab ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950',
+    'inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold transition sm:flex-none',
+    scheduleTab.value === tab ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-900',
   ]
 }
 function scheduleQuickButtonClass(range: ScheduleQuickRange) {
   const active = isScheduleQuickRangeActive(range)
   return [
-    'inline-flex h-9 items-center rounded-lg px-3 text-sm font-bold transition',
-    active ? 'bg-blue-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700',
+    'inline-flex h-8 items-center rounded-md px-3 text-xs font-semibold transition',
+    active ? 'bg-slate-900 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900',
   ]
 }
 function isScheduleQuickRangeActive(range: ScheduleQuickRange) {
@@ -1755,10 +2137,10 @@ function isScheduleQuickRangeActive(range: ScheduleQuickRange) {
   return scheduleDateFrom.value === first && scheduleDateTo.value === last
 }
 function scheduleCardClass(row: Row) {
-  const base = 'group w-full rounded-xl border p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-4'
-  if (row.hasConflict) return [base, 'border-amber-300 bg-amber-50 focus:ring-amber-100']
-  if (row.isAvailable === false) return [base, 'border-rose-200 bg-rose-50/80 focus:ring-rose-100']
-  return [base, 'border-teal-200 bg-teal-50/80 focus:ring-teal-100']
+  const base = 'schedule-event group w-full border text-left transition focus:outline-none focus:ring-2'
+  if (row.hasConflict) return [base, 'border-amber-300 bg-amber-50 text-amber-950 hover:border-amber-400 focus:ring-amber-200']
+  if (row.isAvailable === false) return [base, 'border-rose-200 bg-rose-50 text-rose-950 hover:border-rose-300 focus:ring-rose-200']
+  return [base, 'border-emerald-200 bg-emerald-50/80 text-emerald-950 hover:border-emerald-300 focus:ring-emerald-200']
 }
 function scheduleStatusBadgeClass(row: Row) {
   return [
@@ -1807,6 +2189,27 @@ function bulkWeekdayButtonClass(day: number) {
     active ? 'border-teal-600 bg-teal-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700',
   ]
 }
+function scheduleStatusDotClass(row: Row) {
+  return [
+    'mt-1 h-2 w-2 shrink-0 rounded-full',
+    row.hasConflict ? 'bg-amber-500' : row.isAvailable === false ? 'bg-rose-500' : 'bg-emerald-500',
+  ]
+}
+function scheduleItemsForShift(items: Row[], shift: ScheduleShiftKey) {
+  return items.filter((item) => {
+    const start = Number(item.startMinutes || 0)
+    if (shift === 'morning') return start < 12 * 60
+    if (shift === 'afternoon') return start >= 12 * 60 && start < 18 * 60
+    return start >= 18 * 60
+  })
+}
+
+function showToast(title: string, message: string, type: 'success' | 'error') {
+  toast.title = title
+  toast.message = message
+  toast.type = type
+  toast.show = true
+}
 
 function value(v: unknown) { return v === undefined || v === null || v === '' ? 'Chưa cập nhật' : String(v) }
 function toNumber(...values: unknown[]) { for (const value of values) { const numberValue = Number(value); if (Number.isFinite(numberValue) && numberValue > 0) return numberValue } return 0 }
@@ -1845,7 +2248,7 @@ function appointmentDetails(row: Row) {
     doctorName: displayText(getAny(row, raw, 'doctorName', 'DoctorName')) || 'Chưa cập nhật',
     specialtyName: displayText(getAny(row, raw, 'specialtyName', 'SpecialtyName')) || 'Chưa cập nhật',
     reason: getAny(row, raw, 'reason', 'Reason') || '',
-    status: getAny(row, raw, 'status', 'Status') || row.status || 'Chưa cập nhật',
+    status: appointmentStatusLabel(getAny(row, raw, 'statusRaw', 'status', 'Status') || row.status),
     appointmentDateLabel: date(toOptionalString(appointmentDate)),
     slotTime: getAny(row, raw, 'slotTime', 'SlotTime') || '-',
     queueNumber: getAny(row, raw, 'queueNumber', 'QueueNumber') || '-',
@@ -1853,7 +2256,7 @@ function appointmentDetails(row: Row) {
     checkedInAtLabel: checkedInAt ? dateTime(toOptionalString(checkedInAt)) : 'Chưa check-in',
   }
 }
-function canDeleteAppointment(row: Row) { return ['pending', 'cancelled', 'completed'].includes(statusBucket(row.status)) }
+function canDeleteAppointment(row: Row) { return Boolean(row.id || row.appointmentId) }
 function deleteAppointmentMessage(status: unknown) {
   const bucket = statusBucket(status)
   if (bucket === 'completed') return 'Đã xóa lịch đã khám xong khỏi danh sách quản trị.'
@@ -1861,13 +2264,15 @@ function deleteAppointmentMessage(status: unknown) {
   return 'Đã xóa lịch chưa xác nhận khỏi danh sách quản trị.'
 }
 function statusBucket(status: unknown) {
-  const s = String(status || '').toLowerCase()
-  if (s.includes('completed') || s.includes('hoàn tất') || s.includes('da kham') || s.includes('đã khám')) return 'completed'
-  if (s.includes('pending') || s.includes('chưa xác nhận') || s.includes('cho xac nhan') || s.includes('chờ xác nhận')) return 'pending'
-  if (s.includes('confirmed') || s.includes('xác nhận')) return 'confirmed'
-  if (s.includes('checked')) return 'checkedin'
-  if (s.includes('progress')) return 'inprogress'
-  if (s.includes('cancel')) return 'cancelled'
+  const s = normalizeSearchText(status)
+  if (s.includes('completed') || s === 'done' || s.includes('hoan tat') || s.includes('da kham')) return 'completed'
+  if (s.includes('pending') || s.includes('waiting') || s.includes('cho duyet') || s.includes('dang cho') || s.includes('chua xac nhan') || s.includes('cho xac nhan')) return 'pending'
+  if (s.includes('confirmed') || s.includes('da duyet') || s.includes('xac nhan')) return 'confirmed'
+  if (s.includes('checkedin') || s.includes('checked in') || s.includes('check-in') || s.includes('tiep nhan')) return 'checkedin'
+  if (s.includes('inprogress') || s.includes('in progress') || s.includes('dang kham')) return 'inprogress'
+  if (s.includes('cancel') || s.includes('da huy')) return 'cancelled'
+  if (s.includes('expired') || s.includes('qua han')) return 'expired'
+  if (s.includes('noshow') || s.includes('no show') || s.includes('khong den')) return 'noshow'
   return 'other'
 }
 function getAny(...values: any[]) {
@@ -1884,14 +2289,23 @@ function getAny(...values: any[]) {
   return undefined
 }
 function toOptionalString(value: unknown) { return value === undefined || value === null || value === '' ? undefined : String(value) }
-function statusClass(v: unknown) { const s = String(v || '').toLowerCase(); if (s.includes('đang') || s.includes('paid') || s.includes('confirmed') || s.includes('completed') || s.includes('đủ')) return 'bg-teal-100 text-teal-700'; if (s.includes('pending') || s.includes('unpaid') || s.includes('chờ') || s.includes('tồn thấp')) return 'bg-amber-100 text-amber-700'; if (s.includes('cancel') || s.includes('hết') || s.includes('tạm')) return 'bg-rose-100 text-rose-700'; return 'bg-slate-100 text-slate-700' }
+function statusClass(v: unknown) {
+  const s = normalizeSearchText(v)
+  if (s.includes('cho') || s.includes('pending') || s.includes('waiting') || s.includes('unpaid') || s.includes('ton thap')) return 'bg-amber-100 text-amber-700'
+  if (s.includes('duyet') || s.includes('xac nhan') || s.includes('confirmed')) return 'bg-blue-100 text-blue-700'
+  if (s.includes('check') || s.includes('tiep nhan') || s.includes('paid') || s.includes('du hang')) return 'bg-emerald-100 text-emerald-700'
+  if (s.includes('dang') || s.includes('progress')) return 'bg-indigo-100 text-indigo-700'
+  if (s.includes('hoan tat') || s.includes('completed') || s.includes('done') || s.includes('da kham')) return 'bg-teal-100 text-teal-700'
+  if (s.includes('cancel') || s.includes('huy') || s.includes('het') || s.includes('tam') || s.includes('khoa') || s.includes('locked') || s.includes('qua han') || s.includes('khong den')) return 'bg-rose-100 text-rose-700'
+  return 'bg-slate-100 text-slate-700'
+}
 function money(v: number) { return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(v || 0)) }
 function date(v?: string) { if (!v) return 'Chưa cập nhật'; const d = parseInputDate(v); return d ? new Intl.DateTimeFormat('vi-VN').format(d) : v }
 function dateTime(v?: string) { if (!v) return 'Chưa cập nhật'; const d = new Date(v); return Number.isNaN(d.getTime()) ? v : new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(d) }
 function dateOnly(v?: string) { if (!v) return 'Chưa cập nhật'; const d = new Date(v); return Number.isNaN(d.getTime()) ? v : d.toISOString().slice(0, 10) }
 function formValue(row: Row | undefined, key: string) {
   if (!row) {
-    if (key === 'status') return 'Active'
+    if (key === 'status') return route.meta.adminResource === 'patients' ? 'Đang hoạt động' : 'Active'
     if (key === 'isActive' || key === 'isAvailable') return 'true'
     if (key === 'minStockLevel') return '10'
     if (key === 'slotDurationMinutes') return '30'
@@ -1910,6 +2324,9 @@ function formValue(row: Row | undefined, key: string) {
   if (key === 'slotDurationMinutes') return String(row.slotDurationMinutes ?? raw.slotDurationMinutes ?? raw.SlotDurationMinutes ?? 30)
   if (key === 'isAvailable') return String(row.isAvailable ?? raw.isAvailable ?? raw.IsAvailable ?? true)
   if (key === 'phone') return String(raw.phone ?? raw.Phone ?? raw.phoneNumber ?? raw.PhoneNumber ?? row.phone ?? '')
+  if (key === 'dateOfBirth') return dateInputValue(raw.dateOfBirth ?? raw.DateOfBirth ?? row.dateOfBirth)
+  if (key === 'allergyNote') return String(raw.allergyNote ?? raw.AllergyNote ?? raw.allergies ?? row.allergyNote ?? '')
+  if (key === 'status' && (row.patientCode || raw.patientCode || raw.PatientCode)) return patientStatusLabel(raw.status ?? raw.Status ?? row.status)
   if (key === 'isActive') return String(raw.isActive ?? raw.IsActive ?? !String(row.status || '').toLowerCase().includes('tạm'))
   const value = raw[key] ?? raw[pascal(key)] ?? row[key] ?? ''
   if (key === 'roleId') return String(raw.roleId ?? row.raw?.roleId ?? value ?? RoleId.Receptionist)
@@ -1980,6 +2397,272 @@ const DetailItem = (props: { label: string; value: unknown; badge?: boolean }) =
 </script>
 
 <style scoped>
+.schedule-workspace {
+  color: #0f172a;
+}
+
+.schedule-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.035);
+}
+
+.schedule-summary-item {
+  display: flex;
+  min-height: 74px;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-right: 1px solid #eef2f7;
+}
+
+.schedule-summary-item:last-child {
+  border-right: 0;
+}
+
+.schedule-summary-icon {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.schedule-filter-panel,
+.schedule-board-shell {
+  overflow: hidden;
+  border: 1px solid #dfe5ec;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgb(15 23 42 / 0.04);
+}
+
+.schedule-field-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 16px;
+}
+
+.schedule-control {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #dfe5ec;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 550;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.schedule-control::placeholder {
+  color: #94a3b8;
+  font-weight: 450;
+}
+
+.schedule-control:focus {
+  border-color: #6b9ddd;
+  box-shadow: 0 0 0 3px rgb(15 82 186 / 0.08);
+}
+
+.schedule-board-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fbfcfe;
+}
+
+.schedule-icon-button {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dfe5ec;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #475569;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.schedule-icon-button:hover {
+  border-color: #b8c5d6;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.schedule-calendar {
+  display: grid;
+  grid-template-columns: 126px repeat(7, minmax(0, 1fr));
+}
+
+.schedule-calendar-corner,
+.schedule-day-header {
+  min-height: 82px;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #dfe5ec;
+  background: #f8fafc;
+}
+
+.schedule-calendar-corner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.schedule-day-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+}
+
+.schedule-day-header:last-child {
+  border-right: 0;
+}
+
+.schedule-day-header--today {
+  background: #eff6ff;
+}
+
+.schedule-day-number {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  margin-block: 3px;
+  border-radius: 50%;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.schedule-day-number--today {
+  background: #0f52ba;
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgb(15 82 186 / 0.22);
+}
+
+.schedule-shift-label {
+  display: flex;
+  min-height: 178px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 18px 14px;
+  border-right: 1px solid #dfe5ec;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fbfcfe;
+  font-size: 12px;
+}
+
+.schedule-shift-dot {
+  width: 8px;
+  height: 8px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+}
+
+.schedule-calendar-cell {
+  position: relative;
+  min-width: 0;
+  min-height: 178px;
+  padding: 8px;
+  border-right: 1px solid #eef2f7;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.schedule-calendar-cell:nth-child(8n) {
+  border-right: 0;
+}
+
+.schedule-calendar-cell--today {
+  background: #f8fbff;
+}
+
+.schedule-event {
+  display: block;
+  margin-bottom: 7px;
+  padding: 10px;
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgb(15 23 42 / 0.035);
+}
+
+.schedule-event:last-of-type {
+  margin-bottom: 0;
+}
+
+.schedule-empty-cell {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  color: #cbd5e1;
+  font-size: 13px;
+  transform: translate(-50%, -50%);
+}
+
+.schedule-mobile-day {
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+@media (min-width: 1280px) {
+  .schedule-board-toolbar {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+@media (max-width: 1023px) {
+  .schedule-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .schedule-summary-item {
+    border-bottom: 1px solid #eef2f7;
+  }
+
+  .schedule-summary-item:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .schedule-summary-item:last-child {
+    grid-column: 1 / -1;
+    border-bottom: 0;
+  }
+}
+
+@media (max-width: 639px) {
+  .schedule-summary-item {
+    min-height: 66px;
+    padding: 11px 12px;
+  }
+}
+
 .admin-form-drawer {
   position: fixed;
   top: 0;
@@ -2030,6 +2713,27 @@ const DetailItem = (props: { label: string; value: unknown; badge?: boolean }) =
 .admin-drawer-fade-enter-to,
 .admin-drawer-fade-leave-from {
   opacity: 1;
+}
+
+.admin-confirm-fade-enter-active,
+.admin-confirm-fade-leave-active {
+  transition: opacity 180ms ease;
+}
+
+.admin-confirm-fade-enter-from,
+.admin-confirm-fade-leave-to {
+  opacity: 0;
+}
+
+.admin-confirm-fade-enter-active .admin-confirm-card,
+.admin-confirm-fade-leave-active .admin-confirm-card {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease;
+}
+
+.admin-confirm-fade-enter-from .admin-confirm-card,
+.admin-confirm-fade-leave-to .admin-confirm-card {
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
 }
 
 .admin-table-shell {
