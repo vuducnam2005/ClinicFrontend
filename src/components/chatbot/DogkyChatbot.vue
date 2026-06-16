@@ -49,7 +49,22 @@
                     : 'rounded-bl-md border border-slate-100 bg-white text-slate-800'
                 "
               >
-                {{ message.text }}
+                <template v-if="message.table">
+                  <p class="mb-2 font-semibold text-slate-900">{{ message.text }}</p>
+                  <dl class="overflow-hidden rounded-xl border border-slate-200">
+                    <div
+                      v-for="row in message.table.rows"
+                      :key="row.label"
+                      class="grid grid-cols-[104px_1fr] border-b border-slate-100 last:border-b-0"
+                    >
+                      <dt class="bg-slate-50 px-3 py-2 text-xs font-bold text-slate-500">{{ row.label }}</dt>
+                      <dd class="min-w-0 px-3 py-2 text-xs font-semibold text-slate-800">{{ row.value }}</dd>
+                    </div>
+                  </dl>
+                </template>
+                <template v-else>
+                  {{ message.text }}
+                </template>
               </div>
 
               <RouterLink
@@ -164,6 +179,14 @@ interface ChatMessage {
   id: number
   sender: 'bot' | 'user'
   text: string
+  table?: {
+    rows: ChatTableRow[]
+  }
+}
+
+interface ChatTableRow {
+  label: string
+  value: string
 }
 
 interface GeminiResponse {
@@ -280,6 +303,12 @@ function nextMessageId() {
 function addBotMessage(text: string) {
   const id = nextMessageId()
   messages.value.push({ id, sender: 'bot', text })
+  return id
+}
+
+function addBotTableMessage(text: string, rows: ChatTableRow[]) {
+  const id = nextMessageId()
+  messages.value.push({ id, sender: 'bot', text, table: { rows } })
   return id
 }
 
@@ -419,18 +448,21 @@ async function replyWithLatestPrescription() {
 
   const items = prescriptionItems(latest)
   const code = stringValue(latest.prescriptionCode, latest.prescriptionIdCode, latest.id, latest.prescriptionId)
-  const header = code ? `Gâu, đơn thuốc gần nhất (${code}) đây:` : 'Gâu, đơn thuốc gần nhất đây:'
-  const lines = items.length
-    ? items.slice(0, 6).map((item, index) => {
+  const medicineSummary = items.length
+    ? items.slice(0, 4).map((item, index) => {
         const name = stringValue(item.medicineName, item.medicineNameSnapshot, item.name, item.Name) || 'Thuốc chưa rõ tên'
-        const dosage = stringValue(item.dosage, item.Dosage) || 'chưa có liều dùng'
+        const dosage = stringValue(item.dosage, item.Dosage) || 'chưa có liều'
         const frequency = stringValue(item.frequency, item.Frequency)
-        const instruction = stringValue(item.usageInstruction, item.UsageInstruction, item.note, item.Note)
-        return `${index + 1}. ${name} - ${dosage}${frequency ? `, ${frequency}` : ''}${instruction ? ` (${instruction})` : ''}`
-      })
-    : ['Chưa có chi tiết thuốc trong đơn này.']
+        return `${index + 1}. ${name} - ${dosage}${frequency ? `, ${frequency}` : ''}`
+      }).join('\n')
+    : 'Chưa có chi tiết thuốc'
 
-  addBotMessage(`${header}\n${lines.join('\n')}`)
+  addBotTableMessage(code ? `Gâu, đơn thuốc gần nhất (${code}) đây:` : 'Gâu, đơn thuốc gần nhất đây:', [
+    { label: 'Mã đơn', value: code || 'Không rõ' },
+    { label: 'Ngày kê', value: formatDate(stringValue(latest.submittedAt, latest.createdAt, latest.examDate, latest.visitDate)) || 'Không rõ' },
+    { label: 'Trạng thái', value: stringValue(latest.status, latest.stockStatus) || 'Không rõ' },
+    { label: 'Thuốc', value: medicineSummary },
+  ])
 }
 
 async function replyWithLatestInvoice() {
@@ -455,14 +487,12 @@ async function replyWithLatestInvoice() {
   const medicineTotal = numberValue(latest.medicineTotal)
   const status = stringValue(latest.status, latest.invoiceStatus) || 'Chưa rõ'
 
-  addBotMessage(
-    [
-      code ? `Gâu, hóa đơn mới nhất (${code}):` : 'Gâu, hóa đơn mới nhất:',
-      `Tiền khám: ${formatCurrency(examFee)}`,
-      `Tiền thuốc: ${formatCurrency(medicineTotal)}`,
-      `Trạng thái: ${translateInvoiceStatus(status)}`,
-    ].join('\n'),
-  )
+  addBotTableMessage(code ? `Gâu, hóa đơn mới nhất (${code}):` : 'Gâu, hóa đơn mới nhất:', [
+    { label: 'Mã hóa đơn', value: code || 'Không rõ' },
+    { label: 'Tiền khám', value: formatCurrency(examFee) },
+    { label: 'Tiền thuốc', value: formatCurrency(medicineTotal) },
+    { label: 'Trạng thái', value: translateInvoiceStatus(status) },
+  ])
 }
 
 async function replyWithLatestMedicalRecord() {
@@ -483,13 +513,12 @@ async function replyWithLatestMedicalRecord() {
   const doctorNote = stringValue(latest.doctorNote, latest.doctorNotes, latest.treatmentPlan) || 'Chưa có lời dặn của bác sĩ'
   const date = formatDate(stringValue(latest.completedAt, latest.examDate, latest.createdAt, latest.updatedAt))
 
-  addBotMessage(
-    [
-      date ? `Gâu, bệnh án gần nhất ngày ${date}:` : 'Gâu, bệnh án gần nhất:',
-      `Chẩn đoán: ${diagnosis}`,
-      `Lời dặn: ${doctorNote}`,
-    ].join('\n'),
-  )
+  addBotTableMessage(date ? `Gâu, bệnh án gần nhất ngày ${date}:` : 'Gâu, bệnh án gần nhất:', [
+    { label: 'Ngày khám', value: date || 'Không rõ' },
+    { label: 'Chẩn đoán', value: diagnosis },
+    { label: 'Bác sĩ', value: stringValue(latest.doctorName) || 'Không rõ' },
+    { label: 'Lời dặn', value: doctorNote },
+  ])
 }
 
 async function resolvePatientProfileIfNeeded() {
