@@ -130,12 +130,12 @@
 
     <div class="relative flex flex-col items-end">
       <Transition
-        enter-active-class="transition-all duration-500 ease-out"
-        enter-from-class="translate-y-3 opacity-0"
-        enter-to-class="translate-y-0 opacity-100"
-        leave-active-class="transition-all duration-500 ease-in"
-        leave-from-class="translate-y-0 opacity-100"
-        leave-to-class="translate-y-3 opacity-0"
+        enter-active-class="dogky-cloud-enter-active"
+        enter-from-class="dogky-cloud-enter-from"
+        enter-to-class="dogky-cloud-enter-to"
+        leave-active-class="dogky-cloud-leave-active"
+        leave-from-class="dogky-cloud-leave-from"
+        leave-to-class="dogky-cloud-leave-to"
       >
         <div
           v-if="notificationActive && !isOpen"
@@ -910,5 +910,34 @@ function quickActionIcon(key: QuickActionKey): Component {
   transition:
     bottom 520ms cubic-bezier(0.34, 1.56, 0.64, 1),
     right 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.dogky-cloud-bubble {
+  transform-origin: 76% 92%;
+  will-change: opacity, transform;
+}
+
+.dogky-cloud-enter-active {
+  transition:
+    opacity 420ms ease-out,
+    transform 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.dogky-cloud-leave-active {
+  transition:
+    opacity 260ms ease-in,
+    transform 320ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dogky-cloud-enter-from,
+.dogky-cloud-leave-to {
+  opacity: 0;
+  transform: translate(3.6rem, 4.7rem) scale(0.08) rotate(2deg);
+}
+
+.dogky-cloud-enter-to,
+.dogky-cloud-leave-from {
+  opacity: 1;
+  transform: translate(0, 0) scale(1) rotate(0);
 }
 </style>
