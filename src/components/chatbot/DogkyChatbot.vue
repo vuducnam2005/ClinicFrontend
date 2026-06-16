@@ -1,5 +1,9 @@
 <template>
-  <div class="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+  <div
+    class="fixed z-50 flex flex-col items-end"
+    :class="isReturningAssistant ? 'assistant-returning' : ''"
+    :style="assistantPositionStyle"
+  >
     <Transition
       enter-active-class="transition-all duration-300 ease-out"
       enter-from-class="translate-y-4 scale-95 opacity-0"
@@ -145,9 +149,11 @@
 
       <button
         type="button"
-        class="animate-float relative flex h-28 w-28 cursor-pointer items-center justify-center overflow-visible rounded-full transition-all duration-300 hover:scale-110"
+        class="animate-float relative flex h-28 w-28 touch-none select-none items-center justify-center overflow-visible rounded-full transition-all duration-300 hover:scale-110"
+        :class="isOpen || isReturningAssistant ? 'cursor-pointer' : isDraggingAssistant ? 'cursor-grabbing' : 'cursor-grab'"
         :aria-label="isOpen ? 'Đóng DogkyChatbot' : 'Mở DogkyChatbot'"
-        @click="toggleChat"
+        @click="handleAssistantClick"
+        @pointerdown="startAssistantDrag"
       >
         <video
           :src="assistantVideoUrl"
@@ -228,6 +234,11 @@ const notificationActive = ref(false)
 const notificationText = ref('')
 const conversationRef = ref<HTMLElement | null>(null)
 const loginPromptMessageId = ref<number | null>(null)
+const defaultAssistantPosition = { bottom: 24, right: 24 }
+const assistantReturnMs = 520
+const assistantPosition = ref({ ...defaultAssistantPosition })
+const isDraggingAssistant = ref(false)
+const isReturningAssistant = ref(false)
 
 const runtimeState = reactive({
   activeAction: null as QuickActionKey | null,
@@ -248,19 +259,37 @@ const canSend = computed(() => inputValue.value.trim().length > 0 && !isLoading.
 const notificationBubbleClass = computed(() =>
   notificationStore.toast.type === 'error' ? 'bg-orange-500' : 'bg-emerald-500',
 )
+const assistantPositionStyle = computed(() => ({
+  bottom: `${assistantPosition.value.bottom}px`,
+  right: `${assistantPosition.value.right}px`,
+}))
 
 let notificationTimer: number | undefined
 let scrollFrame: number | undefined
+let dragStartX = 0
+let dragStartY = 0
+let dragStartBottom = defaultAssistantPosition.bottom
+let dragStartRight = defaultAssistantPosition.right
+let assistantMovedDuringDrag = false
+let ignoreNextAssistantClick = false
+let assistantReturnTimer: number | undefined
 
 onMounted(() => {
+  clampAssistantPosition()
   window.addEventListener('keydown', handleEscape)
+  window.addEventListener('resize', clampAssistantPosition)
   scrollToBottom()
 })
 
 onBeforeUnmount(() => {
   if (notificationTimer) window.clearTimeout(notificationTimer)
   if (scrollFrame) window.cancelAnimationFrame(scrollFrame)
+  if (assistantReturnTimer) window.clearTimeout(assistantReturnTimer)
   window.removeEventListener('keydown', handleEscape)
+  window.removeEventListener('resize', clampAssistantPosition)
+  window.removeEventListener('pointermove', moveAssistant)
+  window.removeEventListener('pointerup', stopAssistantDrag)
+  window.removeEventListener('pointercancel', stopAssistantDrag)
 })
 
 watch(
@@ -286,9 +315,104 @@ watch(
 
 watch(isLoading, () => scrollToBottom())
 
-function toggleChat() {
-  isOpen.value = !isOpen.value
-  if (isOpen.value) scrollToBottom()
+function handleAssistantClick() {
+  if (ignoreNextAssistantClick) {
+    ignoreNextAssistantClick = false
+    return
+  }
+
+  if (isOpen.value) {
+    isOpen.value = false
+    return
+  }
+
+  openChatFromDefaultPosition()
+}
+
+function isAssistantAtDefaultPosition() {
+  return (
+    Math.abs(assistantPosition.value.bottom - defaultAssistantPosition.bottom) < 1 &&
+    Math.abs(assistantPosition.value.right - defaultAssistantPosition.right) < 1
+  )
+}
+
+function openChatFromDefaultPosition() {
+  if (isAssistantAtDefaultPosition()) {
+    isOpen.value = true
+    scrollToBottom()
+    return
+  }
+
+  if (assistantReturnTimer) window.clearTimeout(assistantReturnTimer)
+  isReturningAssistant.value = true
+  assistantPosition.value = { ...defaultAssistantPosition }
+
+  assistantReturnTimer = window.setTimeout(() => {
+    isReturningAssistant.value = false
+    assistantReturnTimer = undefined
+    isOpen.value = true
+    scrollToBottom()
+  }, assistantReturnMs)
+}
+
+function startAssistantDrag(event: PointerEvent) {
+  if (isOpen.value || isReturningAssistant.value || event.button !== 0) return
+
+  dragStartX = event.clientX
+  dragStartY = event.clientY
+  dragStartBottom = assistantPosition.value.bottom
+  dragStartRight = assistantPosition.value.right
+  assistantMovedDuringDrag = false
+  isDraggingAssistant.value = true
+
+  window.addEventListener('pointermove', moveAssistant)
+  window.addEventListener('pointerup', stopAssistantDrag, { once: true })
+  window.addEventListener('pointercancel', stopAssistantDrag, { once: true })
+}
+
+function moveAssistant(event: PointerEvent) {
+  if (!isDraggingAssistant.value) return
+
+  const deltaX = event.clientX - dragStartX
+  const deltaY = event.clientY - dragStartY
+
+  if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+    assistantMovedDuringDrag = true
+  }
+
+  assistantPosition.value = {
+    bottom: dragStartBottom - deltaY,
+    right: dragStartRight - deltaX,
+  }
+  clampAssistantPosition()
+}
+
+function stopAssistantDrag() {
+  window.removeEventListener('pointermove', moveAssistant)
+  window.removeEventListener('pointerup', stopAssistantDrag)
+  window.removeEventListener('pointercancel', stopAssistantDrag)
+
+  isDraggingAssistant.value = false
+  if (assistantMovedDuringDrag) {
+    ignoreNextAssistantClick = true
+    window.setTimeout(() => {
+      ignoreNextAssistantClick = false
+    }, 0)
+  }
+}
+
+function clampAssistantPosition() {
+  if (typeof window === 'undefined') return
+
+  const padding = 8
+  const mascotSize = 112
+  const maxRight = Math.max(padding, window.innerWidth - mascotSize - padding)
+  const maxBottom = Math.max(padding, window.innerHeight - mascotSize - padding)
+
+  assistantPosition.value = {
+    bottom: Math.min(Math.max(assistantPosition.value.bottom, padding), maxBottom),
+    right: Math.min(Math.max(assistantPosition.value.right, padding), maxRight),
+  }
 }
 
 function handleEscape(event: KeyboardEvent) {
@@ -614,5 +738,11 @@ function quickActionIcon(key: QuickActionKey): Component {
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
+}
+
+.assistant-returning {
+  transition:
+    bottom 520ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    right 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 </style>
