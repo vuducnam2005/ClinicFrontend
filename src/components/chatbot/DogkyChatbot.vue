@@ -138,12 +138,11 @@
         leave-to-class="translate-y-3 opacity-0"
       >
         <div
-          v-if="notificationActive"
-          class="absolute bottom-[5.75rem] right-0 max-w-xs rounded-2xl px-4 py-2 text-sm font-semibold text-white shadow-lg"
-          :class="notificationBubbleClass"
+          v-if="notificationActive && !isOpen"
+          class="dogky-cloud-bubble absolute bottom-[5.75rem] right-[-3.25rem] flex h-40 w-64 items-center justify-center bg-contain bg-center bg-no-repeat px-10 pb-8 pt-12 text-center text-sm font-bold leading-5 text-slate-800 drop-shadow-[0_18px_24px_rgba(15,23,42,0.16)]"
+          :style="{ backgroundImage: `url(${chatBubbleUrl})` }"
         >
-          {{ notificationText }}
-          <span class="absolute -bottom-1.5 right-8 h-3 w-3 rotate-45" :class="notificationBubbleClass"></span>
+          <span class="line-clamp-4">{{ notificationText }}</span>
         </div>
       </Transition>
 
@@ -181,6 +180,7 @@ import { appointmentApi } from '@/services/appointmentApi'
 import { billingApi } from '@/services/billingApi'
 import { medicalRecordApi } from '@/services/medicalRecordApi'
 import assistantVideoUrl from '@/assets/assistant-loop.webm'
+import chatBubbleUrl from '@/assets/chat.png'
 
 interface ChatMessage {
   id: number
@@ -258,13 +258,12 @@ const geminiEndpoint = computed(() =>
   `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${encodeURIComponent(geminiApiKey.value)}`,
 )
 const canSend = computed(() => inputValue.value.trim().length > 0 && !isLoading.value)
-const notificationBubbleClass = computed(() =>
-  notificationStore.toast.type === 'error' ? 'bg-orange-500' : 'bg-emerald-500',
-)
 const assistantPositionStyle = computed(() => ({
   bottom: `${assistantPosition.value.bottom}px`,
   right: `${assistantPosition.value.right}px`,
 }))
+const proactiveVisibleMs = 3000
+const proactiveHiddenMs = 10000
 
 let notificationTimer: number | undefined
 let scrollFrame: number | undefined
@@ -303,6 +302,7 @@ watch(
   () => [notificationStore.toast.show, notificationStore.toast.message] as const,
   ([show]) => {
     if (!show) return
+    if (isOpen.value) return
 
     notificationText.value = notificationStore.toast.message || notificationStore.toast.title || 'Bạn vừa nhận được thông báo mới.'
     notificationActive.value = true
@@ -312,10 +312,24 @@ watch(
     notificationTimer = window.setTimeout(() => {
       notificationActive.value = false
       notificationTimer = undefined
-      scheduleNextProactiveReminder(5000)
+      scheduleNextProactiveReminder(proactiveHiddenMs)
     }, 6000)
   },
 )
+
+watch(isOpen, (open) => {
+  if (open) {
+    notificationActive.value = false
+    stopProactiveReminderLoop()
+    if (notificationTimer) {
+      window.clearTimeout(notificationTimer)
+      notificationTimer = undefined
+    }
+    return
+  }
+
+  scheduleNextProactiveReminder(proactiveHiddenMs)
+})
 
 watch(
   () => [authStore.isAuthenticated, authStore.user?.patientId] as const,
@@ -495,7 +509,7 @@ async function refreshProactiveReminders() {
       return
     }
 
-    scheduleNextProactiveReminder(1200)
+    scheduleNextProactiveReminder(proactiveHiddenMs)
   } catch (error) {
     console.warn('Dogky proactive reminders unavailable', error)
   }
@@ -536,7 +550,7 @@ function buildProactiveReminders(appointments: LooseRecord[], invoices: LooseRec
 
 function scheduleNextProactiveReminder(delayMs: number) {
   stopProactiveReminderLoop()
-  if (!proactiveReminders.value.length || notificationStore.toast.show) return
+  if (!proactiveReminders.value.length || notificationStore.toast.show || isOpen.value) return
 
   proactiveHiddenTimer = window.setTimeout(() => {
     showProactiveReminder()
@@ -544,7 +558,7 @@ function scheduleNextProactiveReminder(delayMs: number) {
 }
 
 function showProactiveReminder() {
-  if (!proactiveReminders.value.length || notificationStore.toast.show) return
+  if (!proactiveReminders.value.length || notificationStore.toast.show || isOpen.value) return
 
   notificationText.value = proactiveReminders.value[proactiveReminderIndex % proactiveReminders.value.length]
   notificationActive.value = true
@@ -553,8 +567,8 @@ function showProactiveReminder() {
   proactiveVisibleTimer = window.setTimeout(() => {
     notificationActive.value = false
     proactiveVisibleTimer = undefined
-    scheduleNextProactiveReminder(5000)
-  }, 3000)
+    scheduleNextProactiveReminder(proactiveHiddenMs)
+  }, proactiveVisibleMs)
 }
 
 function stopProactiveReminderLoop() {
