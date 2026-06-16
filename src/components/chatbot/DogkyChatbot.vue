@@ -177,6 +177,7 @@ import type { Component } from 'vue'
 import { FileHeart, LogIn, Pill, ReceiptText, Send, Stethoscope, X } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/authStore'
 import { useNotificationStore } from '@/stores/notificationStore'
+import { appointmentApi } from '@/services/appointmentApi'
 import { billingApi } from '@/services/billingApi'
 import { medicalRecordApi } from '@/services/medicalRecordApi'
 import assistantVideoUrl from '@/assets/assistant-loop.webm'
@@ -234,6 +235,7 @@ const notificationActive = ref(false)
 const notificationText = ref('')
 const conversationRef = ref<HTMLElement | null>(null)
 const loginPromptMessageId = ref<number | null>(null)
+const proactiveReminders = ref<string[]>([])
 const defaultAssistantPosition = { bottom: 24, right: 24 }
 const assistantReturnMs = 520
 const assistantPosition = ref({ ...defaultAssistantPosition })
@@ -266,6 +268,9 @@ const assistantPositionStyle = computed(() => ({
 
 let notificationTimer: number | undefined
 let scrollFrame: number | undefined
+let proactiveVisibleTimer: number | undefined
+let proactiveHiddenTimer: number | undefined
+let proactiveReminderIndex = 0
 let dragStartX = 0
 let dragStartY = 0
 let dragStartBottom = defaultAssistantPosition.bottom
@@ -278,12 +283,14 @@ onMounted(() => {
   clampAssistantPosition()
   window.addEventListener('keydown', handleEscape)
   window.addEventListener('resize', clampAssistantPosition)
+  refreshProactiveReminders()
   scrollToBottom()
 })
 
 onBeforeUnmount(() => {
   if (notificationTimer) window.clearTimeout(notificationTimer)
   if (scrollFrame) window.cancelAnimationFrame(scrollFrame)
+  stopProactiveReminderLoop()
   if (assistantReturnTimer) window.clearTimeout(assistantReturnTimer)
   window.removeEventListener('keydown', handleEscape)
   window.removeEventListener('resize', clampAssistantPosition)
@@ -300,12 +307,19 @@ watch(
     notificationText.value = notificationStore.toast.message || notificationStore.toast.title || 'Bạn vừa nhận được thông báo mới.'
     notificationActive.value = true
 
+    stopProactiveReminderLoop()
     if (notificationTimer) window.clearTimeout(notificationTimer)
     notificationTimer = window.setTimeout(() => {
       notificationActive.value = false
       notificationTimer = undefined
+      scheduleNextProactiveReminder(5000)
     }, 6000)
   },
+)
+
+watch(
+  () => [authStore.isAuthenticated, authStore.user?.patientId] as const,
+  () => refreshProactiveReminders(),
 )
 
 watch(
@@ -447,6 +461,107 @@ function scrollToBottom() {
     if (!conversationRef.value) return
     conversationRef.value.scrollTop = conversationRef.value.scrollHeight
   })
+}
+
+async function refreshProactiveReminders() {
+  stopProactiveReminderLoop()
+  proactiveReminders.value = []
+  proactiveReminderIndex = 0
+
+  if (!authStore.isAuthenticated) {
+    notificationActive.value = false
+    return
+  }
+
+  await resolvePatientProfileIfNeeded()
+  const patientId = authStore.user?.patientId
+  if (!patientId) return
+
+  try {
+    const [appointments, invoices, prescriptions] = await Promise.all([
+      appointmentApi.getAppointmentsByPatient(patientId).catch(() => []),
+      billingApi.getInvoices(patientId).catch(() => []),
+      billingApi.getPrescriptions(patientId).catch(() => []),
+    ])
+
+    proactiveReminders.value = buildProactiveReminders(
+      appointments as LooseRecord[],
+      invoices as LooseRecord[],
+      prescriptions as LooseRecord[],
+    )
+
+    if (!proactiveReminders.value.length) {
+      notificationActive.value = false
+      return
+    }
+
+    scheduleNextProactiveReminder(1200)
+  } catch (error) {
+    console.warn('Dogky proactive reminders unavailable', error)
+  }
+}
+
+function buildProactiveReminders(appointments: LooseRecord[], invoices: LooseRecord[], prescriptions: LooseRecord[]) {
+  const reminders: string[] = []
+  const nextAppointment = newestUpcomingAppointment(appointments)
+  const latestUnpaidInvoice = newestByDate(invoices.filter(isUnpaidInvoice), ['paidAt', 'createdAt'])
+  const latestPrescription = newestByDate(prescriptions, [
+    'dispensedAt',
+    'submittedAt',
+    'sentToPharmacyAt',
+    'createdAt',
+    'examDate',
+    'visitDate',
+  ])
+
+  if (nextAppointment) {
+    const dateText = formatAppointmentDateTime(nextAppointment)
+    const doctorText = stringValue(nextAppointment.doctorName, nextAppointment.DoctorName)
+    reminders.push(`Bạn có lịch khám vào ${dateText}${doctorText ? ` với ${doctorText}` : ''}. Hãy chú ý nhé, gâu!`)
+  }
+
+  if (latestUnpaidInvoice) {
+    const code = stringValue(latestUnpaidInvoice.invoiceCode, latestUnpaidInvoice.invoiceIdCode, latestUnpaidInvoice.invoiceId, latestUnpaidInvoice.id)
+    const amount = numberValue(latestUnpaidInvoice.balanceDue, latestUnpaidInvoice.totalAmount, latestUnpaidInvoice.amount)
+    reminders.push(`Bạn có hóa đơn${code ? ` ${code}` : ''} cần theo dõi${amount ? `: ${formatCurrency(amount)}` : ''}. Nhớ kiểm tra viện phí nhé, gâu!`)
+  }
+
+  if (latestPrescription) {
+    const code = stringValue(latestPrescription.prescriptionCode, latestPrescription.prescriptionIdCode, latestPrescription.id, latestPrescription.prescriptionId)
+    reminders.push(`Đơn thuốc${code ? ` ${code}` : ''} đã được cập nhật. Nhớ xem hướng dẫn dùng thuốc nhé, gâu!`)
+  }
+
+  return reminders
+}
+
+function scheduleNextProactiveReminder(delayMs: number) {
+  stopProactiveReminderLoop()
+  if (!proactiveReminders.value.length || notificationStore.toast.show) return
+
+  proactiveHiddenTimer = window.setTimeout(() => {
+    showProactiveReminder()
+  }, delayMs)
+}
+
+function showProactiveReminder() {
+  if (!proactiveReminders.value.length || notificationStore.toast.show) return
+
+  notificationText.value = proactiveReminders.value[proactiveReminderIndex % proactiveReminders.value.length]
+  notificationActive.value = true
+  proactiveReminderIndex += 1
+
+  proactiveVisibleTimer = window.setTimeout(() => {
+    notificationActive.value = false
+    proactiveVisibleTimer = undefined
+    scheduleNextProactiveReminder(5000)
+  }, 3000)
+}
+
+function stopProactiveReminderLoop() {
+  if (proactiveVisibleTimer) window.clearTimeout(proactiveVisibleTimer)
+  if (proactiveHiddenTimer) window.clearTimeout(proactiveHiddenTimer)
+  proactiveVisibleTimer = undefined
+  proactiveHiddenTimer = undefined
 }
 
 async function sendMessage(forcedText?: string) {
@@ -656,6 +771,13 @@ function newestByDate<T extends LooseRecord>(items: T[] = [], dateKeys: string[]
   return [...items].sort((left, right) => itemTime(right, dateKeys) - itemTime(left, dateKeys))[0]
 }
 
+function newestUpcomingAppointment(items: LooseRecord[]) {
+  return items
+    .filter((item) => !isClosedAppointmentStatus(stringValue(item.status, item.Status)))
+    .filter((item) => appointmentTimestamp(item) >= Date.now() - 15 * 60 * 1000)
+    .sort((left, right) => appointmentTimestamp(left) - appointmentTimestamp(right))[0]
+}
+
 function itemTime(item: LooseRecord, dateKeys: string[]) {
   for (const key of dateKeys) {
     const value = item[key] ?? item[toPascalCase(key)]
@@ -663,6 +785,28 @@ function itemTime(item: LooseRecord, dateKeys: string[]) {
     if (Number.isFinite(time)) return time
   }
   return 0
+}
+
+function appointmentTimestamp(item: LooseRecord) {
+  const date = stringValue(item.appointmentDate, item.AppointmentDate, item.scheduledAt, item.ScheduledAt)
+  const time = stringValue(item.slotTime, item.SlotTime, item.time, item.Time) || '00:00'
+  const normalizedDate = date.slice(0, 10)
+  const normalizedTime = time.slice(0, 5)
+  const value = normalizedDate ? `${normalizedDate}T${normalizedTime}:00` : date
+  const timestamp = new Date(value).getTime()
+  return Number.isFinite(timestamp) ? timestamp : 0
+}
+
+function isClosedAppointmentStatus(status?: string) {
+  const value = String(status || '').toLowerCase()
+  return ['cancel', 'completed', 'done', 'noshow', 'expired', 'hủy'].some((keyword) => value.includes(keyword))
+}
+
+function isUnpaidInvoice(invoice: LooseRecord) {
+  const status = stringValue(invoice.status, invoice.invoiceStatus, invoice.Status, invoice.InvoiceStatus).toLowerCase()
+  const balanceDue = numberValue(invoice.balanceDue, invoice.BalanceDue)
+  if (balanceDue > 0) return true
+  return status.includes('unpaid') || status.includes('pending') || status.includes('chưa') || status.includes('not paid')
 }
 
 function prescriptionItems(prescription: LooseRecord) {
@@ -706,6 +850,14 @@ function formatDate(value: string) {
     month: '2-digit',
     year: 'numeric',
   }).format(date)
+}
+
+function formatAppointmentDateTime(item: LooseRecord) {
+  const date = stringValue(item.appointmentDate, item.AppointmentDate, item.scheduledAt, item.ScheduledAt)
+  const time = stringValue(item.slotTime, item.SlotTime, item.time, item.Time)
+  const dateText = formatDate(date) || 'ngày chưa rõ'
+  const timeText = time ? ` lúc ${time.slice(0, 5)}` : ''
+  return `${dateText}${timeText}`
 }
 
 function translateInvoiceStatus(value: string) {
