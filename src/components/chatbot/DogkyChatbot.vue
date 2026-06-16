@@ -139,10 +139,10 @@
       >
         <div
           v-if="notificationActive && !isOpen"
-          class="dogky-cloud-bubble absolute bottom-[5.75rem] right-[-3.25rem] flex h-40 w-64 items-center justify-center bg-contain bg-center bg-no-repeat px-10 pb-8 pt-12 text-center text-sm font-bold leading-5 text-slate-800 drop-shadow-[0_18px_24px_rgba(15,23,42,0.16)]"
+          class="dogky-cloud-bubble absolute bottom-[5.4rem] right-[-2.25rem] flex h-32 w-56 items-center justify-center bg-contain bg-center bg-no-repeat px-12 pb-7 pt-10 text-center text-xs font-bold leading-4 text-slate-800 drop-shadow-[0_18px_24px_rgba(15,23,42,0.16)]"
           :style="{ backgroundImage: `url(${chatBubbleUrl})` }"
         >
-          <span class="line-clamp-4">{{ notificationText }}</span>
+          <span class="dogky-cloud-text line-clamp-3">{{ notificationText }}</span>
         </div>
       </Transition>
 
@@ -304,7 +304,7 @@ watch(
     if (!show) return
     if (isOpen.value) return
 
-    notificationText.value = notificationStore.toast.message || notificationStore.toast.title || 'Bạn vừa nhận được thông báo mới.'
+    notificationText.value = compactNotification(notificationStore.toast.message || notificationStore.toast.title || 'Bạn vừa nhận được thông báo mới.')
     notificationActive.value = true
 
     stopProactiveReminderLoop()
@@ -531,18 +531,18 @@ function buildProactiveReminders(appointments: LooseRecord[], invoices: LooseRec
   if (nextAppointment) {
     const dateText = formatAppointmentDateTime(nextAppointment)
     const doctorText = stringValue(nextAppointment.doctorName, nextAppointment.DoctorName)
-    reminders.push(`Bạn có lịch khám vào ${dateText}${doctorText ? ` với ${doctorText}` : ''}. Hãy chú ý nhé, gâu!`)
+    reminders.push(`Lịch khám ${dateText}${doctorText ? ` với ${doctorText}` : ''}.`)
   }
 
   if (latestUnpaidInvoice) {
     const code = stringValue(latestUnpaidInvoice.invoiceCode, latestUnpaidInvoice.invoiceIdCode, latestUnpaidInvoice.invoiceId, latestUnpaidInvoice.id)
     const amount = numberValue(latestUnpaidInvoice.balanceDue, latestUnpaidInvoice.totalAmount, latestUnpaidInvoice.amount)
-    reminders.push(`Bạn có hóa đơn${code ? ` ${code}` : ''} cần theo dõi${amount ? `: ${formatCurrency(amount)}` : ''}. Nhớ kiểm tra viện phí nhé, gâu!`)
+    reminders.push(`Hóa đơn${code ? ` ${code}` : ''}${amount ? `: ${formatCurrency(amount)}` : ''}.`)
   }
 
   if (latestPrescription) {
     const code = stringValue(latestPrescription.prescriptionCode, latestPrescription.prescriptionIdCode, latestPrescription.id, latestPrescription.prescriptionId)
-    reminders.push(`Đơn thuốc${code ? ` ${code}` : ''} đã được cập nhật. Nhớ xem hướng dẫn dùng thuốc nhé, gâu!`)
+    reminders.push(`Đơn thuốc${code ? ` ${code}` : ''} đã cập nhật.`)
   }
 
   return reminders
@@ -560,7 +560,7 @@ function scheduleNextProactiveReminder(delayMs: number) {
 function showProactiveReminder() {
   if (!proactiveReminders.value.length || notificationStore.toast.show || isOpen.value) return
 
-  notificationText.value = proactiveReminders.value[proactiveReminderIndex % proactiveReminders.value.length]
+  notificationText.value = compactNotification(proactiveReminders.value[proactiveReminderIndex % proactiveReminders.value.length])
   notificationActive.value = true
   proactiveReminderIndex += 1
 
@@ -836,6 +836,12 @@ function stringValue(...values: unknown[]) {
   return ''
 }
 
+function compactNotification(value: string) {
+  const text = value.replace(/\s+/g, ' ').trim()
+  if (text.length <= 72) return text
+  return `${text.slice(0, 69).trimEnd()}...`
+}
+
 function numberValue(...values: unknown[]) {
   for (const value of values) {
     const number = Number(value ?? 0)
@@ -915,6 +921,12 @@ function quickActionIcon(key: QuickActionKey): Component {
 .dogky-cloud-bubble {
   transform-origin: 76% 92%;
   will-change: opacity, transform;
+}
+
+.dogky-cloud-text {
+  max-width: 8.5rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .dogky-cloud-enter-active {

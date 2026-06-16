@@ -1,102 +1,383 @@
 <template>
-  <div>
-    <div v-if="loading" class="sk"><span v-for="i in 5" :key="i" class="ss"></span></div>
-    <div v-else-if="displaySlots.length" class="sw">
-      <div class="se">
-        <div class="sh"><svg class="su" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" stroke-width="2"/><line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" stroke-width="2"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" stroke-width="2"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" stroke-width="2"/><line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2"/><line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" stroke-width="2"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" stroke-width="2"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" stroke-width="2"/></svg><span class="st">CA SÁNG</span></div>
-        <div v-if="morningSlots.length" class="sg"><button v-for="s in morningSlots" :key="s" :class="['sb', cls(s)]" :disabled="!isAvail(s)" type="button" :title="slotTitle(s)" @click="pick(s)">{{ s }}</button></div>
-        <div v-else class="se-empty">Đã hết ca sáng</div>
+  <div :class="['slot-picker', compact ? 'is-compact' : '']">
+    <div v-if="loading" class="slot-skeleton">
+      <span v-for="item in 8" :key="item" class="skeleton-slot"></span>
+    </div>
+
+    <div v-else-if="displaySlots.length" class="slot-wrap">
+      <div class="slot-tabs" role="tablist" aria-label="Chọn buổi khám">
+        <button
+          type="button"
+          :class="['slot-tab', activePeriod === 'morning' ? 'is-active' : '']"
+          :disabled="!morningSlots.length"
+          @click="activePeriod = 'morning'"
+        >
+          <Sun class="tab-icon morning-icon" />
+          Buổi sáng
+        </button>
+        <button
+          type="button"
+          :class="['slot-tab', activePeriod === 'afternoon' ? 'is-active' : '']"
+          :disabled="!afternoonSlots.length"
+          @click="activePeriod = 'afternoon'"
+        >
+          <Moon class="tab-icon afternoon-icon" />
+          Buổi chiều
+        </button>
       </div>
-      <div class="se">
-        <div class="sh"><svg class="sm" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span class="st">CA CHIỀU</span></div>
-        <div v-if="afternoonSlots.length" class="sg"><button v-for="s in afternoonSlots" :key="s" :class="['sb', cls(s)]" :disabled="!isAvail(s)" type="button" :title="slotTitle(s)" @click="pick(s)">{{ s }}</button></div>
-        <div v-else class="se-empty">Đã hết ca chiều</div>
+
+      <div v-if="activeSlots.length" class="slot-grid">
+        <button
+          v-for="slot in activeSlots"
+          :key="slot"
+          type="button"
+          :class="['slot-button', slotClass(slot)]"
+          :disabled="!isAvailable(slot)"
+          :title="slotTitle(slot)"
+          @click="pick(slot)"
+        >
+          {{ slot }}
+        </button>
+      </div>
+
+      <div v-else class="slot-empty-period">
+        {{ activePeriod === 'morning' ? 'Đã hết buổi sáng' : 'Đã hết buổi chiều' }}
+      </div>
+
+      <div class="slot-legend">
+        <span><i class="legend-dot free"></i>Còn trống</span>
+        <span><i class="legend-dot selected"></i>Đang chọn</span>
+        <span><i class="legend-dot unavailable"></i>Đã kín</span>
       </div>
     </div>
-    <div v-else class="em">{{ emptyMessage }}</div>
+
+    <div v-else class="slot-empty">{{ emptyMessage }}</div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
-const props = withDefaults(defineProps<{ slots: string[]; allSlots?: string[]; bookedSlots?: string[]; selectedDate?: string; title?: string; modelValue?: string; loading?: boolean; compact?: boolean; emptyMessage?: string }>(), { allSlots: () => [], bookedSlots: () => [], selectedDate: '', title: '', modelValue: '', loading: false, compact: false, emptyMessage: 'Không có slot trống.' })
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { Moon, Sun } from 'lucide-vue-next'
+
+const props = withDefaults(defineProps<{
+  slots: string[]
+  allSlots?: string[]
+  bookedSlots?: string[]
+  selectedDate?: string
+  title?: string
+  modelValue?: string
+  loading?: boolean
+  compact?: boolean
+  emptyMessage?: string
+}>(), {
+  allSlots: () => [],
+  bookedSlots: () => [],
+  selectedDate: '',
+  title: '',
+  modelValue: '',
+  loading: false,
+  compact: false,
+  emptyMessage: 'Không có khung giờ trống.',
+})
+
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
-// Reactive current time – updates every minute so expired slots refresh automatically
 const now = ref(new Date())
+const activePeriod = ref<'morning' | 'afternoon'>('morning')
 let timer: ReturnType<typeof setInterval> | null = null
-onMounted(() => { timer = setInterval(() => { now.value = new Date() }, 60_000) })
-onUnmounted(() => { if (timer) clearInterval(timer) })
 
-const avail = computed(() => new Set(props.slots.map(n)))
-const booked = computed(() => new Set(props.bookedSlots.map(n)))
-const displaySlots = computed(() => { const s = props.allSlots.length ? props.allSlots : props.slots; return [...new Set(s.map(n).filter(Boolean))].sort() })
-const sel = computed(() => n(props.modelValue))
+onMounted(() => {
+  timer = setInterval(() => {
+    now.value = new Date()
+  }, 60_000)
+})
 
-/** Check if the selected date is today (Vietnam timezone UTC+7) */
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+})
+
+const availableSet = computed(() => new Set(props.slots.map(normalizeSlot)))
+const bookedSet = computed(() => new Set(props.bookedSlots.map(normalizeSlot)))
+const displaySlots = computed(() => {
+  const source = props.allSlots.length ? props.allSlots : props.slots
+  return [...new Set(source.map(normalizeSlot).filter(Boolean))].sort()
+})
+const selectedSlot = computed(() => normalizeSlot(props.modelValue))
+const morningSlots = computed(() => displaySlots.value.filter((slot) => slot < '12:00'))
+const afternoonSlots = computed(() => displaySlots.value.filter((slot) => slot >= '12:00'))
+const activeSlots = computed(() => (activePeriod.value === 'morning' ? morningSlots.value : afternoonSlots.value))
+
 const isToday = computed(() => {
   if (!props.selectedDate) return false
-  const vn = new Date(now.value.getTime() + 7 * 60 * 60 * 1000)
-  const todayStr = vn.toISOString().slice(0, 10)
-  return props.selectedDate === todayStr
+  const vietnamNow = new Date(now.value.getTime() + 7 * 60 * 60 * 1000)
+  const today = vietnamNow.toISOString().slice(0, 10)
+  return props.selectedDate === today
 })
 
-/** Current time in HH:MM format (Vietnam timezone) */
 const currentTimeHHMM = computed(() => {
-  const vn = new Date(now.value.getTime() + 7 * 60 * 60 * 1000)
-  const h = String(vn.getUTCHours()).padStart(2, '0')
-  const m = String(vn.getUTCMinutes()).padStart(2, '0')
-  return `${h}:${m}`
+  const vietnamNow = new Date(now.value.getTime() + 7 * 60 * 60 * 1000)
+  const hour = String(vietnamNow.getUTCHours()).padStart(2, '0')
+  const minute = String(vietnamNow.getUTCMinutes()).padStart(2, '0')
+  return `${hour}:${minute}`
 })
 
-/** A slot is expired if the selected date is today and the slot time has already passed */
-function isExpired(s: string): boolean {
+watch([morningSlots, afternoonSlots], ([morning, afternoon]) => {
+  if (activePeriod.value === 'morning' && !morning.length && afternoon.length) activePeriod.value = 'afternoon'
+  if (activePeriod.value === 'afternoon' && !afternoon.length && morning.length) activePeriod.value = 'morning'
+}, { immediate: true })
+
+function normalizeSlot(slot: string) {
+  return String(slot || '').slice(0, 5)
+}
+
+function isExpired(slot: string) {
   if (!isToday.value) return false
-  return n(s) <= currentTimeHHMM.value
+  return normalizeSlot(slot) <= currentTimeHHMM.value
 }
 
-const morningSlots = computed(() => displaySlots.value.filter((s) => s < '12:00'))
-const afternoonSlots = computed(() => displaySlots.value.filter((s) => s >= '12:00'))
+function isAvailable(slot: string) {
+  const value = normalizeSlot(slot)
+  return availableSet.value.has(value) && !bookedSet.value.has(value) && !isExpired(slot)
+}
 
-function n(s: string) { return String(s || '').slice(0, 5) }
-function isAvail(s: string) { const v = n(s); return avail.value.has(v) && !booked.value.has(v) && !isExpired(s) }
-function isBk(s: string) { return booked.value.has(n(s)) }
-function cls(s: string) {
-  const v = n(s)
-  if (isExpired(s)) return 'ex'
-  if (isBk(s)) return 'bk'
-  if (!isAvail(s)) return 'of'
-  if (sel.value === v) return 'on'
-  return 'fr'
+function isBooked(slot: string) {
+  return bookedSet.value.has(normalizeSlot(slot))
 }
-function slotTitle(s: string) {
-  if (isExpired(s)) return 'Đã hết giờ'
-  if (isBk(s)) return 'Đã được đặt'
-  if (!isAvail(s)) return 'Không khả dụng'
-  return `Đặt lịch lúc ${s}`
+
+function slotClass(slot: string) {
+  const value = normalizeSlot(slot)
+  if (isExpired(slot)) return 'is-expired'
+  if (isBooked(slot)) return 'is-booked'
+  if (!isAvailable(slot)) return 'is-off'
+  if (selectedSlot.value === value) return 'is-selected'
+  return 'is-free'
 }
-function pick(s: string) { if (isAvail(s)) emit('update:modelValue', n(s)) }
+
+function slotTitle(slot: string) {
+  if (isExpired(slot)) return 'Đã hết giờ'
+  if (isBooked(slot)) return 'Đã được đặt'
+  if (!isAvailable(slot)) return 'Không khả dụng'
+  return `Đặt lịch lúc ${normalizeSlot(slot)}`
+}
+
+function pick(slot: string) {
+  if (isAvailable(slot)) emit('update:modelValue', normalizeSlot(slot))
+}
 </script>
 
 <style scoped>
-.sw { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.se { min-width: 0; }
-.sh { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
-.su { width: 13px; height: 13px; color: #f59e0b; }
-.sm { width: 13px; height: 13px; color: #6366f1; }
-.st { font-size: 9.5px; font-weight: 700; color: #334155; letter-spacing: .3px; }
-.sg { display: flex; flex-wrap: wrap; gap: 4px; }
-.sb { min-width: 48px; height: 24px; padding: 0 4px; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all .12s; border: 1.5px solid transparent; display: inline-flex; align-items: center; justify-content: center; }
-.fr { background: #fff; border-color: #e2e8f0; color: #334155; }
-.fr:hover { border-color: #0F52BA; background: #eff6ff; color: #0F52BA; }
-.on { background: #0F52BA; border-color: #0F52BA; color: #fff; }
-.bk { background: #fef2f2; border-color: #fecaca; color: #ef4444; opacity: .5; cursor: not-allowed; text-decoration: line-through; }
-.of { background: #f8fafc; border-color: #e2e8f0; color: #94a3b8; opacity: .4; cursor: not-allowed; }
-.ex { background: #f1f5f9; border-color: #cbd5e1; color: #94a3b8; opacity: .45; cursor: not-allowed; text-decoration: line-through; }
-.se-empty { display: flex; align-items: center; justify-content: center; height: 28px; background: #fef2f2; border: 1px dashed #fecaca; border-radius: 5px; font-size: 10px; font-weight: 600; color: #ef4444; }
-.em { height: 56px; display: flex; align-items: center; justify-content: center; background: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 6px; font-size: 10.5px; color: #64748b; padding: 0 6px; box-sizing: border-box; text-align: center; }
-.sk { display: flex; flex-wrap: wrap; gap: 4px; }
-.ss { width: 48px; height: 24px; border-radius: 4px; background: #f1f5f9; animation: p 1.5s ease-in-out infinite; }
-@keyframes p { 0%,100% { opacity: 1 } 50% { opacity: .5 } }
-@media (max-width: 640px) { .sw { grid-template-columns: 1fr; } }
+.slot-picker {
+  width: 100%;
+}
+
+.slot-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.slot-tabs {
+  display: inline-flex;
+  width: fit-content;
+  gap: 8px;
+  border-radius: 8px;
+}
+
+.slot-tab {
+  display: inline-flex;
+  height: 38px;
+  min-width: 118px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #dbe4f1;
+  border-radius: 7px;
+  background: #fff;
+  color: #50617a;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.slot-tab:hover:not(:disabled),
+.slot-tab.is-active {
+  border-color: #0f52ba;
+  background: #eef5ff;
+  color: #0f52ba;
+  box-shadow: 0 0 0 2px rgba(15, 82, 186, 0.07);
+}
+
+.slot-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.tab-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.morning-icon {
+  color: #f59e0b;
+}
+
+.afternoon-icon {
+  color: #6474d8;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 12px;
+}
+
+.slot-button {
+  display: inline-flex;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.slot-button.is-free {
+  border-color: #d7e1ee;
+  background: #fff;
+  color: #263b5d;
+}
+
+.slot-button.is-free:hover {
+  border-color: #0f52ba;
+  background: #f0f6ff;
+  color: #0f52ba;
+  transform: translateY(-1px);
+}
+
+.slot-button.is-selected {
+  border-color: #0f52ba;
+  background: #0f52ba;
+  color: #fff;
+  box-shadow: 0 14px 24px rgba(15, 82, 186, 0.18);
+}
+
+.slot-button.is-booked {
+  border-color: #e5e9f0;
+  background: #f2f5f9;
+  color: #9aa6ba;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+.slot-button.is-off,
+.slot-button.is-expired {
+  border-color: #e5e9f0;
+  background: #f7f9fc;
+  color: #a6b1c2;
+  cursor: not-allowed;
+}
+
+.slot-button.is-expired {
+  text-decoration: line-through;
+}
+
+.slot-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: #4b5f7d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.slot-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+}
+
+.legend-dot.free {
+  background: #72d392;
+}
+
+.legend-dot.selected {
+  background: #0f52ba;
+}
+
+.legend-dot.unavailable {
+  background: #cfd8e6;
+}
+
+.slot-empty,
+.slot-empty-period {
+  display: flex;
+  min-height: 74px;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #d8e2f0;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #708199;
+  padding: 0 12px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.slot-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 12px;
+}
+
+.skeleton-slot {
+  height: 40px;
+  border-radius: 7px;
+  background: linear-gradient(90deg, #f1f5f9, #e7eef7, #f1f5f9);
+  background-size: 180% 100%;
+  animation: slot-pulse 1.4s ease-in-out infinite;
+}
+
+.is-compact .slot-button,
+.is-compact .skeleton-slot {
+  height: 34px;
+}
+
+.is-compact .slot-tab {
+  height: 34px;
+  min-width: 106px;
+  font-size: 12px;
+}
+
+@keyframes slot-pulse {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .slot-tabs {
+    width: 100%;
+  }
+
+  .slot-tab {
+    flex: 1;
+    min-width: 0;
+  }
+}
 </style>
