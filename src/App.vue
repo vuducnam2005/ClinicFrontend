@@ -10,6 +10,7 @@
       </main>
       <AppFooter />
     </template>
+    <DogkyChatbot />
   </div>
 </template>
 
@@ -18,6 +19,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
+import DogkyChatbot from '@/components/chatbot/DogkyChatbot.vue'
 
 const route = useRoute()
 const isWorkspaceRoute = computed(() => /^\/(admin|doctor|nurse|patient)(\/|$)/.test(route.path))

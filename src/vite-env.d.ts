@@ -10,6 +10,7 @@ interface ImportMetaEnv {
   readonly VITE_BANK_TRANSFER_ACCOUNT: string
   readonly VITE_BANK_TRANSFER_ACCOUNT_NAME: string
   readonly VITE_BANK_TRANSFER_PREFIX: string
+  readonly VITE_GEMINI_API_KEY: string
 }
 
 interface ImportMeta {
