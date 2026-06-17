@@ -201,6 +201,7 @@ interface GeminiResponse {
     content?: {
       parts?: Array<{
         text?: string
+        thought?: boolean
       }>
     }
   }>
@@ -263,7 +264,7 @@ const assistantPositionStyle = computed(() => ({
   bottom: `${assistantPosition.value.bottom}px`,
   right: `${assistantPosition.value.right}px`,
 }))
-const geminiRequestTimeoutMs = 12000
+const geminiRequestTimeoutMs = 30000
 const proactiveVisibleMs = 3000
 const proactiveHiddenMs = 10000
 
@@ -630,7 +631,7 @@ async function askGemini(userText: string) {
           },
         ],
         generationConfig: {
-          maxOutputTokens: 180,
+          maxOutputTokens: 2048,
           temperature: 0.6,
         },
       }),
@@ -648,7 +649,11 @@ async function askGemini(userText: string) {
   }
 
   const responseData = (await response.json()) as GeminiResponse
-  const text = responseData.candidates?.[0]?.content?.parts?.[0]?.text
+  const parts = responseData.candidates?.[0]?.content?.parts || []
+  const text = parts
+    .filter((part) => !part.thought && part.text)
+    .map((part) => part.text)
+    .join('')
   return stripMarkdown(text || 'Gâu! Dogky chưa nghĩ ra câu trả lời rõ ràng. Bạn mô tả lại ngắn gọn hơn nhé.')
 }
 
