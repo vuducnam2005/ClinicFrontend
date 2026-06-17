@@ -254,14 +254,16 @@ const quickActions = reactive<QuickAction[]>([
 ])
 
 const geminiApiKey = computed(() => import.meta.env.VITE_GEMINI_API_KEY?.trim() || '')
+const geminiModel = computed(() => import.meta.env.VITE_GEMINI_MODEL?.trim() || 'gemini-3.5-flash')
 const geminiEndpoint = computed(() =>
-  `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${encodeURIComponent(geminiApiKey.value)}`,
+  `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel.value)}:generateContent?key=${encodeURIComponent(geminiApiKey.value)}`,
 )
 const canSend = computed(() => inputValue.value.trim().length > 0 && !isLoading.value)
 const assistantPositionStyle = computed(() => ({
   bottom: `${assistantPosition.value.bottom}px`,
   right: `${assistantPosition.value.right}px`,
 }))
+const geminiRequestTimeoutMs = 12000
 const proactiveVisibleMs = 3000
 const proactiveHiddenMs = 10000
 
@@ -593,7 +595,7 @@ async function sendMessage(forcedText?: string) {
     addBotMessage(reply)
   } catch (error) {
     console.error('Dogky Gemini error', error)
-    addBotMessage('Gâu... Dogky đang nghẽn đường tới Gemini rồi. Bạn thử hỏi lại sau một chút nhé.')
+    addBotMessage(dogkyGeminiErrorMessage(error))
   } finally {
     isLoading.value = false
     runtimeState.activeAction = null
@@ -606,31 +608,67 @@ async function askGemini(userText: string) {
   }
 
   const prompt = `[SYSTEM PROMPT: Bạn là chú cún bác sĩ Dogky của Medicare, tính cách cộc cằn, bận rộn nhưng tận tụy, hay sủa Gâu! Hãy trả lời ngắn gọn dưới 3 câu. Nếu người dùng mô tả triệu chứng bệnh, hãy đưa ra lời khuyên sơ bộ và khuyên họ đến đúng chuyên khoa khám phù hợp, nhắc họ tự đặt lịch trên web chứ bạn không thể đặt lịch hộ]. Câu hỏi của người bệnh: ${userText}`
-  const response = await fetch(geminiEndpoint.value, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            {
-              text: prompt,
-            },
-          ],
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), geminiRequestTimeoutMs)
+  let response: Response
+
+  try {
+    response = await fetch(geminiEndpoint.value, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: prompt,
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          maxOutputTokens: 180,
+          temperature: 0.6,
         },
-      ],
-    }),
-  })
+      }),
+    })
+  } catch (error) {
+    if ((error as Error)?.name === 'AbortError') throw new Error('Gemini request timed out')
+    throw error
+  } finally {
+    window.clearTimeout(timeout)
+  }
 
   if (!response.ok) {
-    throw new Error(`Gemini request failed with status ${response.status}`)
+    const errorText = await response.text().catch(() => '')
+    throw new Error(geminiStatusMessage(response.status, errorText))
   }
 
   const responseData = (await response.json()) as GeminiResponse
   const text = responseData.candidates?.[0]?.content?.parts?.[0]?.text
   return stripMarkdown(text || 'Gâu! Dogky chưa nghĩ ra câu trả lời rõ ràng. Bạn mô tả lại ngắn gọn hơn nhé.')
+}
+
+function geminiStatusMessage(status: number, body: string) {
+  if (status === 400) return 'Gemini request invalid'
+  if (status === 401 || status === 403) return 'Gemini API key unauthorized'
+  if (status === 404) return `Gemini model not found: ${geminiModel.value}`
+  if (status === 429) return 'Gemini quota exceeded'
+  const compactBody = body.replace(/\s+/g, ' ').slice(0, 160)
+  return `Gemini request failed with status ${status}${compactBody ? `: ${compactBody}` : ''}`
+}
+
+function dogkyGeminiErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || '')
+  if (message.includes('timed out')) return 'Gâu... Gemini phản hồi chậm quá. Bạn thử lại sau vài giây nhé.'
+  if (message.includes('Missing VITE_GEMINI_API_KEY')) return 'Gâu! Chưa cấu hình API key Gemini trong .env.'
+  if (message.includes('API key unauthorized')) return 'Gâu! API key Gemini chưa đúng hoặc chưa có quyền dùng API.'
+  if (message.includes('quota')) return 'Gâu! Gemini đang hết quota hoặc bị giới hạn lượt gọi.'
+  if (message.includes('model not found')) return 'Gâu! Model Gemini đang cấu hình chưa đúng. Kiểm tra VITE_GEMINI_MODEL nhé.'
+  return 'Gâu... Dogky chưa gọi được Gemini. Bạn thử lại sau một chút nhé.'
 }
 
 function stripMarkdown(value: string) {
