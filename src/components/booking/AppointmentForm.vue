@@ -61,8 +61,8 @@
       </div>
 
       <div class="af-fld af-full">
-        <label class="af-lbl">Ghi chú thêm (không bắt buộc)</label>
-        <textarea v-model="form.reason" class="af-area" rows="2" placeholder="Nhập ghi chú nếu có..."></textarea>
+        <label class="af-lbl">Lý do khám</label>
+        <textarea v-model="form.reason" class="af-area" rows="2" placeholder="Nhập lý do khám..."></textarea>
       </div>
 
       <div class="af-support af-full">
@@ -110,7 +110,9 @@
           <section v-for="(companion, index) in form.companions" :key="companion.key" class="af-companion-card">
             <div class="af-companion-title">
               <b>Thông tin người khác {{ index + 1 }}</b>
-              <button type="button" @click="removeCompanion(index)">Xóa</button>
+              <button type="button" class="af-companion-remove" :aria-label="`Xóa người khác ${index + 1}`" @click="removeCompanion(index)">
+                <Trash2 class="af-remove-icon" />
+              </button>
             </div>
             <div class="af-companion-grid">
               <label class="af-fld">
@@ -151,6 +153,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import { Trash2 } from 'lucide-vue-next'
 import { authApi } from '@/services/authApi'
 import type { CreateAppointmentRequest } from '@/types/appointment'
 
@@ -186,10 +189,15 @@ interface CompanionForm {
   reason: string
 }
 
+interface PatientSummary {
+  name: string
+}
+
 const emit = defineEmits<{
   submit: [payload: CreateAppointmentRequest]
   back: []
   patientCountChange: [count: number]
+  patientSummaryChange: [patients: PatientSummary[]]
 }>()
 
 const form = reactive({
@@ -255,11 +263,18 @@ watch(() => form.patientPhoneSnapshot, () => {
 })
 
 const patientCount = computed(() => 1 + form.companions.length)
+const patientSummaries = computed<PatientSummary[]>(() => [
+  { name: form.patientNameSnapshot.trim() || 'Người khám chính' },
+  ...form.companions.map((item, index) => ({
+    name: item.fullName.trim() || `Người khác ${index + 1}`,
+  })),
+])
 const companionsValid = computed(() =>
   form.companions.every((item) => item.fullName.trim() && item.reason.trim()),
 )
 
 watch(patientCount, (count) => emit('patientCountChange', count), { immediate: true })
+watch(patientSummaries, (patients) => emit('patientSummaryChange', patients), { immediate: true })
 
 async function validatePhone() {
   const phone = form.patientPhoneSnapshot.trim()
@@ -564,7 +579,7 @@ function normalizeGender(value?: string) {
   margin: 0;
   color: #10233f;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 500;
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -584,6 +599,7 @@ function normalizeGender(value?: string) {
 }
 
 .af-check {
+  position: relative;
   display: inline-flex;
   min-height: 32px;
   align-items: center;
@@ -593,7 +609,7 @@ function normalizeGender(value?: string) {
   padding: 5px 8px;
   color: #51617a;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 400;
   cursor: pointer;
   transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
 }
@@ -607,8 +623,12 @@ function normalizeGender(value?: string) {
 
 .af-check input {
   position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
   opacity: 0;
-  pointer-events: none;
+  cursor: pointer;
 }
 
 .af-check span {
@@ -661,13 +681,13 @@ function normalizeGender(value?: string) {
 
 .af-add-companion b {
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .af-add-companion small {
   color: #7b8ba2;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .af-add-icon {
@@ -701,19 +721,28 @@ function normalizeGender(value?: string) {
   font-weight: 900;
 }
 
-.af-companion-title button {
+.af-companion-remove {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 6px;
   background: #fee2e2;
-  padding: 5px 9px;
   color: #dc2626;
-  font-size: 11px;
-  font-weight: 800;
   cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
 }
 
-.af-companion-title button:hover {
+.af-companion-remove:hover {
   background: #fecaca;
+  color: #b91c1c;
+}
+
+.af-remove-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .af-companion-grid {
