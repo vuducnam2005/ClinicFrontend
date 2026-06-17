@@ -61,8 +61,79 @@
       </div>
 
       <div class="af-fld af-full">
-        <label class="af-lbl">Ghi chú thêm (không bắt buộc)</label>
-        <textarea v-model="form.reason" class="af-area" rows="2" placeholder="Nhập ghi chú nếu có..."></textarea>
+        <label class="af-lbl">Lý do khám</label>
+        <textarea v-model="form.reason" class="af-area" rows="2" placeholder="Nhập lý do khám..."></textarea>
+      </div>
+
+      <div class="af-support af-full">
+        <div class="af-support-head">
+          <div>
+            <h3>Nhu cầu hỗ trợ</h3>
+            <p>Chọn trước để bệnh viện chuẩn bị hỗ trợ phù hợp khi bạn đến khám.</p>
+          </div>
+        </div>
+
+        <div class="af-support-options">
+          <label v-for="option in supportOptions" :key="option.value" :class="['af-check', form.supportNeeds.includes(option.value) ? 'is-checked' : '']">
+            <input v-model="form.supportNeeds" type="checkbox" :value="option.value" />
+            <span></span>
+            {{ option.label }}
+          </label>
+          <input
+            v-if="form.supportNeeds.includes('other')"
+            v-model="form.supportOther"
+            class="af-inp af-other-input"
+            type="text"
+            placeholder="Nhập nhu cầu hỗ trợ khác"
+          />
+        </div>
+
+        <label class="af-fld">
+          <span class="af-lbl">Mô tả chi tiết nhu cầu hỗ trợ</span>
+          <textarea
+            v-model="form.supportDescription"
+            class="af-area"
+            rows="2"
+            placeholder="Ví dụ: cần xe lăn tại cổng chính, cần nhân viên hỗ trợ lên tầng..."
+          ></textarea>
+        </label>
+
+        <button type="button" class="af-add-companion" @click="addCompanion">
+          <svg class="af-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          <span>
+            <b>Thêm người khác</b>
+            <small>Người nhà hoặc người quen</small>
+          </span>
+        </button>
+
+        <div v-if="form.companions.length" class="af-companion-list">
+          <section v-for="(companion, index) in form.companions" :key="companion.key" class="af-companion-card">
+            <div class="af-companion-title">
+              <b>Thông tin người khác {{ index + 1 }}</b>
+              <button type="button" class="af-companion-remove" :aria-label="`Xóa người khác ${index + 1}`" @click="removeCompanion(index)">
+                <Trash2 class="af-remove-icon" />
+              </button>
+            </div>
+            <div class="af-companion-grid">
+              <label class="af-fld">
+                <span class="af-lbl">Họ tên <span class="af-req">*</span></span>
+                <input v-model="companion.fullName" type="text" class="af-inp" placeholder="Ví dụ: Nguyễn Văn B" required />
+              </label>
+              <label class="af-fld">
+                <span class="af-lbl">Quan hệ</span>
+                <input v-model="companion.relationship" type="text" class="af-inp" placeholder="Gia đình, bạn bè..." />
+              </label>
+              <label class="af-fld">
+                <span class="af-lbl">Số điện thoại</span>
+                <input v-model="companion.phoneNumber" type="text" class="af-inp" placeholder="SĐT liên hệ nếu cần" />
+              </label>
+              <label class="af-fld af-full">
+                <span class="af-lbl">Lý do khám sơ bộ <span class="af-req">*</span></span>
+                <textarea v-model="companion.reason" class="af-area" rows="2" required placeholder="Triệu chứng hoặc nhu cầu khám của người này..."></textarea>
+              </label>
+            </div>
+          </section>
+        </div>
       </div>
     </div>
 
@@ -82,6 +153,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import { Trash2 } from 'lucide-vue-next'
 import { authApi } from '@/services/authApi'
 import type { CreateAppointmentRequest } from '@/types/appointment'
 
@@ -98,6 +170,7 @@ const props = withDefaults(defineProps<{
   initialCitizenId?: string
   initialEmail?: string
   initialInsuranceStatus?: string
+  examFee?: number
   layout?: 'stacked' | 'inline' | 'wide'
   showBack?: boolean
   submitLabel?: string
@@ -105,9 +178,27 @@ const props = withDefaults(defineProps<{
   layout: 'stacked',
   showBack: true,
   submitLabel: 'XÁC NHẬN',
+  examFee: 0,
 })
 
-const emit = defineEmits<{ submit: [payload: CreateAppointmentRequest]; back: [] }>()
+interface CompanionForm {
+  key: number
+  fullName: string
+  relationship: string
+  phoneNumber: string
+  reason: string
+}
+
+interface PatientSummary {
+  name: string
+}
+
+const emit = defineEmits<{
+  submit: [payload: CreateAppointmentRequest]
+  back: []
+  patientCountChange: [count: number]
+  patientSummaryChange: [patients: PatientSummary[]]
+}>()
 
 const form = reactive({
   patientId: props.initialPatientId ? String(props.initialPatientId) : '',
@@ -119,9 +210,22 @@ const form = reactive({
   email: props.initialEmail || '',
   insuranceStatus: props.initialInsuranceStatus || '',
   reason: '',
+  supportNeeds: [] as string[],
+  supportOther: '',
+  supportDescription: '',
+  companions: [] as CompanionForm[],
 })
 const phoneError = ref('')
 const phoneValidating = ref(false)
+const companionKey = ref(0)
+
+const supportOptions = [
+  { value: 'wheelchair', label: 'Cần xe lăn' },
+  { value: 'companion', label: 'Có người đi cùng' },
+  { value: 'staff', label: 'Cần nhân viên hỗ trợ' },
+  { value: 'mobility', label: 'Người cao tuổi / khó đi lại' },
+  { value: 'other', label: 'Khác' },
+]
 
 const showPhoneSuggestion = computed(() => {
   const registeredPhone = props.initialPatientPhone
@@ -158,6 +262,20 @@ watch(() => form.patientPhoneSnapshot, () => {
   if (phoneError.value) phoneError.value = ''
 })
 
+const patientCount = computed(() => 1 + form.companions.length)
+const patientSummaries = computed<PatientSummary[]>(() => [
+  { name: form.patientNameSnapshot.trim() || 'Người khám chính' },
+  ...form.companions.map((item, index) => ({
+    name: item.fullName.trim() || `Người khác ${index + 1}`,
+  })),
+])
+const companionsValid = computed(() =>
+  form.companions.every((item) => item.fullName.trim() && item.reason.trim()),
+)
+
+watch(patientCount, (count) => emit('patientCountChange', count), { immediate: true })
+watch(patientSummaries, (patients) => emit('patientSummaryChange', patients), { immediate: true })
+
 async function validatePhone() {
   const phone = form.patientPhoneSnapshot.trim()
   if (!phone) return
@@ -183,6 +301,7 @@ const canSubmit = computed(() =>
   Boolean(props.slotTime) &&
   Boolean(form.patientNameSnapshot.trim()) &&
   Boolean(form.patientPhoneSnapshot.trim()) &&
+  companionsValid.value &&
   !phoneError.value &&
   !phoneValidating.value,
 )
@@ -199,8 +318,91 @@ async function submit() {
     doctorId: props.doctorId,
     appointmentDate: props.appointmentDate,
     slotTime: props.slotTime,
-    reason: form.reason.trim() || undefined,
+    reason: buildReason(),
+    patients: buildPatients(),
+    supportNeeds: supportLabels(),
+    supportDescription: form.supportDescription.trim() || undefined,
+    totalEstimatedFee: Number(props.examFee || 0) * patientCount.value,
   })
+}
+
+function addCompanion() {
+  companionKey.value += 1
+  form.companions.push({
+    key: companionKey.value,
+    fullName: '',
+    relationship: '',
+    phoneNumber: '',
+    reason: '',
+  })
+  if (!form.supportNeeds.includes('companion')) form.supportNeeds.push('companion')
+}
+
+function removeCompanion(index: number) {
+  form.companions.splice(index, 1)
+}
+
+function buildReason() {
+  const lines: string[] = []
+  const note = form.reason.trim()
+  if (note) lines.push(note)
+
+  const labels = supportLabels()
+  if (labels.length) lines.push(`Nhu cầu hỗ trợ: ${labels.join(', ')}`)
+  if (form.supportDescription.trim()) lines.push(`Mô tả hỗ trợ: ${form.supportDescription.trim()}`)
+
+  const companionSummaries = form.companions
+    .filter((item) => item.fullName.trim() || item.relationship.trim() || item.phoneNumber.trim() || item.reason.trim())
+    .map((item, index) => {
+      const details = [
+        item.fullName.trim() || `Người khác ${index + 1}`,
+        item.relationship.trim() ? `Quan hệ: ${item.relationship.trim()}` : '',
+        item.phoneNumber.trim() ? `SĐT: ${item.phoneNumber.trim()}` : '',
+        item.reason.trim() ? `Lý do khám: ${item.reason.trim()}` : '',
+      ].filter(Boolean)
+      return details.join(' - ')
+    })
+  if (companionSummaries.length) {
+    lines.push(`Người đi cùng/người thân:\n${companionSummaries.map((item) => `- ${item}`).join('\n')}`)
+  }
+
+  return lines.length ? lines.join('\n') : undefined
+}
+
+function supportLabels(): string[] {
+  return form.supportNeeds
+    .map((value) => {
+      if (value === 'other') return form.supportOther.trim()
+      return supportOptions.find((option) => option.value === value)?.label || ''
+    })
+    .filter((value): value is string => Boolean(value))
+}
+
+function buildPatients() {
+  const patientId = Number(form.patientId)
+  return [
+    {
+      ...(Number.isFinite(patientId) && patientId > 0 ? { patientId } : {}),
+      fullName: form.patientNameSnapshot.trim(),
+      phoneNumber: form.patientPhoneSnapshot.trim(),
+      dateOfBirth: form.dateOfBirth || undefined,
+      gender: form.gender || undefined,
+      citizenId: form.citizenId.trim() || undefined,
+      email: form.email.trim() || undefined,
+      insuranceStatus: form.insuranceStatus || undefined,
+      reason: form.reason.trim() || undefined,
+      isPrimary: true,
+    },
+    ...form.companions
+      .filter((item) => item.fullName.trim() || item.phoneNumber.trim() || item.reason.trim())
+      .map((item) => ({
+        fullName: item.fullName.trim(),
+        phoneNumber: item.phoneNumber.trim() || undefined,
+        relationship: item.relationship.trim() || undefined,
+        reason: item.reason.trim() || undefined,
+        isPrimary: false,
+      })),
+  ]
 }
 
 function normalizeDate(value?: string) {
@@ -358,6 +560,197 @@ function normalizeGender(value?: string) {
   background: #dbeafe;
 }
 
+.af-support {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid #eef3f8;
+  padding-top: 2px;
+}
+
+.af-support-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.af-support-head h3 {
+  margin: 0;
+  color: #10233f;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.af-support-head p {
+  margin: 3px 0 0;
+  color: #7b8ba2;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.af-support-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 12px;
+  align-items: center;
+}
+
+.af-check {
+  position: relative;
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 5px 8px;
+  color: #51617a;
+  font-size: 12px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.af-check:hover,
+.af-check.is-checked {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #0f52ba;
+}
+
+.af-check input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.af-check span {
+  width: 15px;
+  height: 15px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px #fff;
+}
+
+.af-check.is-checked span {
+  border-color: #0f52ba;
+  background: #0f52ba;
+}
+
+.af-other-input {
+  width: min(100%, 220px);
+  height: 32px;
+  font-size: 12px;
+}
+
+.af-add-companion {
+  display: flex;
+  width: 100%;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px dashed #b9c8dc;
+  border-radius: 8px;
+  background: #fbfdff;
+  color: #0f52ba;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.af-add-companion:hover {
+  border-color: #0f52ba;
+  background: #f0f7ff;
+  box-shadow: 0 8px 18px rgba(15, 82, 186, 0.08);
+}
+
+.af-add-companion span {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+}
+
+.af-add-companion b {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.af-add-companion small {
+  color: #7b8ba2;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.af-add-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.af-companion-list {
+  display: grid;
+  gap: 10px;
+}
+
+.af-companion-card {
+  border: 1px solid #e5edf6;
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 12px;
+}
+
+.af-companion-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.af-companion-title b {
+  color: #10233f;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.af-companion-remove {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: #fee2e2;
+  color: #dc2626;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.af-companion-remove:hover {
+  background: #fecaca;
+  color: #b91c1c;
+}
+
+.af-remove-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.af-companion-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 1fr;
+  gap: 12px;
+}
+
 .af-actions {
   display: flex;
   align-items: center;
@@ -450,6 +843,20 @@ function normalizeGender(value?: string) {
   .af-actions {
     align-items: stretch;
     flex-direction: column-reverse;
+  }
+
+  .af-support-options {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .af-check,
+  .af-other-input {
+    width: 100%;
+  }
+
+  .af-companion-grid {
+    grid-template-columns: 1fr;
   }
 
   .af-back,

@@ -32,6 +32,24 @@ export interface CreateAppointmentRequest {
   appointmentDate: string
   slotTime: string
   reason?: string
+  patients?: AppointmentPatientRequest[]
+  supportNeeds?: string[]
+  supportDescription?: string
+  totalEstimatedFee?: number
+}
+
+export interface AppointmentPatientRequest {
+  patientId?: number
+  fullName: string
+  phoneNumber?: string
+  dateOfBirth?: string
+  gender?: string
+  citizenId?: string
+  email?: string
+  insuranceStatus?: string
+  relationship?: string
+  reason?: string
+  isPrimary?: boolean
 }
 
 export type QueueStatus = 'Waiting' | 'CheckedIn' | 'InProgress' | 'Done' | 'Cancelled' | string

@@ -163,8 +163,11 @@
             :initial-gender="bookingPatientGender"
             :initial-citizen-id="bookingPatientCitizenId"
             :initial-email="bookingPatientEmail"
+            :exam-fee="doctor?.examFee || 0"
             @submit="submitBooking"
             @back="goBackFromStep4"
+            @patient-count-change="bookingPatientCount = $event"
+            @patient-summary-change="bookingFeePatients = $event"
           />
         </section>
       </main>
@@ -216,7 +219,20 @@
 
           <div class="fee-box">
             <span>CHI PHÍ DỰ KIẾN</span>
-            <strong>{{ formatCurrency(doctor?.examFee || 0) }}</strong>
+            <div class="fee-count">
+              <Users class="fee-count-icon" />
+              <p>Số người khám: <b>{{ bookingPatientCount }} người</b></p>
+            </div>
+            <div class="fee-patient-list">
+              <div v-for="(patient, index) in feePatients" :key="`${patient.name}-${index}`" class="fee-patient-row">
+                <span>{{ index + 1 }}. {{ patient.name }}</span>
+                <b>{{ formatCurrency(doctor?.examFee || 0) }}</b>
+              </div>
+            </div>
+            <div class="fee-total">
+              <span>TỔNG CHI PHÍ KHÁM</span>
+              <strong>{{ formatCurrency(totalEstimatedFee) }}</strong>
+            </div>
             <p>*Chi phí có thể thay đổi tùy theo chỉ định của bác sĩ</p>
           </div>
         </section>
@@ -267,6 +283,7 @@ import {
   MessagesSquare,
   Pin,
   Stethoscope,
+  Users,
   UserRound,
 } from 'lucide-vue-next'
 import AppointmentForm from '@/components/booking/AppointmentForm.vue'
@@ -301,6 +318,8 @@ const bookedSlots = ref<string[]>([])
 const slotsChecked = ref(false)
 const loadingSlots = ref(false)
 const submitting = ref(false)
+const bookingPatientCount = ref(1)
+const bookingFeePatients = ref<{ name: string }[]>([])
 const apiMessage = ref('')
 const today = new Date().toISOString().slice(0, 10)
 const toast = reactive({ show: false, title: '', message: '', type: 'success' as 'success' | 'error' })
@@ -339,6 +358,16 @@ const selectedSpecialtyName = computed(() => {
 })
 const selectedDoctorName = computed(() => (doctor.value ? displayDoctorTitle(doctor.value) : 'Chưa chọn'))
 const selectedDateLong = computed(() => formatLongDate(selectedDate.value))
+const totalEstimatedFee = computed(() => Number(doctor.value?.examFee || 0) * Math.max(bookingPatientCount.value, 1))
+const feePatients = computed(() => {
+  const patients = bookingFeePatients.value.length
+    ? bookingFeePatients.value
+    : [{ name: bookingPatientName.value || 'Người khám chính' }]
+
+  return Array.from({ length: Math.max(bookingPatientCount.value, 1) }, (_, index) => (
+    patients[index] || { name: `Người khác ${index + 1}` }
+  ))
+})
 const slotEmptyMessage = computed(() => {
   if (!selectedSpecialty.value) return 'Chọn chuyên khoa để xem bác sĩ.'
   if (!selectedDoctor.value) return 'Chọn bác sĩ để xem lịch trống.'
@@ -447,7 +476,10 @@ async function submitBooking(payload: CreateAppointmentRequest) {
       throw new Error('Khung giờ vừa được đặt. Vui lòng chọn khung giờ khác.')
     }
 
-    const appointment = await appointmentApi.createAppointment(payload)
+    const appointment = await appointmentApi.createAppointment({
+      ...payload,
+      totalEstimatedFee: totalEstimatedFee.value,
+    })
     toast.title = 'Đặt lịch thành công'
     toast.message = `Mã lịch hẹn: ${appointment.appointmentId || 'đang cập nhật'}`
     toast.type = 'success'
@@ -520,8 +552,16 @@ function formatLongDate(value: string) {
 </script>
 
 <style scoped>
+:global(html:has(.clinical-portal-shell .booking-page)),
+:global(body:has(.clinical-portal-shell .booking-page)) {
+  height: 100%;
+  overflow: hidden;
+}
+
 .booking-page {
   width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   color: #10233f;
   font-weight: 400;
 }
@@ -1076,21 +1116,104 @@ function formatLongDate(value: string) {
   padding-top: 9px;
 }
 
-.fee-box span {
+.fee-box > span {
   display: block;
   color: #0f172a;
   font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
-.fee-box strong {
-  display: block;
-  margin-top: 4px;
+.fee-count {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: #334155;
+}
+
+.fee-count-icon {
+  width: 18px;
+  height: 18px;
   color: #0f52ba;
-  font-size: 19px;
+}
+
+.fee-count p {
+  margin: 0;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.fee-count b {
+  color: #0f172a;
+  font-weight: 500;
+}
+
+.fee-patient-list {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+  border-bottom: 1px dashed #c8d3e3;
+  padding-bottom: 13px;
+}
+
+.fee-patient-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.fee-patient-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fee-patient-row b {
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.fee-total {
+  margin-top: 12px;
+}
+
+.fee-total span {
+  display: block;
+  color: #0f52ba;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.fee-total strong {
+  display: block;
+  margin-top: 6px;
+  color: #0f52ba;
+  font-size: 24px;
+  font-weight: 500;
   line-height: 1.1;
 }
 
-.fee-box p {
+.fee-box em {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.fee-box > p {
   margin: 4px 0 0;
   color: #61738d;
   font-size: 10px;
