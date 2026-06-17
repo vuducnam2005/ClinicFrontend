@@ -926,8 +926,11 @@ async function saveMedicalRecord() {
       treatmentPlan: clinicalTreatmentPlan(),
       followUpDate: examForm.followUpDate || undefined,
     }
-    activeRecord.value = activeRecord.value?.medicalRecordId
-      ? await medicalRecordApi.updateMedicalRecord(activeRecord.value.medicalRecordId, payload)
+    const existingRecord = activeRecord.value?.medicalRecordId
+      ? activeRecord.value
+      : await findMedicalRecordByVisit(activeVisit.value.visitId)
+    activeRecord.value = existingRecord?.medicalRecordId
+      ? await medicalRecordApi.updateMedicalRecord(existingRecord.medicalRecordId, payload)
       : await medicalRecordApi.createMedicalRecord(payload)
     await loadClinicalOrders()
     showToast('Lưu bệnh án thành công', 'Tiếp theo có thể tạo chỉ định hoặc kê đơn thuốc.', 'success')
@@ -1073,23 +1076,35 @@ async function loadActivePatient() {
 
 async function loadExistingRecord() {
   if (!activeVisit.value?.visitId) return
-  if (!activeVisit.value.medicalRecordId) {
+  let record: MedicalRecord | null
+  try {
+    record = await findMedicalRecordByVisit(activeVisit.value.visitId)
+  } catch (apiError) {
+    note.value = `Chưa tải được bệnh án theo lượt khám: ${getApiErrorMessage(apiError)}`
+    return
+  }
+  if (!record) {
     activeRecord.value = null
     clinicalOrders.value = []
     return
   }
+  activeRecord.value = record
+  examForm.diagnosis = record.diagnosisText || record.diagnosis || ''
+  examForm.diagnosisCode = record.diagnosisCode || ''
+  examForm.diagnosisSpecialty = record.diagnosisSpecialty || ''
+  examForm.doctorNote = record.doctorNote || record.doctorNotes || ''
+  examForm.treatmentPlan = record.treatmentPlan || ''
+  examForm.followUpDate = String(record.followUpDate || '').slice(0, 10)
+  hydrateClinicalTextFromRecord(record)
+  await loadClinicalOrders()
+}
+
+async function findMedicalRecordByVisit(visitId: string | number) {
   try {
-    activeRecord.value = await medicalRecordApi.getMedicalRecordByVisit(activeVisit.value.visitId)
-    examForm.diagnosis = activeRecord.value.diagnosisText || activeRecord.value.diagnosis || ''
-    examForm.diagnosisCode = activeRecord.value.diagnosisCode || ''
-    examForm.diagnosisSpecialty = activeRecord.value.diagnosisSpecialty || ''
-    examForm.doctorNote = activeRecord.value.doctorNote || activeRecord.value.doctorNotes || ''
-    examForm.treatmentPlan = activeRecord.value.treatmentPlan || ''
-    examForm.followUpDate = String(activeRecord.value.followUpDate || '').slice(0, 10)
-    hydrateClinicalTextFromRecord(activeRecord.value)
-    await loadClinicalOrders()
+    return await medicalRecordApi.getMedicalRecordByVisit(visitId)
   } catch (apiError: any) {
-    if (apiError?.response?.status !== 404) note.value = `Chưa tải được bệnh án theo visit: ${getApiErrorMessage(apiError)}`
+    if (apiError?.response?.status === 404) return null
+    throw apiError
   }
 }
 
@@ -1753,7 +1768,15 @@ function patientCitizenId(patient?: (Patient & Record<string, any>) | null) {
 function businessError(apiError: unknown) {
   const message = getApiErrorMessage(apiError)
   const normalized = normalize(message)
-  if (normalized.includes('visit') || normalized.includes('luot kham') || normalized.includes('by-appointment')) return 'Lịch hẹn chưa được check-in hoặc chưa tạo lượt khám lâm sàng.'
+  const mentionsVisit = normalized.includes('visit') || normalized.includes('luot kham') || normalized.includes('by-appointment')
+  const visitIsMissing = normalized.includes('not found')
+    || normalized.includes('khong tim')
+    || normalized.includes('khong ton tai')
+    || normalized.includes('chua duoc check-in')
+    || normalized.includes('chua tao')
+    || normalized.includes('by-appointment')
+  if (mentionsVisit && visitIsMissing) return 'Lịch hẹn chưa được check-in hoặc chưa tạo lượt khám lâm sàng.'
+  if (mentionsVisit && normalized.includes('da co benh an')) return 'Lượt khám đã có bệnh án. Vui lòng tải lại để cập nhật bệnh án hiện có.'
   if (normalized.includes('record') && normalized.includes('complete')) return 'Cần hoàn tất bệnh án trước khi hoàn tất lượt khám.'
   if (normalized.includes('diagnosis')) return 'Vui lòng nhập chẩn đoán hợp lệ trước khi lưu bệnh án.'
   return message

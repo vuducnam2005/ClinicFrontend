@@ -255,7 +255,7 @@ const quickActions = reactive<QuickAction[]>([
 ])
 
 const geminiApiKey = computed(() => import.meta.env.VITE_GEMINI_API_KEY?.trim() || '')
-const geminiModel = computed(() => import.meta.env.VITE_GEMINI_MODEL?.trim() || 'gemini-3.5-flash')
+const geminiModel = computed(() => import.meta.env.VITE_GEMINI_MODEL?.trim() || 'gemini-3-flash-preview')
 const geminiEndpoint = computed(() =>
   `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel.value)}:generateContent?key=${encodeURIComponent(geminiApiKey.value)}`,
 )
