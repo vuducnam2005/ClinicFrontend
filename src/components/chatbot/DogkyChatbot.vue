@@ -139,7 +139,7 @@
       >
         <div
           v-if="notificationActive && !isOpen"
-          class="dogky-cloud-bubble absolute bottom-[5.4rem] right-[-2.25rem] flex h-32 w-56 items-center justify-center bg-contain bg-center bg-no-repeat px-12 pb-7 pt-10 text-center text-xs font-bold leading-4 text-slate-800 drop-shadow-[0_18px_24px_rgba(15,23,42,0.16)]"
+          class="dogky-cloud-bubble absolute bottom-[5.85rem] right-[-3.35rem] flex h-40 w-72 items-center justify-center bg-contain bg-center bg-no-repeat px-16 pb-9 pt-12 text-center text-sm font-bold leading-5 text-slate-800 drop-shadow-[0_18px_24px_rgba(15,23,42,0.16)]"
           :style="{ backgroundImage: `url(${chatBubbleUrl})` }"
         >
           <span class="dogky-cloud-text line-clamp-3">{{ notificationText }}</span>
@@ -924,7 +924,7 @@ function quickActionIcon(key: QuickActionKey): Component {
 }
 
 .dogky-cloud-text {
-  max-width: 8.5rem;
+  max-width: 11rem;
   font-weight: 700;
   overflow-wrap: anywhere;
 }
