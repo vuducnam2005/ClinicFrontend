@@ -554,6 +554,8 @@ function formatLongDate(value: string) {
 <style scoped>
 :global(html:has(.clinical-portal-shell .booking-page)),
 :global(body:has(.clinical-portal-shell .booking-page)) {
+  position: fixed;
+  width: 100%;
   height: 100%;
   overflow: hidden;
 }

@@ -27,15 +27,95 @@
               <p class="truncate text-xs font-medium text-teal-100">Cún bác sĩ Medicare đang trực</p>
             </div>
           </div>
-          <button
-            type="button"
-            class="flex h-9 w-9 items-center justify-center rounded-lg text-teal-50 transition hover:bg-white/10"
-            aria-label="Đóng DogkyChatbot"
-            @click="isOpen = false"
-          >
-            <X class="h-4.5 w-4.5" />
-          </button>
+          <div class="flex items-center gap-1">
+            <button
+              type="button"
+              class="flex h-9 w-9 items-center justify-center rounded-lg text-teal-50 transition hover:bg-white/10"
+              aria-label="Lịch sử chat"
+              @click="showSessionSidebar = !showSessionSidebar"
+            >
+              <Menu class="h-4.5 w-4.5" />
+            </button>
+            <button
+              type="button"
+              class="flex h-9 w-9 items-center justify-center rounded-lg text-teal-50 transition hover:bg-white/10"
+              aria-label="Tạo chat mới"
+              @click="createNewSession()"
+            >
+              <SquarePen class="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              class="flex h-9 w-9 items-center justify-center rounded-lg text-teal-50 transition hover:bg-white/10"
+              aria-label="Đóng DogkyChatbot"
+              @click="isOpen = false"
+            >
+              <X class="h-4.5 w-4.5" />
+            </button>
+          </div>
         </header>
+
+        <!-- Session history sidebar -->
+        <Transition
+          enter-active-class="transition-all duration-250 ease-out"
+          enter-from-class="-translate-x-full opacity-0"
+          enter-to-class="translate-x-0 opacity-100"
+          leave-active-class="transition-all duration-200 ease-in"
+          leave-from-class="translate-x-0 opacity-100"
+          leave-to-class="-translate-x-full opacity-0"
+        >
+          <div
+            v-if="showSessionSidebar"
+            class="dogky-sidebar absolute inset-0 z-10 flex"
+          >
+            <div class="flex w-full flex-col bg-slate-800 text-white">
+              <div class="flex items-center justify-between border-b border-slate-700 px-4 py-3">
+                <span class="text-sm font-bold">Lịch sử chat</span>
+                <button
+                  type="button"
+                  class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 transition hover:bg-slate-700 hover:text-white"
+                  aria-label="Đóng lịch sử"
+                  @click="showSessionSidebar = false"
+                >
+                  <X class="h-4 w-4" />
+                </button>
+              </div>
+
+              <button
+                type="button"
+                class="mx-3 mt-3 flex items-center gap-2 rounded-xl bg-teal-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-teal-500"
+                @click="createNewSession()"
+              >
+                <SquarePen class="h-3.5 w-3.5" />
+                Chat mới
+              </button>
+
+              <div class="mt-3 flex-1 space-y-1 overflow-y-auto px-3 pb-3">
+                <div
+                  v-for="session in sortedSessions"
+                  :key="session.id"
+                  role="button"
+                  tabindex="0"
+                  class="group flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs transition"
+                  :class="session.id === activeSessionId ? 'bg-teal-700/40 text-teal-200' : 'text-slate-300 hover:bg-slate-700 hover:text-white'"
+                  @click="switchToSession(session.id)"
+                  @keydown.enter="switchToSession(session.id)"
+                >
+                  <MessageSquareText class="h-3.5 w-3.5 shrink-0 opacity-60" />
+                  <span class="min-w-0 flex-1 truncate">{{ session.title }}</span>
+                  <button
+                    type="button"
+                    class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-500 opacity-0 transition hover:bg-red-500/20 hover:text-red-400 group-hover:opacity-100"
+                    aria-label="Xóa phiên chat"
+                    @click.stop="deleteSession(session.id)"
+                  >
+                    <Trash2 class="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Transition>
 
         <div ref="conversationRef" class="flex-1 space-y-4 overflow-y-auto bg-slate-50 p-4">
           <div
@@ -139,7 +219,7 @@
       >
         <div
           v-if="notificationActive && !isOpen"
-          class="dogky-cloud-bubble absolute bottom-[5.85rem] right-[-3.35rem] flex h-40 w-72 items-center justify-center bg-contain bg-center bg-no-repeat px-16 pb-9 pt-12 text-center text-sm font-bold leading-5 text-slate-800 drop-shadow-[0_18px_24px_rgba(15,23,42,0.16)]"
+          class="dogky-cloud-bubble absolute bottom-[4.2rem] right-[-3.35rem] flex h-[190px] w-[320px] items-center justify-center bg-contain bg-center bg-no-repeat px-[80px] pb-[48px] pt-[60px] text-center text-xs font-bold leading-4 text-slate-800 drop-shadow-[0_18px_24px_rgba(15,23,42,0.16)]"
           :style="{ backgroundImage: `url(${chatBubbleUrl})` }"
         >
           <span class="dogky-cloud-text line-clamp-3">{{ notificationText }}</span>
@@ -173,12 +253,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { Component } from 'vue'
-import { FileHeart, LogIn, Pill, ReceiptText, Send, Stethoscope, X } from 'lucide-vue-next'
+import { FileHeart, LogIn, Menu, MessageSquareText, Pill, ReceiptText, Send, SquarePen, Stethoscope, Trash2, X } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/authStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { appointmentApi } from '@/services/appointmentApi'
 import { billingApi } from '@/services/billingApi'
 import { medicalRecordApi } from '@/services/medicalRecordApi'
+import type { Patient } from '@/types/medicalRecord'
 import assistantVideoUrl from '@/assets/assistant-loop.webm'
 import chatBubbleUrl from '@/assets/chat.png'
 
@@ -194,6 +275,20 @@ interface ChatMessage {
 interface ChatTableRow {
   label: string
   value: string
+}
+
+interface GeminiContent {
+  role: 'user' | 'model'
+  parts: Array<{ text: string }>
+}
+
+interface ChatSession {
+  id: string
+  title: string
+  createdAt: number
+  updatedAt: number
+  messages: ChatMessage[]
+  history: GeminiContent[]
 }
 
 interface GeminiResponse {
@@ -216,6 +311,10 @@ interface QuickAction {
 
 type LooseRecord = Record<string, any>
 
+const SYSTEM_INSTRUCTION = 'Bạn là chú cún bác sĩ Dogky của Medicare, tính cách cộc cằn, bận rộn nhưng tận tụy, hay sủa Gâu! Hãy trả lời ngắn gọn dưới 3 câu. Nếu người dùng mô tả triệu chứng bệnh, hãy đưa ra lời khuyên sơ bộ và khuyên họ đến đúng chuyên khoa khám phù hợp, nhắc họ tự đặt lịch trên web chứ bạn không thể đặt lịch hộ.'
+const MAX_HISTORY_TURNS = 20
+const SESSIONS_STORAGE_KEY = 'dogky_chat_sessions'
+
 const authStore = useAuthStore()
 const notificationStore = useNotificationStore()
 
@@ -231,10 +330,15 @@ const messages = ref<ChatMessage[]>([
     text: 'Gâu! Dogky đang trực đây. Có chuyện gì cần hỗ trợ thì nói nhanh lên nhé, gâu!',
   },
 ])
+const conversationHistory = ref<GeminiContent[]>([])
+const chatSessions = ref<ChatSession[]>([])
+const activeSessionId = ref<string | null>(null)
+const showSessionSidebar = ref(false)
 const inputValue = ref('')
 const notificationActive = ref(false)
 const notificationText = ref('')
 const conversationRef = ref<HTMLElement | null>(null)
+const patientDetail = ref<Patient | null>(null)
 const loginPromptMessageId = ref<number | null>(null)
 const proactiveReminders = ref<string[]>([])
 const defaultAssistantPosition = { bottom: 24, right: 24 }
@@ -264,6 +368,9 @@ const assistantPositionStyle = computed(() => ({
   bottom: `${assistantPosition.value.bottom}px`,
   right: `${assistantPosition.value.right}px`,
 }))
+const sortedSessions = computed(() =>
+  [...chatSessions.value].sort((a, b) => b.updatedAt - a.updatedAt),
+)
 const geminiRequestTimeoutMs = 30000
 const proactiveVisibleMs = 3000
 const proactiveHiddenMs = 10000
@@ -285,6 +392,8 @@ onMounted(() => {
   clampAssistantPosition()
   window.addEventListener('keydown', handleEscape)
   window.addEventListener('resize', clampAssistantPosition)
+  loadAllSessions()
+  loadPatientDetail()
   refreshProactiveReminders()
   scrollToBottom()
 })
@@ -336,7 +445,10 @@ watch(isOpen, (open) => {
 
 watch(
   () => [authStore.isAuthenticated, authStore.user?.patientId] as const,
-  () => refreshProactiveReminders(),
+  () => {
+    refreshProactiveReminders()
+    loadPatientDetail()
+  },
 )
 
 watch(
@@ -588,6 +700,20 @@ async function sendMessage(forcedText?: string) {
   loginPromptMessageId.value = null
   addUserMessage(text)
   inputValue.value = ''
+
+  // Intercept profile query
+  const lowercaseText = text.toLowerCase()
+  if (
+    lowercaseText.includes('thông tin cá nhân') ||
+    lowercaseText.includes('thông tin của tôi') ||
+    lowercaseText.includes('hồ sơ của tôi') ||
+    lowercaseText.includes('tôi là ai') ||
+    lowercaseText.includes('thông tin bệnh nhân')
+  ) {
+    await replyWithPatientProfile()
+    return
+  }
+
   isLoading.value = true
   runtimeState.activeAction = 'symptom'
 
@@ -595,6 +721,15 @@ async function sendMessage(forcedText?: string) {
     const reply = await askGemini(text)
     addBotMessage(reply)
   } catch (error) {
+    // Rollback: remove the user entry we just pushed into history so
+    // a failed request does not pollute the conversation context.
+    if (
+      conversationHistory.value.length > 0 &&
+      conversationHistory.value[conversationHistory.value.length - 1].role === 'user'
+    ) {
+      conversationHistory.value.pop()
+      saveConversationHistory()
+    }
     console.error('Dogky Gemini error', error)
     addBotMessage(dogkyGeminiErrorMessage(error))
   } finally {
@@ -608,7 +743,11 @@ async function askGemini(userText: string) {
     throw new Error('Missing VITE_GEMINI_API_KEY')
   }
 
-  const prompt = `[SYSTEM PROMPT: Bạn là chú cún bác sĩ Dogky của Medicare, tính cách cộc cằn, bận rộn nhưng tận tụy, hay sủa Gâu! Hãy trả lời ngắn gọn dưới 3 câu. Nếu người dùng mô tả triệu chứng bệnh, hãy đưa ra lời khuyên sơ bộ và khuyên họ đến đúng chuyên khoa khám phù hợp, nhắc họ tự đặt lịch trên web chứ bạn không thể đặt lịch hộ]. Câu hỏi của người bệnh: ${userText}`
+  // Add the new user message to conversation history
+  conversationHistory.value.push({ role: 'user', parts: [{ text: userText }] })
+  trimConversationHistory()
+  saveConversationHistory()
+
   const controller = new AbortController()
   const timeout = window.setTimeout(() => controller.abort(), geminiRequestTimeoutMs)
   let response: Response
@@ -621,15 +760,10 @@ async function askGemini(userText: string) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt,
-              },
-            ],
-          },
-        ],
+        system_instruction: {
+          parts: [{ text: `${SYSTEM_INSTRUCTION}\n\n${buildPatientContextString(patientDetail.value)}` }],
+        },
+        contents: conversationHistory.value,
         generationConfig: {
           maxOutputTokens: 2048,
           temperature: 0.6,
@@ -654,7 +788,13 @@ async function askGemini(userText: string) {
     .filter((part) => !part.thought && part.text)
     .map((part) => part.text)
     .join('')
-  return stripMarkdown(text || 'Gâu! Dogky chưa nghĩ ra câu trả lời rõ ràng. Bạn mô tả lại ngắn gọn hơn nhé.')
+  const replyText = stripMarkdown(text || 'Gâu! Dogky chưa nghĩ ra câu trả lời rõ ràng. Bạn mô tả lại ngắn gọn hơn nhé.')
+
+  // Save model reply into conversation history
+  conversationHistory.value.push({ role: 'model', parts: [{ text: replyText }] })
+  saveConversationHistory()
+
+  return replyText
 }
 
 function geminiStatusMessage(status: number, body: string) {
@@ -687,6 +827,169 @@ function stripMarkdown(value: string) {
     .replace(/^\s{0,3}#{1,6}\s+/gm, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+}
+
+function trimConversationHistory() {
+  const maxEntries = MAX_HISTORY_TURNS * 2
+  if (conversationHistory.value.length > maxEntries) {
+    conversationHistory.value = conversationHistory.value.slice(-maxEntries)
+  }
+}
+
+function sessionsStorageKey() {
+  const userId = authStore.user?.id || authStore.user?.patientId || 'anonymous'
+  return `${SESSIONS_STORAGE_KEY}_${userId}`
+}
+
+function generateSessionId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function defaultWelcomeMessages(): ChatMessage[] {
+  return [
+    {
+      id: initialBotMessageId,
+      sender: 'bot',
+      text: 'Gâu! Dogky đang trực đây. Có chuyện gì cần hỗ trợ thì nói nhanh lên nhé, gâu!',
+    },
+  ]
+}
+
+function deriveSessionTitle(sessionMessages: ChatMessage[]) {
+  const firstUserMsg = sessionMessages.find((m) => m.sender === 'user')
+  if (!firstUserMsg) return 'Cuộc trò chuyện mới'
+  const text = firstUserMsg.text.replace(/\s+/g, ' ').trim()
+  return text.length > 30 ? `${text.slice(0, 28).trimEnd()}...` : text
+}
+
+function syncCurrentSessionState() {
+  if (!activeSessionId.value) return
+  const session = chatSessions.value.find((s) => s.id === activeSessionId.value)
+  if (!session) return
+  session.messages = [...messages.value]
+  session.history = [...conversationHistory.value]
+  session.title = deriveSessionTitle(session.messages)
+  session.updatedAt = Date.now()
+}
+
+function saveAllSessions() {
+  syncCurrentSessionState()
+  try {
+    // NOTE: sessions contain only user questions and AI responses about
+    // medical symptoms — no auth tokens or PII beyond what the user
+    // voluntarily typed.  Acceptable for localStorage.
+    const serialized = JSON.stringify(chatSessions.value)
+    localStorage.setItem(sessionsStorageKey(), serialized)
+  } catch {
+    // Storage full or unavailable — silently degrade.
+  }
+}
+
+function saveConversationHistory() {
+  saveAllSessions()
+}
+
+function loadAllSessions() {
+  try {
+    const raw = localStorage.getItem(sessionsStorageKey())
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown
+      if (Array.isArray(parsed)) {
+        const valid = parsed.filter(
+          (s): s is ChatSession =>
+            typeof s === 'object' &&
+            s !== null &&
+            typeof s.id === 'string' &&
+            typeof s.title === 'string' &&
+            Array.isArray(s.messages) &&
+            Array.isArray(s.history),
+        )
+        chatSessions.value = valid
+      }
+    }
+  } catch {
+    chatSessions.value = []
+  }
+
+  // If sessions exist, load the most recent one
+  if (chatSessions.value.length > 0) {
+    const sorted = [...chatSessions.value].sort((a, b) => b.updatedAt - a.updatedAt)
+    const latest = sorted[0]
+    activeSessionId.value = latest.id
+    messages.value = latest.messages.length > 0 ? [...latest.messages] : defaultWelcomeMessages()
+    conversationHistory.value = [...latest.history]
+    lastMessageId = Math.max(initialBotMessageId, ...messages.value.map((m) => m.id))
+    trimConversationHistory()
+  } else {
+    // No sessions — create the first default session
+    createNewSession()
+  }
+}
+
+function createNewSession() {
+  // Save current session first
+  syncCurrentSessionState()
+
+  const now = Date.now()
+  const newSession: ChatSession = {
+    id: generateSessionId(),
+    title: 'Cuộc trò chuyện mới',
+    createdAt: now,
+    updatedAt: now,
+    messages: defaultWelcomeMessages(),
+    history: [],
+  }
+
+  chatSessions.value.push(newSession)
+  activeSessionId.value = newSession.id
+  messages.value = [...newSession.messages]
+  conversationHistory.value = []
+  lastMessageId = initialBotMessageId
+  loginPromptMessageId.value = null
+  showSessionSidebar.value = false
+  saveAllSessions()
+  scrollToBottom()
+}
+
+function switchToSession(sessionId: string) {
+  if (sessionId === activeSessionId.value) {
+    showSessionSidebar.value = false
+    return
+  }
+
+  // Save current session first
+  syncCurrentSessionState()
+
+  const session = chatSessions.value.find((s) => s.id === sessionId)
+  if (!session) return
+
+  activeSessionId.value = session.id
+  messages.value = session.messages.length > 0 ? [...session.messages] : defaultWelcomeMessages()
+  conversationHistory.value = [...session.history]
+  lastMessageId = Math.max(initialBotMessageId, ...messages.value.map((m) => m.id))
+  loginPromptMessageId.value = null
+  showSessionSidebar.value = false
+  saveAllSessions()
+  scrollToBottom()
+}
+
+function deleteSession(sessionId: string) {
+  chatSessions.value = chatSessions.value.filter((s) => s.id !== sessionId)
+
+  if (sessionId === activeSessionId.value) {
+    // Deleted the active session — switch to another or create new
+    if (chatSessions.value.length > 0) {
+      const sorted = [...chatSessions.value].sort((a, b) => b.updatedAt - a.updatedAt)
+      switchToSession(sorted[0].id)
+    } else {
+      createNewSession()
+    }
+  }
+
+  saveAllSessions()
 }
 
 async function handleQuickAction(action: QuickAction) {
@@ -809,12 +1112,129 @@ async function replyWithLatestMedicalRecord() {
   const doctorNote = stringValue(latest.doctorNote, latest.doctorNotes, latest.treatmentPlan) || 'Chưa có lời dặn của bác sĩ'
   const date = formatDate(stringValue(latest.completedAt, latest.examDate, latest.createdAt, latest.updatedAt))
 
+  const docName = stringValue(latest.doctorName)
+    || (latest.doctorId ? await getDoctorName(latest.doctorId) : '')
+    || 'Không rõ'
+
   addBotTableMessage(date ? `Gâu, bệnh án gần nhất ngày ${date}:` : 'Gâu, bệnh án gần nhất:', [
     { label: 'Ngày khám', value: date || 'Không rõ' },
     { label: 'Chẩn đoán', value: diagnosis },
-    { label: 'Bác sĩ', value: stringValue(latest.doctorName) || 'Không rõ' },
+    { label: 'Bác sĩ', value: docName },
     { label: 'Lời dặn', value: doctorNote },
   ])
+}
+
+const doctorNamesMap: Record<number, string> = {
+  1: 'BS. Nguyễn Văn An',
+  2: 'BS. Trần Thị Bình',
+  3: 'BS. Lê Vân Châu',
+  4: 'BS. Phạm Quốc Dũng',
+  5: 'BS. Hoàng Thu Hà',
+  6: 'BS. Đỗ Minh Khang',
+  7: 'BS. Võ Lan Anh',
+  8: 'BS. Nguyễn Đức Huy',
+  9: 'BS. Bùi Thanh Tâm',
+  10: 'BS. Trịnh Quang Minh'
+}
+
+async function getDoctorName(doctorId?: number | string) {
+  if (!doctorId) return ''
+  const docId = Number(doctorId)
+
+  // Try fetching patient's appointments to see if we can match
+  try {
+    const patientId = Number(authStore.user?.patientId)
+    if (patientId) {
+      const appointments = await appointmentApi.getAppointmentsByPatient(patientId)
+      const appt = appointments.find(a => Number(a.doctorId) === docId)
+      if (appt?.doctorName) return appt.doctorName
+    }
+  } catch (e) {
+    console.warn('Failed to resolve doctor name from appointments', e)
+  }
+
+  // Try fetching doctor profile directly from appointment service
+  try {
+    const doctors = await appointmentApi.getDoctors()
+    const doc = doctors.find(d => Number(d.doctorId) === docId)
+    if (doc?.doctorName || doc?.fullName) return doc.doctorName || doc.fullName
+  } catch (e) {
+    console.warn('Failed to resolve doctor name from doctors list', e)
+  }
+
+  return doctorNamesMap[docId] || `Bác sĩ #${docId}`
+}
+
+async function loadPatientDetail() {
+  if (!authStore.isAuthenticated) {
+    patientDetail.value = null
+    return
+  }
+  try {
+    patientDetail.value = await medicalRecordApi.getCurrentPatient()
+  } catch (e) {
+    console.warn('Failed to load patient detail in chatbot', e)
+  }
+}
+
+function buildPatientContextString(patient: Patient | null) {
+  if (!patient) return 'Chưa có thông tin bệnh nhân đăng nhập.'
+  return `
+Bệnh nhân đang đăng nhập:
+- Họ tên: ${patient.fullName || 'Chưa rõ'}
+- Ngày sinh: ${patient.dateOfBirth ? formatDate(patient.dateOfBirth) : 'Chưa rõ'}
+- Giới tính: ${patient.gender === 'Male' ? 'Nam' : patient.gender === 'Female' ? 'Nữ' : 'Chưa rõ'}
+- Số điện thoại: ${patient.phoneNumber || patient.phone || 'Chưa rõ'}
+- Email: ${patient.email || 'Chưa rõ'}
+- Địa chỉ: ${patient.address || 'Chưa rõ'}
+- Nhóm máu: ${patient.bloodType || 'Chưa rõ'}
+- CCCD/CMND: ${patient.citizenId || 'Chưa rõ'}
+- Tiền sử dị ứng: ${patient.allergyNote || patient.allergies || 'Chưa ghi nhận'}
+- Tiền sử bệnh lý: ${patient.medicalHistory || 'Chưa ghi nhận'}
+`.trim()
+}
+
+async function replyWithPatientProfile() {
+  isLoading.value = true
+  try {
+    if (!patientDetail.value) {
+      await loadPatientDetail()
+    }
+    const patient = patientDetail.value
+    if (!patient) {
+      addBotMessage('Gâu! Dogky chưa tìm thấy thông tin bệnh nhân của bạn trong hệ thống.')
+      return
+    }
+
+    const name = patient.fullName || 'Chưa rõ'
+    const dob = patient.dateOfBirth ? formatDate(patient.dateOfBirth) : 'Chưa rõ'
+    const gender = patient.gender === 'Male' ? 'Nam' : patient.gender === 'Female' ? 'Nữ' : 'Chưa rõ'
+    const phone = patient.phoneNumber || patient.phone || 'Chưa rõ'
+    const email = patient.email || 'Chưa rõ'
+    const address = patient.address || 'Chưa rõ'
+    const bloodType = patient.bloodType || 'Chưa rõ'
+    const citizenId = patient.citizenId || 'Chưa rõ'
+    const allergies = patient.allergyNote || patient.allergies || 'Chưa ghi nhận'
+    const history = patient.medicalHistory || 'Chưa ghi nhận'
+
+    addBotTableMessage('Gâu! Đây là thông tin cá nhân của bạn trên hệ thống Medicare:', [
+      { label: 'Họ và tên', value: name },
+      { label: 'Ngày sinh', value: dob },
+      { label: 'Giới tính', value: gender },
+      { label: 'Số điện thoại', value: phone },
+      { label: 'Email', value: email },
+      { label: 'Địa chỉ', value: address },
+      { label: 'Nhóm máu', value: bloodType },
+      { label: 'CCCD/CMND', value: citizenId },
+      { label: 'Tiền sử dị ứng', value: allergies },
+      { label: 'Tiền sử bệnh lý', value: history },
+    ])
+  } catch (error) {
+    console.error('Failed to load profile details in chatbot', error)
+    addBotMessage('Gâu! Có lỗi xảy ra khi lấy thông tin cá nhân của bạn.')
+  } finally {
+    isLoading.value = false
+  }
 }
 
 async function resolvePatientProfileIfNeeded() {
@@ -967,9 +1387,10 @@ function quickActionIcon(key: QuickActionKey): Component {
 }
 
 .dogky-cloud-text {
-  max-width: 11rem;
+  max-width: 10rem;
   font-weight: 700;
   overflow-wrap: anywhere;
+  color: #1e293b !important;
 }
 
 .dogky-cloud-enter-active {
@@ -987,12 +1408,17 @@ function quickActionIcon(key: QuickActionKey): Component {
 .dogky-cloud-enter-from,
 .dogky-cloud-leave-to {
   opacity: 0;
-  transform: translate(3.6rem, 4.7rem) scale(0.08) rotate(2deg);
+  transform: translate(3.6rem, 3.1rem) scale(0.08) rotate(2deg);
 }
 
 .dogky-cloud-enter-to,
 .dogky-cloud-leave-from {
   opacity: 1;
   transform: translate(0, 0) scale(1) rotate(0);
+}
+
+.dogky-sidebar {
+  border-radius: inherit;
+  overflow: hidden;
 }
 </style>
