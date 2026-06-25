@@ -146,6 +146,139 @@
                     </div>
                   </dl>
                 </template>
+                <template v-else-if="message.specialtySelector">
+                  <p class="mb-3 font-semibold text-slate-900">{{ message.text }}</p>
+                  <div class="grid grid-cols-2 gap-2 mt-2">
+                    <button
+                      v-for="s in message.specialtySelector.specialties"
+                      :key="s.specialtyId"
+                      type="button"
+                      class="px-3 py-2 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 rounded-xl transition hover:bg-teal-100/70 hover:scale-[1.02] active:scale-[0.98]"
+                      @click="selectSpecialty(s.specialtyId, s.specialtyName)"
+                    >
+                      {{ s.specialtyName }}
+                    </button>
+                  </div>
+                </template>
+                <template v-else-if="message.doctorSelector">
+                  <p class="mb-3 font-semibold text-slate-900">{{ message.text }}</p>
+                  <div class="flex flex-col gap-2 mt-2">
+                    <button
+                      v-for="d in message.doctorSelector.doctors"
+                      :key="d.doctorId"
+                      type="button"
+                      class="flex flex-col text-left px-3 py-2.5 border border-slate-100 bg-slate-50 hover:bg-teal-50/50 hover:border-teal-200 rounded-xl transition hover:scale-[1.01] active:scale-[0.99] group"
+                      @click="selectDoctor(d.doctorId, d.doctorName, d.examFee)"
+                    >
+                      <span class="font-bold text-slate-800 group-hover:text-teal-700 text-xs">{{ d.doctorName }}</span>
+                      <span class="text-[10px] text-slate-500 font-medium mt-0.5">{{ d.specialtyName }} · Phí khám: {{ formatCurrency(d.examFee) }}</span>
+                    </button>
+                  </div>
+                </template>
+                <template v-else-if="message.dateSelector">
+                  <p class="mb-3 font-semibold text-slate-900">{{ message.text }}</p>
+                  <div class="flex flex-col gap-2 mt-2">
+                    <button
+                      v-for="d in message.dateSelector.dates"
+                      :key="d.value"
+                      type="button"
+                      class="px-3 py-2 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 rounded-xl transition hover:bg-teal-100/70 hover:scale-[1.02] active:scale-[0.98]"
+                      @click="selectDate(d.value, d.label)"
+                    >
+                      {{ d.label }}
+                    </button>
+                  </div>
+                </template>
+                <template v-else-if="message.timeSlotSelector">
+                  <p class="mb-3 font-semibold text-slate-900">{{ message.text }}</p>
+                  <div v-if="message.timeSlotSelector.loading" class="flex items-center gap-1.5 py-1">
+                    <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-600"></span>
+                    <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-600 [animation-delay:150ms]"></span>
+                    <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-600 [animation-delay:300ms]"></span>
+                  </div>
+                  <div v-else class="grid grid-cols-3 gap-2 mt-2">
+                    <button
+                      v-for="slot in message.timeSlotSelector.slots"
+                      :key="slot"
+                      type="button"
+                      class="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition"
+                      @click="selectTimeSlot(slot)"
+                    >
+                      {{ slot }}
+                    </button>
+                  </div>
+                </template>
+                <template v-else-if="message.bookingConfirm">
+                  <p class="mb-3 font-semibold text-slate-900">{{ message.text }}</p>
+                  <!-- Confirmation Ticket -->
+                  <div class="border border-dashed border-teal-300 bg-teal-50/20 rounded-2xl p-3.5 my-2 shadow-sm">
+                    <div class="text-center pb-2 border-b border-dashed border-teal-200">
+                      <span class="text-xs font-bold uppercase tracking-wider text-teal-800">Thông tin lịch hẹn</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-y-1.5 gap-x-2 text-[11px] mt-3">
+                      <span class="font-bold text-slate-500">Người khám:</span>
+                      <span class="font-semibold text-slate-800 text-right">{{ patientDetail?.fullName || 'Bệnh nhân' }}</span>
+                      
+                      <span class="font-bold text-slate-500">Chuyên khoa:</span>
+                      <span class="font-semibold text-slate-800 text-right">{{ message.bookingConfirm.specialtyName }}</span>
+                      
+                      <span class="font-bold text-slate-500">Bác sĩ:</span>
+                      <span class="font-semibold text-slate-800 text-right">{{ message.bookingConfirm.doctorName }}</span>
+                      
+                      <span class="font-bold text-slate-500">Ngày khám:</span>
+                      <span class="font-semibold text-slate-800 text-right">{{ message.bookingConfirm.dateText }}</span>
+                      
+                      <span class="font-bold text-slate-500">Giờ khám:</span>
+                      <span class="font-semibold text-slate-800 text-right">{{ message.bookingConfirm.slotTime }}</span>
+                      
+                      <span class="font-bold text-slate-500">Phí khám:</span>
+                      <span class="font-bold text-slate-900 text-right">{{ formatCurrency(message.bookingConfirm.fee) }}</span>
+                    </div>
+                    <div class="mt-3.5 pt-2 border-t border-dashed border-teal-200">
+                      <input
+                        v-model="bookingReason"
+                        type="text"
+                        placeholder="Nhập lý do khám (nếu có)..."
+                        class="w-full text-[11px] bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-teal-300 transition text-slate-800 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2 mt-3">
+                    <button
+                      type="button"
+                      class="px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition hover:scale-[1.02] active:scale-[0.98]"
+                      @click="activeBooking = null; addBotMessage('Gâu! Lịch hẹn của bạn đã hủy bỏ.')"
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      type="button"
+                      class="px-3 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-xl transition hover:scale-[1.02] active:scale-[0.98]"
+                      @click="confirmBooking(bookingReason)"
+                    >
+                      Xác nhận
+                    </button>
+                  </div>
+                </template>
+                <template v-else-if="message.bookingSuccess">
+                  <p class="font-semibold text-slate-900 text-xs">{{ message.text }}</p>
+                  <!-- Success Slip -->
+                  <div class="flex items-center gap-2 mt-2 bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-emerald-800">
+                    <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white font-bold">✓</span>
+                    <div class="text-[11px]">
+                      <p class="font-bold">Lịch hẹn đã được xác nhận</p>
+                      <p class="mt-0.5 text-slate-500 font-mono">Mã đặt chỗ: {{ message.bookingSuccess.appointmentCode || `#${message.bookingSuccess.appointmentId}` }}</p>
+                    </div>
+                  </div>
+                  <div class="mt-3 flex gap-2">
+                    <RouterLink
+                      to="/patient/appointments"
+                      class="inline-flex flex-1 items-center justify-center rounded-xl border border-teal-600 px-3 py-2 text-xs font-bold text-teal-700 transition hover:bg-teal-50 hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      Xem lịch của tôi
+                    </RouterLink>
+                  </div>
+                </template>
                 <template v-else>
                   {{ message.text }}
                 </template>
@@ -253,7 +386,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import type { Component } from 'vue'
-import { FileHeart, LogIn, Menu, MessageSquareText, Pill, ReceiptText, Send, SquarePen, Stethoscope, Trash2, X } from 'lucide-vue-next'
+import { FileHeart, LogIn, Menu, MessageSquareText, Pill, ReceiptText, Send, SquarePen, Stethoscope, Trash2, X, CalendarClock } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/authStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { appointmentApi } from '@/services/appointmentApi'
@@ -269,6 +402,31 @@ interface ChatMessage {
   text: string
   table?: {
     rows: ChatTableRow[]
+  }
+  specialtySelector?: {
+    specialties: Array<{ specialtyId: number; specialtyName: string }>
+  }
+  doctorSelector?: {
+    doctors: Array<{ doctorId: number; doctorName: string; examFee: number; specialtyName: string }>
+  }
+  dateSelector?: {
+    dates: Array<{ label: string; value: string }>
+  }
+  timeSlotSelector?: {
+    slots: string[]
+    loading?: boolean
+  }
+  bookingConfirm?: {
+    specialtyName: string
+    doctorName: string
+    dateText: string
+    slotTime: string
+    fee: number
+  }
+  bookingSuccess?: {
+    appointmentId: number
+    appointmentCode?: string
+    fee: number
   }
 }
 
@@ -302,7 +460,7 @@ interface GeminiResponse {
   }>
 }
 
-type QuickActionKey = 'symptom' | 'prescription' | 'invoice' | 'record'
+type QuickActionKey = 'symptom' | 'prescription' | 'invoice' | 'record' | 'booking'
 
 interface QuickAction {
   key: QuickActionKey
@@ -330,6 +488,21 @@ const messages = ref<ChatMessage[]>([
     text: 'Gâu! Dogky đang trực đây. Có chuyện gì cần hỗ trợ thì nói nhanh lên nhé, gâu!',
   },
 ])
+interface BookingState {
+  step: 'specialty' | 'doctor' | 'date' | 'time' | 'confirm' | 'completed'
+  specialtyId?: number
+  specialtyName?: string
+  doctorId?: number
+  doctorName?: string
+  examFee?: number
+  appointmentDate?: string
+  slotTime?: string
+  reason?: string
+}
+
+const activeBooking = ref<BookingState | null>(null)
+const bookingReason = ref('')
+
 const conversationHistory = ref<GeminiContent[]>([])
 const chatSessions = ref<ChatSession[]>([])
 const activeSessionId = ref<string | null>(null)
@@ -352,6 +525,7 @@ const runtimeState = reactive({
 })
 
 const quickActions = reactive<QuickAction[]>([
+  { key: 'booking', label: 'Đặt lịch khám' },
   { key: 'symptom', label: 'Tư vấn triệu chứng' },
   { key: 'prescription', label: 'Xem đơn thuốc gần nhất' },
   { key: 'invoice', label: 'Xem hóa đơn viện phí' },
@@ -714,6 +888,19 @@ async function sendMessage(forcedText?: string) {
     return
   }
 
+  // Intercept booking query
+  if (
+    lowercaseText.includes('đặt lịch') ||
+    lowercaseText.includes('đăng ký khám') ||
+    lowercaseText.includes('khám bệnh') ||
+    lowercaseText.includes('hẹn lịch') ||
+    lowercaseText.includes('book lịch')
+  ) {
+    if (!ensureAuthenticated()) return
+    await startBookingWizard()
+    return
+  }
+
   isLoading.value = true
   runtimeState.activeAction = 'symptom'
 
@@ -1000,6 +1187,12 @@ async function handleQuickAction(action: QuickAction) {
     return
   }
 
+  if (action.key === 'booking') {
+    if (!ensureAuthenticated()) return
+    await startBookingWizard()
+    return
+  }
+
   loginPromptMessageId.value = null
   addUserMessage(action.label)
 
@@ -1237,6 +1430,258 @@ async function replyWithPatientProfile() {
   }
 }
 
+async function startBookingWizard() {
+  activeBooking.value = { step: 'specialty' }
+  isLoading.value = true
+  try {
+    const specialties = await appointmentApi.getSpecialties()
+    
+    // Add bot message with interactive specialtySelector
+    const msgId = nextMessageId()
+    const msg: ChatMessage = {
+      id: msgId,
+      sender: 'bot',
+      text: 'Gâu! Medicare có các chuyên khoa sau. Bạn hãy chọn chuyên khoa muốn đăng ký khám nhé:',
+      specialtySelector: {
+        specialties: specialties.map(s => ({
+          specialtyId: Number(s.specialtyId),
+          specialtyName: s.specialtyName || ''
+        }))
+      }
+    }
+    messages.value.push(msg)
+    saveAllSessions()
+  } catch (error) {
+    console.error('Failed to start booking wizard', error)
+    addBotMessage('Gâu! Không thể tải danh sách chuyên khoa lúc này.')
+  } finally {
+    isLoading.value = false
+  }
+}
+
+async function selectSpecialty(specialtyId: number, specialtyName: string) {
+  if (!activeBooking.value) return
+  addUserMessage(`Tôi chọn chuyên khoa: ${specialtyName}`)
+  
+  activeBooking.value.specialtyId = specialtyId
+  activeBooking.value.specialtyName = specialtyName
+  activeBooking.value.step = 'doctor'
+  
+  isLoading.value = true
+  try {
+    const doctors = await appointmentApi.getDoctorsBySpecialty(specialtyId)
+    if (!doctors.length) {
+      addBotMessage(`Gâu! Hiện chưa có bác sĩ nào trực thuộc chuyên khoa ${specialtyName}.`)
+      activeBooking.value = null
+      return
+    }
+    
+    const msgId = nextMessageId()
+    const msg: ChatMessage = {
+      id: msgId,
+      sender: 'bot',
+      text: `Gâu! Tiếp theo, hãy chọn bác sĩ khám của khoa ${specialtyName}:`,
+      doctorSelector: {
+        doctors: doctors.map(d => ({
+          doctorId: Number(d.doctorId),
+          doctorName: d.doctorName || d.fullName || 'Bác sĩ',
+          examFee: Number(d.examFee || 150000),
+          specialtyName: d.specialtyName || specialtyName
+        }))
+      }
+    }
+    messages.value.push(msg)
+    saveAllSessions()
+  } catch (error) {
+    console.error('Failed to select specialty', error)
+    addBotMessage('Gâu! Có lỗi xảy ra khi tải danh sách bác sĩ.')
+    activeBooking.value = null
+  } finally {
+    isLoading.value = false
+  }
+}
+
+function selectDoctor(doctorId: number, doctorName: string, examFee: number) {
+  if (!activeBooking.value) return
+  addUserMessage(`Tôi chọn bác sĩ: ${doctorName}`)
+  
+  activeBooking.value.doctorId = doctorId
+  activeBooking.value.doctorName = doctorName
+  activeBooking.value.examFee = examFee
+  activeBooking.value.step = 'date'
+  
+  // Create 3 date candidates: Today, Tomorrow, Day after tomorrow
+  const dates = []
+  const today = new Date()
+  
+  const dayNames = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy']
+  
+  for (let i = 0; i < 3; i++) {
+    const d = new Date()
+    d.setDate(today.getDate() + i)
+    const yyyy = d.getFullYear()
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    const dateStr = `${yyyy}-${mm}-${dd}`
+    
+    let label = ''
+    if (i === 0) label = `Hôm nay (${dd}/${mm})`
+    else if (i === 1) label = `Ngày mai (${dd}/${mm})`
+    else {
+      const dayName = dayNames[d.getDay()]
+      label = `${dayName} (${dd}/${mm})`
+    }
+    
+    dates.push({ label, value: dateStr })
+  }
+  
+  const msgId = nextMessageId()
+  const msg: ChatMessage = {
+    id: msgId,
+    sender: 'bot',
+    text: `Gâu! Hãy chọn ngày bạn muốn đến khám với ${doctorName}:`,
+    dateSelector: { dates }
+  }
+  messages.value.push(msg)
+  saveAllSessions()
+}
+
+async function selectDate(dateValue: string, dateLabel: string) {
+  if (!activeBooking.value) return
+  addUserMessage(`Tôi chọn ngày: ${dateLabel}`)
+  
+  activeBooking.value.appointmentDate = dateValue
+  activeBooking.value.step = 'time'
+  
+  const doctorId = activeBooking.value.doctorId!
+  const doctorName = activeBooking.value.doctorName!
+  
+  isLoading.value = true
+  
+  // Pre-insert a message with loading state
+  const msgId = nextMessageId()
+  const msg: ChatMessage = {
+    id: msgId,
+    sender: 'bot',
+    text: `Gâu! Đang tìm các khung giờ trống của ${doctorName} trong ngày ${dateLabel}...`,
+    timeSlotSelector: {
+      slots: [],
+      loading: true
+    }
+  }
+  messages.value.push(msg)
+  saveAllSessions()
+  
+  try {
+    const slots = await appointmentApi.getAvailableSlots(doctorId, dateValue)
+    
+    // Update the message slots
+    const foundMsg = messages.value.find(m => m.id === msgId)
+    if (foundMsg && foundMsg.timeSlotSelector) {
+      foundMsg.timeSlotSelector.loading = false
+      if (slots.length > 0) {
+        foundMsg.text = `Gâu! Hãy chọn một khung giờ khám còn trống cho ngày ${dateLabel}:`
+        foundMsg.timeSlotSelector.slots = slots
+      } else {
+        foundMsg.text = `Gâu! Rất tiếc, ngày ${dateLabel} đã hết sạch giờ khám trống cho bác sĩ ${doctorName}. Bạn hãy quay lại đặt ngày khác hoặc chọn bác sĩ khác nhé.`
+        activeBooking.value = null
+      }
+      saveAllSessions()
+    }
+  } catch (error) {
+    console.error('Failed to load slots', error)
+    const foundMsg = messages.value.find(m => m.id === msgId)
+    if (foundMsg) {
+      foundMsg.text = 'Gâu! Có lỗi xảy ra khi tìm giờ khám trống.'
+      if (foundMsg.timeSlotSelector) foundMsg.timeSlotSelector.loading = false
+    }
+    activeBooking.value = null
+  } finally {
+    isLoading.value = false
+  }
+}
+
+function selectTimeSlot(timeValue: string) {
+  if (!activeBooking.value) return
+  addUserMessage(`Tôi chọn giờ khám: ${timeValue}`)
+  
+  activeBooking.value.slotTime = timeValue
+  activeBooking.value.step = 'confirm'
+  
+  const dateText = formatDate(activeBooking.value.appointmentDate!)
+  
+  const msgId = nextMessageId()
+  const msg: ChatMessage = {
+    id: msgId,
+    sender: 'bot',
+    text: 'Gâu! Dogky đã chuẩn bị xong phiếu đặt lịch. Bạn vui lòng kiểm tra lại thông tin và bấm Xác nhận đặt lịch nhé:',
+    bookingConfirm: {
+      specialtyName: activeBooking.value.specialtyName!,
+      doctorName: activeBooking.value.doctorName!,
+      dateText: dateText || activeBooking.value.appointmentDate!,
+      slotTime: timeValue,
+      fee: activeBooking.value.examFee!
+    }
+  }
+  messages.value.push(msg)
+  saveAllSessions()
+}
+
+async function confirmBooking(reason: string) {
+  if (!activeBooking.value) return
+  isLoading.value = true
+  
+  try {
+    // Resolve patient details if needed
+    if (!patientDetail.value) {
+      await loadPatientDetail()
+    }
+    
+    const patient = patientDetail.value
+    if (!patient) {
+      addBotMessage('Gâu! Không thể xác định tài khoản bệnh nhân để đặt lịch.')
+      activeBooking.value = null
+      return
+    }
+    
+    const payload = {
+      patientId: Number(patient.id || patient.patientId),
+      patientNameSnapshot: patient.fullName,
+      patientPhoneSnapshot: patient.phoneNumber || patient.phone || '0000000000',
+      doctorId: activeBooking.value.doctorId!,
+      appointmentDate: activeBooking.value.appointmentDate!,
+      slotTime: activeBooking.value.slotTime!,
+      reason: reason.trim() || 'Khám sức khỏe'
+    }
+    
+    const appointment = await appointmentApi.createAppointment(payload)
+    
+    // Clear wizard state
+    const fee = activeBooking.value.examFee!
+    activeBooking.value = null
+    
+    const msgId = nextMessageId()
+    const msg: ChatMessage = {
+      id: msgId,
+      sender: 'bot',
+      text: `Gâu! Chúc mừng bạn đã đặt lịch khám thành công!`,
+      bookingSuccess: {
+        appointmentId: appointment.appointmentId,
+        appointmentCode: appointment.appointmentCode,
+        fee
+      }
+    }
+    messages.value.push(msg)
+    saveAllSessions()
+  } catch (error) {
+    console.error('Failed to create appointment via chatbot', error)
+    addBotMessage('Gâu! Gặp lỗi hệ thống khi đăng ký đặt lịch. Vui lòng thử đặt lịch trực tiếp trên trang web.')
+    activeBooking.value = null
+  } finally {
+    isLoading.value = false
+  }
+}
+
 async function resolvePatientProfileIfNeeded() {
   if (authStore.user?.patientId || !authStore.isAuthenticated) return
   await authStore.resolvePatientProfile().catch(() => undefined)
@@ -1352,6 +1797,7 @@ function translateInvoiceStatus(value: string) {
 }
 
 function quickActionIcon(key: QuickActionKey): Component {
+  if (key === 'booking') return CalendarClock
   if (key === 'symptom') return Stethoscope
   if (key === 'prescription') return Pill
   if (key === 'invoice') return ReceiptText
