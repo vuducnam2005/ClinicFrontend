@@ -95,6 +95,19 @@
           </button>
         </form>
 
+        <!-- Hoặc đăng nhập bằng -->
+        <div class="relative flex items-center justify-center my-6">
+          <div class="absolute inset-0 flex items-center">
+            <div class="w-full border-t border-slate-200"></div>
+          </div>
+          <span class="relative bg-white px-4 text-sm text-slate-500">Hoặc đăng nhập bằng</span>
+        </div>
+
+        <!-- Nút Google -->
+        <div class="flex justify-center mb-4">
+          <div id="google-btn" class="min-h-[40px]"></div>
+        </div>
+
         <p class="mt-8 text-center text-sm text-slate-700">
           Chưa có tài khoản?
           <RouterLink
@@ -119,7 +132,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { BriefcaseMedical, Eye, EyeOff, Loader2, LockKeyhole, Mail } from 'lucide-vue-next'
 import Toast from '@/components/ui/Toast.vue'
@@ -135,6 +148,47 @@ const remember = ref(true)
 const showPassword = ref(false)
 const loginData = reactive({ identifier: '', password: '' })
 const toast = reactive({ show: false, title: '', message: '', type: 'success' as 'success' | 'error' })
+
+onMounted(() => {
+  if (typeof window !== 'undefined') {
+    const initGoogle = () => {
+      if ((window as any).google?.accounts?.id) {
+        (window as any).google.accounts.id.initialize({
+          client_id: '807372784575-4efmnootusg8irvv4kai866gucskqh7v.apps.googleusercontent.com',
+          callback: handleGoogleLoginCallback
+        });
+        (window as any).google.accounts.id.renderButton(
+          document.getElementById('google-btn'),
+          { theme: 'outline', size: 'large', text: 'signin_with', alignment: 'center' }
+        );
+      } else {
+        setTimeout(initGoogle, 100);
+      }
+    };
+    initGoogle();
+  }
+})
+
+async function handleGoogleLoginCallback(response: any) {
+  const idToken = response.credential
+  if (!idToken) return
+
+  try {
+    await authStore.loginWithGoogle(idToken)
+    toast.title = 'Thành công'
+    toast.message = 'Đăng nhập bằng Google thành công'
+    toast.type = 'success'
+    toast.show = true
+    setTimeout(() => {
+      router.push(resolveRedirectPath())
+    }, 500)
+  } catch (error) {
+    toast.title = 'Lỗi đăng nhập Google'
+    toast.message = getApiErrorMessage(error)
+    toast.type = 'error'
+    toast.show = true
+  }
+}
 
 function showValidationError(message: string) {
   toast.title = 'Thông tin chưa hợp lệ'

@@ -111,6 +111,11 @@ export const authApi = {
     return normalizeLoginResponse(response.data)
   },
 
+  async loginWithGoogle(idToken: string) {
+    const response = await client.post('/api/auth/google-login', { idToken })
+    return normalizeLoginResponse(response.data)
+  },
+
   async register(payload: RegisterRequest) {
     const response = await client.post('/api/auth/register', {
       fullName: payload.fullName,

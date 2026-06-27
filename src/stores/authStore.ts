@@ -33,6 +33,19 @@ export const useAuthStore = defineStore('auth', {
         this.loading = false
       }
     },
+    async loginWithGoogle(idToken: string) {
+      this.loading = true
+      try {
+        const result = await authApi.loginWithGoogle(idToken)
+        this.token = result.token
+        this.user = result.user
+        localStorage.setItem('cliniccare_token', result.token)
+        await this.resolveDoctorProfile()
+        await this.resolvePatientProfile()
+      } finally {
+        this.loading = false
+      }
+    },
     async loginWithToken(token: string) {
       this.loading = true
       try {
