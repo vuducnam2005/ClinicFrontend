@@ -867,6 +867,89 @@ function stopProactiveReminderLoop() {
   proactiveHiddenTimer = undefined
 }
 
+function parseDateFromText(text: string): { dateStr: string; label: string } | null {
+  const cleanText = text.toLowerCase().replace(/\s+/g, '');
+  
+  // Regex 1: dd/mm or d/m
+  const regexSlash = /(\d{1,2})\/(\d{1,2})/;
+  let match = cleanText.match(regexSlash);
+  
+  // Regex 2: dd-mm or d-m
+  if (!match) {
+    const regexDash = /(\d{1,2})-(\d{1,2})/;
+    match = cleanText.match(regexDash);
+  }
+  
+  // Regex 3: ngày d tháng m
+  if (!match) {
+    const regexText = /ngày(\d{1,2})tháng(\d{1,2})/;
+    match = cleanText.match(regexText);
+  }
+
+  if (match) {
+    const day = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    
+    if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+      const today = new Date();
+      let year = today.getFullYear();
+      
+      // If the selected month is before today's month, it's probably for next year
+      if (month < today.getMonth() + 1) {
+        year += 1;
+      }
+      
+      // Validate the date
+      const targetDate = new Date(year, month - 1, day);
+      if (targetDate.getMonth() === month - 1 && targetDate.getDate() === day) {
+        const yyyy = targetDate.getFullYear();
+        const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const dd = String(targetDate.getDate()).padStart(2, '0');
+        
+        return {
+          dateStr: `${yyyy}-${mm}-${dd}`,
+          label: `${dd}/${mm}`
+        };
+      }
+    }
+  }
+  return null;
+}
+
+function parseTimeFromText(text: string, availableSlots: string[]): string | null {
+  const cleanText = text.toLowerCase().replace(/\s+/g, '').replace('h', ':');
+  
+  const regexTime = /(\d{1,2}):(\d{2})/;
+  let match = cleanText.match(regexTime);
+  
+  let targetHour = -1;
+  let targetMinute = 0;
+  
+  if (match) {
+    targetHour = parseInt(match[1], 10);
+    targetMinute = parseInt(match[2], 10);
+  } else {
+    const regexHourOnly = /(\d{1,2})(?:giờ|h)/;
+    const matchHour = cleanText.match(regexHourOnly);
+    if (matchHour) {
+      targetHour = parseInt(matchHour[1], 10);
+      targetMinute = 0;
+    }
+  }
+  
+  if (targetHour !== -1) {
+    const formattedHour = String(targetHour).padStart(2, '0');
+    const formattedMinute = String(targetMinute).padStart(2, '0');
+    const targetTimePrefix = `${formattedHour}:${formattedMinute}`;
+    
+    const matchedSlot = availableSlots.find(slot => slot.startsWith(targetTimePrefix));
+    if (matchedSlot) {
+      return matchedSlot;
+    }
+  }
+  return null;
+}
+
 async function sendMessage(forcedText?: string) {
   const text = (forcedText ?? inputValue.value).trim()
   if (!text || isLoading.value) return
@@ -874,6 +957,35 @@ async function sendMessage(forcedText?: string) {
   loginPromptMessageId.value = null
   addUserMessage(text)
   inputValue.value = ''
+
+  // Intercept booking wizard steps if active
+  if (activeBooking.value) {
+    if (activeBooking.value.step === 'date') {
+      const parsedDate = parseDateFromText(text)
+      if (parsedDate) {
+        await selectDate(parsedDate.dateStr, parsedDate.label)
+        return
+      } else {
+        addBotMessage('Gâu! Tôi chưa nhận diện được ngày bạn nhập. Bạn vui lòng nhập ngày theo định dạng như "6/7" hoặc "ngày 6 tháng 7" nhé.')
+        return
+      }
+    }
+    
+    if (activeBooking.value.step === 'time') {
+      const lastBotMsg = [...messages.value].reverse().find(m => m.sender === 'bot' && m.timeSlotSelector)
+      const availableSlots = lastBotMsg?.timeSlotSelector?.slots || []
+      const slotValues = availableSlots.map(s => s.value)
+      
+      const parsedTime = parseTimeFromText(text, slotValues)
+      if (parsedTime) {
+        selectTimeSlot(parsedTime)
+        return
+      } else {
+        addBotMessage('Gâu! Tôi không tìm thấy khung giờ đó. Bạn vui lòng nhập giờ cụ thể (ví dụ: "8h30", "14:00") hoặc click chọn khung giờ trong danh sách nhé.')
+        return
+      }
+    }
+  }
 
   // Intercept profile query
   const lowercaseText = text.toLowerCase()
