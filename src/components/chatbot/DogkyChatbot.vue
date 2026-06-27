@@ -963,7 +963,7 @@ async function sendMessage(forcedText?: string) {
     if (activeBooking.value.step === 'date') {
       const parsedDate = parseDateFromText(text)
       if (parsedDate) {
-        await selectDate(parsedDate.dateStr, parsedDate.label)
+        await selectDate(parsedDate.dateStr, parsedDate.label, true)
         return
       } else {
         addBotMessage('Gâu! Tôi chưa nhận diện được ngày bạn nhập. Bạn vui lòng nhập ngày theo định dạng như "6/7" hoặc "ngày 6 tháng 7" nhé.')
@@ -978,7 +978,7 @@ async function sendMessage(forcedText?: string) {
       
       const parsedTime = parseTimeFromText(text, slotValues)
       if (parsedTime) {
-        selectTimeSlot(parsedTime)
+        selectTimeSlot(parsedTime, true)
         return
       } else {
         addBotMessage('Gâu! Tôi không tìm thấy khung giờ đó. Bạn vui lòng nhập giờ cụ thể (ví dụ: "8h30", "14:00") hoặc click chọn khung giờ trong danh sách nhé.')
