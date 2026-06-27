@@ -469,7 +469,7 @@ interface QuickAction {
 
 type LooseRecord = Record<string, any>
 
-const SYSTEM_INSTRUCTION = 'Bạn là chú cún bác sĩ Dogky đáng yêu của Medicare, vô cùng lịch sự, lễ phép, thân thiện và nhiệt tình tư vấn cho khách hàng. Hãy luôn chào hỏi lễ phép, thỉnh thoảng có thể sủa nhẹ "Gâu!" một cách đáng yêu để giữ nét đặc trưng của một chú cún. Hãy trả lời ngắn gọn dưới 3 câu. Nếu người dùng mô tả triệu chứng bệnh, hãy đưa ra lời khuyên sơ bộ và tận tình khuyên họ đến đúng chuyên khoa khám phù hợp, nhắc họ tự đặt lịch trên web một cách lịch sự chứ bạn không thể đặt lịch hộ.'
+const SYSTEM_INSTRUCTION = 'Bạn là chú cún bác sĩ Dogky đáng yêu của Medicare, vô cùng lịch sự, lễ phép, thân thiện và nhiệt tình tư vấn cho khách hàng. Hãy luôn chào hỏi lễ phép, thỉnh thoảng có thể sủa nhẹ "Gâu!" một cách đáng yêu để giữ nét đặc trưng của một chú cún. Hãy trả lời ngắn gọn dưới 3 câu. Nếu người dùng mô tả triệu chứng bệnh, hãy đưa ra lời khuyên sơ bộ và chuyên khoa khám phù hợp, sau đó hỏi lịch sự xem họ có cần bạn đặt lịch khám giúp không. Nếu họ đồng ý (ví dụ nói "có", "ừ", "đặt giúp mình", "ok"...), bạn hãy trả lời đồng ý thân thiện và BẮT BUỘC kèm theo từ khóa đặc biệt [TRIGGER_BOOKING] ở cuối câu trả lời để hệ thống kích hoạt chức năng đặt lịch.'
 const MAX_HISTORY_TURNS = 20
 const SESSIONS_STORAGE_KEY = 'dogky_chat_sessions'
 
@@ -1017,8 +1017,16 @@ async function sendMessage(forcedText?: string) {
   runtimeState.activeAction = 'symptom'
 
   try {
-    const reply = await askGemini(text)
-    addBotMessage(reply)
+    let reply = await askGemini(text)
+    if (reply.includes('[TRIGGER_BOOKING]')) {
+      reply = reply.replace('[TRIGGER_BOOKING]', '').trim()
+      addBotMessage(reply)
+      setTimeout(() => {
+        startBookingWizard()
+      }, 1000)
+    } else {
+      addBotMessage(reply)
+    }
   } catch (error) {
     // Rollback: remove the user entry we just pushed into history so
     // a failed request does not pollute the conversation context.
@@ -1658,9 +1666,11 @@ function selectDoctor(doctorId: number, doctorName: string, examFee: number) {
   saveAllSessions()
 }
 
-async function selectDate(dateValue: string, dateLabel: string) {
+async function selectDate(dateValue: string, dateLabel: string, skipAddUserMessage?: boolean) {
   if (!activeBooking.value) return
-  addUserMessage(`Tôi chọn ngày: ${dateLabel}`)
+  if (!skipAddUserMessage) {
+    addUserMessage(`Tôi chọn ngày: ${dateLabel}`)
+  }
   
   activeBooking.value.appointmentDate = dateValue
   activeBooking.value.step = 'time'
@@ -1713,9 +1723,11 @@ async function selectDate(dateValue: string, dateLabel: string) {
   }
 }
 
-function selectTimeSlot(timeValue: string) {
+function selectTimeSlot(timeValue: string, skipAddUserMessage?: boolean) {
   if (!activeBooking.value) return
-  addUserMessage(`Tôi chọn giờ khám: ${timeValue}`)
+  if (!skipAddUserMessage) {
+    addUserMessage(`Tôi chọn giờ khám: ${timeValue}`)
+  }
   
   activeBooking.value.slotTime = timeValue
   activeBooking.value.step = 'confirm'
