@@ -1516,7 +1516,7 @@ function selectDoctor(doctorId: number, doctorName: string, examFee: number) {
   
   const dayNames = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy']
   
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 7; i++) {
     const d = new Date()
     d.setDate(today.getDate() + i)
     const yyyy = d.getFullYear()
