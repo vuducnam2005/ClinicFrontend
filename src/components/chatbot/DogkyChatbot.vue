@@ -1004,7 +1004,6 @@ async function sendMessage(forcedText?: string) {
   }
 
   // Intercept profile query
-  const lowercaseText = text.toLowerCase()
   if (
     lowercaseText.includes('thông tin cá nhân') ||
     lowercaseText.includes('thông tin của tôi') ||
