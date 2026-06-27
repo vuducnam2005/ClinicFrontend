@@ -116,6 +116,21 @@ export const authApi = {
     return normalizeLoginResponse(response.data)
   },
 
+  async initiatePasswordReset(email: string) {
+    const response = await client.post('/api/auth/forgot-password/initiate', { email })
+    return response.data as { message: string }
+  },
+
+  async verifyPasswordResetOtp(email: string, otpCode: string) {
+    const response = await client.post('/api/auth/forgot-password/verify-otp', { email, otpCode })
+    return response.data as { resetToken: string }
+  },
+
+  async completePasswordReset(resetToken: string, newPassword: string) {
+    const response = await client.post('/api/auth/forgot-password/reset', { resetToken, newPassword })
+    return response.data as { message: string }
+  },
+
   async register(payload: RegisterRequest) {
     const response = await client.post('/api/auth/register', {
       fullName: payload.fullName,

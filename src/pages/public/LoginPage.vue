@@ -82,7 +82,7 @@
               />
               <span>Ghi nhớ đăng nhập</span>
             </label>
-            <a href="#" class="text-base font-medium text-[#003c90] transition hover:text-[#0f52ba]">Quên mật khẩu?</a>
+            <RouterLink to="/forgot-password" class="text-base font-medium text-[#003c90] transition hover:text-[#0f52ba]">Quên mật khẩu?</RouterLink>
           </div>
 
           <button

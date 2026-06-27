@@ -4,6 +4,7 @@ import { RoleId } from '@/types/user'
 import LandingPage from '@/pages/LandingPage.vue'
 import LoginPage from '@/pages/public/LoginPage.vue'
 import RegisterPage from '@/pages/public/RegisterPage.vue'
+import ForgotPasswordPage from '@/pages/public/ForgotPasswordPage.vue'
 import DoctorLayout from '@/components/layout/DoctorLayout.vue'
 import NurseLayout from '@/components/layout/NurseLayout.vue'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
@@ -19,6 +20,7 @@ export default function router() {
       { path: '/', name: 'home', component: LandingPage },
       { path: '/login', name: 'login', component: LoginPage },
       { path: '/register', name: 'register', component: RegisterPage },
+      { path: '/forgot-password', name: 'forgot-password', component: ForgotPasswordPage },
       { path: '/doctors', name: 'doctors', component: () => import('@/pages/DoctorsPage.vue') },
       { path: '/booking', name: 'booking', component: () => import('@/pages/BookingPage.vue'), meta: { requiresAuth: true } },
 
