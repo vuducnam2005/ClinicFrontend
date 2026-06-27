@@ -27,6 +27,7 @@ export const useAuthStore = defineStore('auth', {
         this.token = result.token
         this.user = result.user
         localStorage.setItem('cliniccare_token', result.token)
+        localStorage.setItem('cliniccare_last_login', new Date().toISOString())
         await this.resolveDoctorProfile()
         await this.resolvePatientProfile()
       } finally {
@@ -40,6 +41,7 @@ export const useAuthStore = defineStore('auth', {
         this.token = result.token
         this.user = result.user
         localStorage.setItem('cliniccare_token', result.token)
+        localStorage.setItem('cliniccare_last_login', new Date().toISOString())
         await this.resolveDoctorProfile()
         await this.resolvePatientProfile()
       } finally {

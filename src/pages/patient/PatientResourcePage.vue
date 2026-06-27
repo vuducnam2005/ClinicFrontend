@@ -278,7 +278,7 @@
                 <p class="profile-security-label">Lần đăng nhập gần nhất</p>
                 <div class="profile-security-detail">
                   <span class="profile-security-dot"></span>
-                  <span>{{ new Date().toLocaleDateString('vi-VN') }} – {{ new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) }}</span>
+                  <span>{{ lastLoginText }}</span>
                 </div>
               </div>
               <button type="button" class="profile-security-btn" @click="profilePasswordMode = !profilePasswordMode">
@@ -878,6 +878,7 @@ interface DetailSection { title: string; icon: any; items: DetailItem[] }
 
 const route = useRoute()
 const authStore = useAuthStore()
+const lastLoginText = ref('')
 const loading = ref(false)
 const error = ref('')
 const note = ref('')
@@ -1438,6 +1439,17 @@ watch(resource, () => {
 
 onMounted(() => {
   window.addEventListener('patient-profile-updated', handlePatientProfileUpdated)
+  
+  const lastLogin = localStorage.getItem('cliniccare_last_login')
+  if (lastLogin) {
+    const d = new Date(lastLogin)
+    if (!isNaN(d.getTime())) {
+      lastLoginText.value = `${d.toLocaleDateString('vi-VN')} – ${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+    }
+  } else {
+    const now = new Date()
+    lastLoginText.value = `${now.toLocaleDateString('vi-VN')} – ${now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+  }
 })
 
 onUnmounted(() => {
