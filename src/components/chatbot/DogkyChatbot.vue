@@ -958,6 +958,23 @@ async function sendMessage(forcedText?: string) {
   addUserMessage(text)
   inputValue.value = ''
 
+  const lowercaseText = text.toLowerCase()
+
+  // Tự động hủy tiến trình đặt lịch nếu người dùng muốn đổi chủ đề hoặc muốn hủy
+  if (
+    lowercaseText.includes('tư vấn') ||
+    lowercaseText.includes('đơn thuốc') ||
+    lowercaseText.includes('hóa đơn') ||
+    lowercaseText.includes('bệnh án') ||
+    lowercaseText.includes('đặt lịch') ||
+    lowercaseText.includes('đăng ký khám') ||
+    lowercaseText.includes('hủy') ||
+    lowercaseText.includes('thoát') ||
+    lowercaseText.includes('dừng')
+  ) {
+    activeBooking.value = null
+  }
+
   // Intercept booking wizard steps if active
   if (activeBooking.value) {
     if (activeBooking.value.step === 'date') {
