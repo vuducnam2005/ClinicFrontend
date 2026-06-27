@@ -974,9 +974,8 @@ async function sendMessage(forcedText?: string) {
     if (activeBooking.value.step === 'time') {
       const lastBotMsg = [...messages.value].reverse().find(m => m.sender === 'bot' && m.timeSlotSelector)
       const availableSlots = lastBotMsg?.timeSlotSelector?.slots || []
-      const slotValues = availableSlots.map(s => s.value)
       
-      const parsedTime = parseTimeFromText(text, slotValues)
+      const parsedTime = parseTimeFromText(text, availableSlots)
       if (parsedTime) {
         selectTimeSlot(parsedTime, true)
         return
