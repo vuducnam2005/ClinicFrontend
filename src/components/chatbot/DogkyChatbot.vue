@@ -1077,43 +1077,12 @@ async function sendMessage(forcedText?: string) {
   isLoading.value = true
   runtimeState.activeAction = 'symptom'
 
-  // Tạo tin nhắn của bot với nội dung trống ban đầu
-  const botMsgId = nextMessageId()
-  const botMessage = reactive<ChatMessage>({
-    id: botMsgId,
-    sender: 'bot',
-    text: '',
-  })
-  messages.value.push(botMessage)
-
-  // Thiết lập hàng đợi hiển thị chữ thời gian thực (Typing Queue)
-  let pendingText = ''
-  let displayedText = ''
-  let typingTimer: number | undefined
-
-  typingTimer = window.setInterval(() => {
-    if (displayedText.length < pendingText.length) {
-      displayedText += pendingText[displayedText.length]
-      botMessage.text = displayedText
-      scrollToBottom()
-    }
-  }, 15) // Chạy chữ với tốc độ tự nhiên 15ms mỗi ký tự
-
   try {
     const res = await askGemini(text)
-    pendingText = res.reply || 'Gâu! Tôi chưa có phản hồi rõ ràng.'
     
-    // Đợi hiệu ứng chạy chữ hoàn thành (tối đa 8 giây)
-    const startWait = Date.now()
-    while (displayedText.length < pendingText.length && Date.now() - startWait < 8000) {
-      await new Promise((resolve) => setTimeout(resolve, 30))
-    }
-
-    if (typingTimer) {
-      clearInterval(typingTimer)
-      typingTimer = undefined
-    }
-    botMessage.text = pendingText // Đảm bảo hiển thị đầy đủ tin nhắn
+    // Thêm tin nhắn của bot ngay lập tức
+    addBotMessage(res.reply || 'Gâu! Tôi chưa có phản hồi rõ ràng.')
+    scrollToBottom()
 
     // Xử lý ý định đặt lịch
     if (res.isBookingIntent) {
@@ -1160,13 +1129,6 @@ async function sendMessage(forcedText?: string) {
       await processNextBookingStep('')
     }
   } catch (error) {
-    if (typingTimer) {
-      clearInterval(typingTimer)
-      typingTimer = undefined
-    }
-    // Xóa tin nhắn rỗng của bot nếu lỗi
-    messages.value = messages.value.filter((m) => m.id !== botMsgId)
-
     // Rollback tin nhắn của user khỏi lịch sử nếu lỗi
     if (
       conversationHistory.value.length > 0 &&
