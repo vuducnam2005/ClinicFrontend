@@ -537,6 +537,9 @@ const geminiModel = computed(() => import.meta.env.VITE_GEMINI_MODEL?.trim() || 
 const geminiEndpoint = computed(() =>
   `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel.value)}:generateContent?key=${encodeURIComponent(geminiApiKey.value)}`,
 )
+const geminiStreamEndpoint = computed(() =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel.value)}:streamGenerateContent?key=${encodeURIComponent(geminiApiKey.value)}`,
+)
 const canSend = computed(() => inputValue.value.trim().length > 0 && !isLoading.value)
 const assistantPositionStyle = computed(() => ({
   bottom: `${assistantPosition.value.bottom}px`,
@@ -1031,18 +1034,62 @@ async function sendMessage(forcedText?: string) {
   isLoading.value = true
   runtimeState.activeAction = 'symptom'
 
+  // Tạo tin nhắn của bot với nội dung trống ban đầu
+  const botMsgId = nextMessageId()
+  const botMessage = reactive<ChatMessage>({
+    id: botMsgId,
+    sender: 'bot',
+    text: '',
+  })
+  messages.value.push(botMessage)
+
+  // Thiết lập hàng đợi hiển thị chữ thời gian thực (Typing Queue)
+  let pendingText = ''
+  let displayedText = ''
+  let typingTimer: number | undefined
+
+  typingTimer = window.setInterval(() => {
+    if (displayedText.length < pendingText.length) {
+      displayedText += pendingText[displayedText.length]
+      botMessage.text = displayedText
+      scrollToBottom()
+    }
+  }, 25) // Chạy chữ với tốc độ tự nhiên 25ms mỗi ký tự
+
   try {
-    let reply = await askGemini(text)
+    let reply = await askGemini(text, (chunk) => {
+      pendingText += chunk
+    })
+    
+    // Đợi hiệu ứng chạy chữ hoàn thành (tối đa 8 giây)
+    const startWait = Date.now()
+    while (displayedText.length < reply.length && Date.now() - startWait < 8000) {
+      await new Promise((resolve) => setTimeout(resolve, 30))
+    }
+
+    if (typingTimer) {
+      clearInterval(typingTimer)
+      typingTimer = undefined
+    }
+    
+    // Loại bỏ từ khóa TRIGGER_BOOKING nếu có
     if (reply.includes('[TRIGGER_BOOKING]')) {
-      reply = reply.replace('[TRIGGER_BOOKING]', '').trim()
-      addBotMessage(reply)
+      const cleanReply = reply.replace('[TRIGGER_BOOKING]', '').trim()
+      botMessage.text = cleanReply
       setTimeout(() => {
         startBookingWizard()
       }, 1000)
     } else {
-      addBotMessage(reply)
+      botMessage.text = reply
     }
   } catch (error) {
+    if (typingTimer) {
+      clearInterval(typingTimer)
+      typingTimer = undefined
+    }
+    // Xóa tin nhắn rỗng của bot nếu lỗi
+    messages.value = messages.value.filter((m) => m.id !== botMsgId)
+
     // Rollback: remove the user entry we just pushed into history so
     // a failed request does not pollute the conversation context.
     if (
@@ -1052,6 +1099,13 @@ async function sendMessage(forcedText?: string) {
       conversationHistory.value.pop()
       saveConversationHistory()
     }
+    
+    const session = chatSessions.value.find(s => s.id === activeSessionId.value)
+    if (session && session.history.length > 0 && session.history[session.history.length - 1].role === 'user') {
+      session.history.pop()
+      saveAllSessions()
+    }
+
     console.error('Dogky Gemini error', error)
     addBotMessage(dogkyGeminiErrorMessage(error))
   } finally {
@@ -1060,7 +1114,71 @@ async function sendMessage(forcedText?: string) {
   }
 }
 
-async function askGemini(userText: string) {
+function parseStreamChunks(buffer: string): { texts: string[]; remaining: string } {
+  const texts: string[] = []
+  let temp = buffer.trim()
+  
+  if (temp.startsWith('[')) {
+    temp = temp.slice(1).trim()
+  }
+  if (temp.startsWith(',')) {
+    temp = temp.slice(1).trim()
+  }
+  
+  let braceCount = 0
+  let startIndex = -1
+  let inString = false
+  let isEscaped = false
+  let i = 0
+  
+  while (i < temp.length) {
+    const char = temp[i]
+    
+    if (inString) {
+      if (isEscaped) {
+        isEscaped = false
+      } else if (char === '\\') {
+        isEscaped = true
+      } else if (char === '"') {
+        inString = false
+      }
+    } else {
+      if (char === '"') {
+        inString = true
+      } else if (char === '{') {
+        if (braceCount === 0) {
+          startIndex = i
+        }
+        braceCount++
+      } else if (char === '}') {
+        braceCount--
+        if (braceCount === 0 && startIndex !== -1) {
+          const jsonStr = temp.slice(startIndex, i + 1)
+          try {
+            const obj = JSON.parse(jsonStr)
+            const text = obj.candidates?.[0]?.content?.parts?.[0]?.text
+            if (text) {
+              texts.push(text)
+            }
+          } catch (e) {
+            // Ignore parse errors
+          }
+          temp = temp.slice(i + 1).trim()
+          if (temp.startsWith(',')) {
+            temp = temp.slice(1).trim()
+          }
+          i = -1 // Reset index
+          startIndex = -1
+        }
+      }
+    }
+    i++
+  }
+  
+  return { texts, remaining: temp }
+}
+
+async function askGemini(userText: string, onChunk?: (text: string) => void) {
   if (!geminiApiKey.value) {
     throw new Error('Missing VITE_GEMINI_API_KEY')
   }
@@ -1075,7 +1193,7 @@ async function askGemini(userText: string) {
   let response: Response
 
   try {
-    response = await fetch(geminiEndpoint.value, {
+    response = await fetch(geminiStreamEndpoint.value, {
       method: 'POST',
       signal: controller.signal,
       headers: {
@@ -1104,13 +1222,43 @@ async function askGemini(userText: string) {
     throw new Error(geminiStatusMessage(response.status, errorText))
   }
 
-  const responseData = (await response.json()) as GeminiResponse
-  const parts = responseData.candidates?.[0]?.content?.parts || []
-  const text = parts
-    .filter((part) => !part.thought && part.text)
-    .map((part) => part.text)
-    .join('')
-  const replyText = stripMarkdown(text || 'Gâu! Dogky chưa nghĩ ra câu trả lời rõ ràng. Bạn mô tả lại ngắn gọn hơn nhé.')
+  if (!response.body) {
+    throw new Error('Response body is null')
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder('utf-8')
+  let buffer = ''
+  let fullText = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    
+    const { texts, remaining } = parseStreamChunks(buffer)
+    buffer = remaining
+
+    for (const text of texts) {
+      fullText += text
+      if (onChunk) {
+        onChunk(text)
+      }
+    }
+  }
+
+  if (buffer.trim()) {
+    const { texts } = parseStreamChunks(buffer)
+    for (const text of texts) {
+      fullText += text
+      if (onChunk) {
+        onChunk(text)
+      }
+    }
+  }
+
+  const replyText = stripMarkdown(fullText || 'Gâu! Dogky chưa nghĩ ra câu trả lời rõ ràng. Bạn mô tả lại ngắn gọn hơn nhé.')
 
   // Save model reply into conversation history
   conversationHistory.value.push({ role: 'model', parts: [{ text: replyText }] })

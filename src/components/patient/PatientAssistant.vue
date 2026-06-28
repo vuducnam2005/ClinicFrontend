@@ -342,11 +342,25 @@ function sendMessage() {
   setTimeout(() => {
     isTyping.value = false
     const reply = getBotReply(text)
-    messages.value.push({
-      sender: 'bot',
-      text: reply,
+    
+    // Tạo tin nhắn của bot với nội dung trống ban đầu
+    const botMessage = {
+      sender: 'bot' as const,
+      text: '',
       time: formatTime(new Date()),
-    })
+    }
+    messages.value.push(botMessage)
+
+    // Chạy chữ từ từ (hiệu ứng streaming/typewriter)
+    let index = 0
+    const interval = setInterval(() => {
+      if (index < reply.length) {
+        botMessage.text += reply[index]
+        index++
+      } else {
+        clearInterval(interval)
+      }
+    }, 20) // 20ms mỗi ký tự
   }, 1000)
 }
 
