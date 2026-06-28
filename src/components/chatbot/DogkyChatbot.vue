@@ -1079,12 +1079,30 @@ async function sendMessage(forcedText?: string) {
 
   try {
     const res = await askGemini(text)
+    const pendingText = res.reply || 'Gâu! Tôi chưa có phản hồi rõ ràng.'
     
-    // Thêm tin nhắn của bot ngay lập tức
-    addBotMessage(res.reply || 'Gâu! Tôi chưa có phản hồi rõ ràng.')
-    scrollToBottom()
+    // Thêm tin nhắn trống của bot ban đầu
+    const botMsgId = nextMessageId()
+    const botMessage = reactive<ChatMessage>({
+      id: botMsgId,
+      sender: 'bot',
+      text: '',
+    })
+    messages.value.push(botMessage)
 
-    // Xử lý ý định đặt lịch
+    // Chạy hiệu ứng gõ chữ tốc độ nhanh (2 ký tự mỗi 10ms)
+    let displayedText = ''
+    const typingTimer = window.setInterval(() => {
+      if (displayedText.length < pendingText.length) {
+        displayedText += pendingText.slice(displayedText.length, displayedText.length + 2)
+        botMessage.text = displayedText
+        scrollToBottom()
+      } else {
+        clearInterval(typingTimer)
+      }
+    }, 10)
+
+    // Xử lý ý định đặt lịch ngay lập tức (chạy song song)
     if (res.isBookingIntent) {
       if (!ensureAuthenticated()) {
         return
