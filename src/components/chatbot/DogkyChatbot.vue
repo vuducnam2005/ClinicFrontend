@@ -469,7 +469,6 @@ interface QuickAction {
 
 type LooseRecord = Record<string, any>
 
-const SYSTEM_INSTRUCTION = 'Bạn là chú cún bác sĩ Dogky đáng yêu của Medicare, vô cùng lịch sự, lễ phép, thân thiện và nhiệt tình tư vấn cho khách hàng. Hãy luôn chào hỏi lễ phép, thỉnh thoảng có thể sủa nhẹ "Gâu!" một cách đáng yêu để giữ nét đặc trưng của một chú cún. Hãy trả lời ngắn gọn dưới 3 câu. Nếu người dùng mô tả triệu chứng bệnh, hãy đưa ra lời khuyên sơ bộ và chuyên khoa khám phù hợp, sau đó hỏi lịch sự xem họ có cần bạn đặt lịch khám giúp không. Nếu họ đồng ý (ví dụ nói "có", "ừ", "đặt giúp mình", "ok"...), bạn hãy trả lời đồng ý thân thiện và BẮT BUỘC kèm theo từ khóa đặc biệt [TRIGGER_BOOKING] ở cuối câu trả lời để hệ thống kích hoạt chức năng đặt lịch.'
 const MAX_HISTORY_TURNS = 20
 const SESSIONS_STORAGE_KEY = 'dogky_chat_sessions'
 
@@ -502,6 +501,93 @@ interface BookingState {
 
 const activeBooking = ref<BookingState | null>(null)
 const bookingReason = ref('')
+
+const allSpecialties = ref<Array<{ id: number; name: string }>>([])
+const allDoctors = ref<Array<{ id: number; name: string; specialtyId: number; specialtyName: string; examFee: number }>>([])
+
+async function loadInitialData() {
+  try {
+    const [specialties, doctors] = await Promise.all([
+      appointmentApi.getSpecialties(),
+      appointmentApi.getDoctors()
+    ])
+    allSpecialties.value = specialties.map(s => ({
+      id: Number(s.specialtyId),
+      name: s.specialtyName || ''
+    }))
+    allDoctors.value = doctors.map(d => ({
+      id: Number(d.doctorId),
+      name: d.doctorName || d.fullName || '',
+      specialtyId: Number(d.specialtyId),
+      specialtyName: d.specialtyName || '',
+      examFee: Number(d.examFee || 150000)
+    }))
+  } catch (error) {
+    console.warn('Failed to load initial specialties/doctors in chatbot', error)
+  }
+}
+
+function buildSystemInstruction() {
+  const dateStr = new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' })
+  const timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+  
+  let bookingStateStr = 'Chưa có thông tin đặt lịch.'
+  if (activeBooking.value) {
+    bookingStateStr = `
+Trạng thái đặt lịch hiện tại của bệnh nhân:
+- Chuyên khoa đã chọn: ${activeBooking.value.specialtyName || 'Chưa chọn (ID: ' + (activeBooking.value.specialtyId || 'chưa có') + ')'}
+- Bác sĩ đã chọn: ${activeBooking.value.doctorName || 'Chưa chọn (ID: ' + (activeBooking.value.doctorId || 'chưa có') + ')'}
+- Ngày khám đã chọn: ${activeBooking.value.appointmentDate || 'Chưa chọn'}
+- Giờ khám đã chọn: ${activeBooking.value.slotTime || 'Chưa chọn'}
+- Lý do khám: ${activeBooking.value.reason || 'Chưa có'}
+`.trim()
+  }
+
+  return `Bạn là chú cún bác sĩ Dogky đáng yêu của Medicare, vô cùng lịch sự, lễ phép, thân thiện và nhiệt tình tư vấn cho khách hàng. Hãy luôn chào hỏi lễ phép, thỉnh thoảng có thể sủa nhẹ "Gâu!" một cách đáng yêu để giữ nét đặc trưng của một chú cún.
+Hãy luôn trả lời ngắn gọn (dưới 3 câu).
+
+Hôm nay là: ${dateStr}, lúc ${timeStr}.
+
+Dưới đây là danh sách Chuyên khoa hiện có tại phòng khám Medicare:
+${JSON.stringify(allSpecialties.value, null, 2)}
+
+Dưới đây là danh sách Bác sĩ hiện có tại phòng khám Medicare:
+${JSON.stringify(allDoctors.value, null, 2)}
+
+${bookingStateStr}
+
+Nhiệm vụ của bạn:
+1. Phân tích tin nhắn của người dùng để xác định xem họ có ý định đặt lịch khám bệnh (booking) hay mô tả triệu chứng bệnh hay không.
+2. Nếu họ có ý định đặt lịch hoặc mô tả triệu chứng bệnh:
+   - Đặt "isBookingIntent" là true.
+   - Phân tích triệu chứng để gợi ý chuyên khoa phù hợp từ danh sách chuyên khoa ở trên. Đặt "recommendedSpecialtyId" tương ứng. Nếu không tìm thấy chuyên khoa nào phù hợp hoặc chưa rõ, hãy để null.
+   - Nếu họ nhắc đến tên bác sĩ, hãy tìm bác sĩ khớp nhất trong danh sách trên và đặt "requestedDoctorId" tương ứng. Nếu không nhắc đến hoặc không khớp, để null.
+   - Phân tích ngày khám họ muốn. Chuyển đổi các từ như "hôm nay", "ngày mai", "ngày kia", "thứ hai tuần sau", hoặc các ngày như "10/7", "10 tháng 7" thành định dạng "YYYY-MM-DD". Nếu không nhắc đến ngày, để null. Lưu ý tính toán ngày chính xác dựa trên thời gian hôm nay là ${dateStr}.
+   - Phân tích giờ khám họ muốn (ví dụ "13h30", "14:00", "8 giờ sáng") và chuyển thành định dạng "HH:mm" (ví dụ: "13:30", "14:00", "08:00"). Nếu không nhắc đến giờ, để null.
+   - Tóm tắt lý do khám vào trường "reason".
+   - Trả lời người dùng trong trường "reply":
+     - Nếu thiếu chuyên khoa, hãy tư vấn triệu chứng sơ bộ, gợi ý chuyên khoa phù hợp và hỏi họ có muốn đặt lịch vào chuyên khoa đó không.
+     - Nếu thiếu bác sĩ, hãy lịch sự hỏi họ có muốn chọn bác sĩ nào không (hoặc để hệ thống hiển thị danh sách).
+     - Nếu thiếu ngày hoặc giờ, hãy hỏi họ muốn khám vào ngày/giờ nào.
+     - Nếu đã đủ hết thông tin, hãy trả lời thân thiện rằng bạn đã chuẩn bị xong thông tin đặt lịch, hãy kiểm tra lại và bấm xác nhận bên dưới.
+3. Nếu họ KHÔNG có ý định đặt lịch khám (ví dụ chào hỏi thông thường, hỏi thông tin khác):
+   - Đặt "isBookingIntent" là false.
+   - Đặt các trường khác là null.
+   - Trả lời người dùng trong trường "reply" một cách tự nhiên, đáng yêu.
+
+BẮT BUỘC phải trả về kết quả dưới dạng JSON tuân thủ cấu trúc sau:
+{
+  "isBookingIntent": boolean,
+  "symptoms": string | null,
+  "recommendedSpecialtyId": number | null,
+  "requestedDoctorId": number | null,
+  "requestedDate": string | null,
+  "requestedTime": string | null,
+  "reason": string | null,
+  "reply": string
+}
+`;
+}
 
 const conversationHistory = ref<GeminiContent[]>([])
 const chatSessions = ref<ChatSession[]>([])
@@ -573,6 +659,7 @@ onMounted(() => {
   loadPatientDetail()
   refreshProactiveReminders()
   scrollToBottom()
+  loadInitialData()
 })
 
 onBeforeUnmount(() => {
@@ -963,47 +1050,16 @@ async function sendMessage(forcedText?: string) {
 
   const lowercaseText = text.toLowerCase()
 
-  // Tự động hủy tiến trình đặt lịch nếu người dùng muốn đổi chủ đề hoặc muốn hủy
+  // Tự động hủy tiến trình đặt lịch nếu người dùng muốn hủy hoặc thoát
   if (
-    lowercaseText.includes('tư vấn') ||
-    lowercaseText.includes('đơn thuốc') ||
-    lowercaseText.includes('hóa đơn') ||
-    lowercaseText.includes('bệnh án') ||
-    lowercaseText.includes('đặt lịch') ||
-    lowercaseText.includes('đăng ký khám') ||
     lowercaseText.includes('hủy') ||
     lowercaseText.includes('thoát') ||
-    lowercaseText.includes('dừng')
+    lowercaseText.includes('dừng') ||
+    lowercaseText.includes('cancel')
   ) {
     activeBooking.value = null
-  }
-
-  // Intercept booking wizard steps if active
-  if (activeBooking.value) {
-    if (activeBooking.value.step === 'date') {
-      const parsedDate = parseDateFromText(text)
-      if (parsedDate) {
-        await selectDate(parsedDate.dateStr, parsedDate.label, true)
-        return
-      } else {
-        addBotMessage('Gâu! Tôi chưa nhận diện được ngày bạn nhập. Bạn vui lòng nhập ngày theo định dạng như "6/7" hoặc "ngày 6 tháng 7" nhé.')
-        return
-      }
-    }
-    
-    if (activeBooking.value.step === 'time') {
-      const lastBotMsg = [...messages.value].reverse().find(m => m.sender === 'bot' && m.timeSlotSelector)
-      const availableSlots = lastBotMsg?.timeSlotSelector?.slots || []
-      
-      const parsedTime = parseTimeFromText(text, availableSlots)
-      if (parsedTime) {
-        selectTimeSlot(parsedTime, true)
-        return
-      } else {
-        addBotMessage('Gâu! Tôi không tìm thấy khung giờ đó. Bạn vui lòng nhập giờ cụ thể (ví dụ: "8h30", "14:00") hoặc click chọn khung giờ trong danh sách nhé.')
-        return
-      }
-    }
+    addBotMessage('Gâu! Đã hủy bỏ tiến trình đặt lịch hiện tại.')
+    return
   }
 
   // Intercept profile query
@@ -1015,19 +1071,6 @@ async function sendMessage(forcedText?: string) {
     lowercaseText.includes('thông tin bệnh nhân')
   ) {
     await replyWithPatientProfile()
-    return
-  }
-
-  // Intercept booking query
-  if (
-    lowercaseText.includes('đặt lịch') ||
-    lowercaseText.includes('đăng ký khám') ||
-    lowercaseText.includes('khám bệnh') ||
-    lowercaseText.includes('hẹn lịch') ||
-    lowercaseText.includes('book lịch')
-  ) {
-    if (!ensureAuthenticated()) return
-    await startBookingWizard()
     return
   }
 
@@ -1054,16 +1097,15 @@ async function sendMessage(forcedText?: string) {
       botMessage.text = displayedText
       scrollToBottom()
     }
-  }, 25) // Chạy chữ với tốc độ tự nhiên 25ms mỗi ký tự
+  }, 15) // Chạy chữ với tốc độ tự nhiên 15ms mỗi ký tự
 
   try {
-    let reply = await askGemini(text, (chunk) => {
-      pendingText += chunk
-    })
+    const res = await askGemini(text)
+    pendingText = res.reply || 'Gâu! Tôi chưa có phản hồi rõ ràng.'
     
     // Đợi hiệu ứng chạy chữ hoàn thành (tối đa 8 giây)
     const startWait = Date.now()
-    while (displayedText.length < reply.length && Date.now() - startWait < 8000) {
+    while (displayedText.length < pendingText.length && Date.now() - startWait < 8000) {
       await new Promise((resolve) => setTimeout(resolve, 30))
     }
 
@@ -1071,16 +1113,51 @@ async function sendMessage(forcedText?: string) {
       clearInterval(typingTimer)
       typingTimer = undefined
     }
-    
-    // Loại bỏ từ khóa TRIGGER_BOOKING nếu có
-    if (reply.includes('[TRIGGER_BOOKING]')) {
-      const cleanReply = reply.replace('[TRIGGER_BOOKING]', '').trim()
-      botMessage.text = cleanReply
-      setTimeout(() => {
-        startBookingWizard()
-      }, 1000)
-    } else {
-      botMessage.text = reply
+    botMessage.text = pendingText // Đảm bảo hiển thị đầy đủ tin nhắn
+
+    // Xử lý ý định đặt lịch
+    if (res.isBookingIntent) {
+      if (!ensureAuthenticated()) {
+        return
+      }
+
+      if (!activeBooking.value) {
+        activeBooking.value = { step: 'specialty' }
+      }
+
+      // Hợp nhất các thông tin mà Gemini phân tích được
+      if (res.recommendedSpecialtyId) {
+        const spec = allSpecialties.value.find(s => s.id === res.recommendedSpecialtyId)
+        if (spec) {
+          activeBooking.value.specialtyId = spec.id
+          activeBooking.value.specialtyName = spec.name
+        }
+      }
+      if (res.requestedDoctorId) {
+        const doc = allDoctors.value.find(d => d.id === res.requestedDoctorId)
+        if (doc) {
+          activeBooking.value.doctorId = doc.id
+          activeBooking.value.doctorName = doc.name
+          activeBooking.value.examFee = doc.examFee
+          // Tự động gán chuyên khoa nếu chưa có
+          if (!activeBooking.value.specialtyId) {
+            activeBooking.value.specialtyId = doc.specialtyId
+            activeBooking.value.specialtyName = doc.specialtyName
+          }
+        }
+      }
+      if (res.requestedDate) {
+        activeBooking.value.appointmentDate = res.requestedDate
+      }
+      if (res.requestedTime) {
+        activeBooking.value.slotTime = res.requestedTime
+      }
+      if (res.reason) {
+        activeBooking.value.reason = res.reason
+      }
+
+      // Tiếp tục quy trình đặt lịch
+      await processNextBookingStep('')
     }
   } catch (error) {
     if (typingTimer) {
@@ -1090,8 +1167,7 @@ async function sendMessage(forcedText?: string) {
     // Xóa tin nhắn rỗng của bot nếu lỗi
     messages.value = messages.value.filter((m) => m.id !== botMsgId)
 
-    // Rollback: remove the user entry we just pushed into history so
-    // a failed request does not pollute the conversation context.
+    // Rollback tin nhắn của user khỏi lịch sử nếu lỗi
     if (
       conversationHistory.value.length > 0 &&
       conversationHistory.value[conversationHistory.value.length - 1].role === 'user'
@@ -1105,7 +1181,7 @@ async function sendMessage(forcedText?: string) {
       session.history.pop()
       saveAllSessions()
     }
-
+    
     console.error('Dogky Gemini error', error)
     addBotMessage(dogkyGeminiErrorMessage(error))
   } finally {
@@ -1178,7 +1254,7 @@ function parseStreamChunks(buffer: string): { texts: string[]; remaining: string
   return { texts, remaining: temp }
 }
 
-async function askGemini(userText: string, onChunk?: (text: string) => void) {
+async function askGemini(userText: string): Promise<any> {
   if (!geminiApiKey.value) {
     throw new Error('Missing VITE_GEMINI_API_KEY')
   }
@@ -1193,7 +1269,7 @@ async function askGemini(userText: string, onChunk?: (text: string) => void) {
   let response: Response
 
   try {
-    response = await fetch(geminiStreamEndpoint.value, {
+    response = await fetch(geminiEndpoint.value, {
       method: 'POST',
       signal: controller.signal,
       headers: {
@@ -1201,12 +1277,13 @@ async function askGemini(userText: string, onChunk?: (text: string) => void) {
       },
       body: JSON.stringify({
         system_instruction: {
-          parts: [{ text: `${SYSTEM_INSTRUCTION}\n\n${buildPatientContextString(patientDetail.value)}` }],
+          parts: [{ text: `${buildSystemInstruction()}\n\n${buildPatientContextString(patientDetail.value)}` }],
         },
         contents: conversationHistory.value,
         generationConfig: {
+          responseMimeType: 'application/json',
           maxOutputTokens: 2048,
-          temperature: 0.6,
+          temperature: 0.1, // Thấp hơn để trích xuất thông tin chính xác hơn
         },
       }),
     })
@@ -1222,49 +1299,21 @@ async function askGemini(userText: string, onChunk?: (text: string) => void) {
     throw new Error(geminiStatusMessage(response.status, errorText))
   }
 
-  if (!response.body) {
-    throw new Error('Response body is null')
-  }
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder('utf-8')
-  let buffer = ''
-  let fullText = ''
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-
-    buffer += decoder.decode(value, { stream: true })
+  const result = await response.json() as GeminiResponse
+  const replyText = result.candidates?.[0]?.content?.parts?.[0]?.text || ''
+  
+  try {
+    const parsed = JSON.parse(replyText)
     
-    const { texts, remaining } = parseStreamChunks(buffer)
-    buffer = remaining
-
-    for (const text of texts) {
-      fullText += text
-      if (onChunk) {
-        onChunk(text)
-      }
-    }
+    // Lưu tin nhắn phản hồi dạng text của model vào lịch sử hội thoại thay vì JSON thô
+    conversationHistory.value.push({ role: 'model', parts: [{ text: parsed.reply }] })
+    saveConversationHistory()
+    
+    return parsed
+  } catch (e) {
+    console.error('Failed to parse Gemini JSON response:', replyText, e)
+    throw new Error('Invalid JSON response from Gemini')
   }
-
-  if (buffer.trim()) {
-    const { texts } = parseStreamChunks(buffer)
-    for (const text of texts) {
-      fullText += text
-      if (onChunk) {
-        onChunk(text)
-      }
-    }
-  }
-
-  const replyText = stripMarkdown(fullText || 'Gâu! Dogky chưa nghĩ ra câu trả lời rõ ràng. Bạn mô tả lại ngắn gọn hơn nhé.')
-
-  // Save model reply into conversation history
-  conversationHistory.value.push({ role: 'model', parts: [{ text: replyText }] })
-  saveConversationHistory()
-
-  return replyText
 }
 
 function geminiStatusMessage(status: number, body: string) {
@@ -1715,31 +1764,7 @@ async function replyWithPatientProfile() {
 
 async function startBookingWizard() {
   activeBooking.value = { step: 'specialty' }
-  isLoading.value = true
-  try {
-    const specialties = await appointmentApi.getSpecialties()
-    
-    // Add bot message with interactive specialtySelector
-    const msgId = nextMessageId()
-    const msg: ChatMessage = {
-      id: msgId,
-      sender: 'bot',
-      text: 'Gâu! Medicare có các chuyên khoa sau. Bạn hãy chọn chuyên khoa muốn đăng ký khám nhé:',
-      specialtySelector: {
-        specialties: specialties.map(s => ({
-          specialtyId: Number(s.specialtyId),
-          specialtyName: s.specialtyName || ''
-        }))
-      }
-    }
-    messages.value.push(msg)
-    saveAllSessions()
-  } catch (error) {
-    console.error('Failed to start booking wizard', error)
-    addBotMessage('Gâu! Không thể tải danh sách chuyên khoa lúc này.')
-  } finally {
-    isLoading.value = false
-  }
+  await processNextBookingStep('Gâu! Medicare có các chuyên khoa sau. Bạn hãy chọn chuyên khoa muốn đăng ký khám nhé:')
 }
 
 async function selectSpecialty(specialtyId: number, specialtyName: string) {
@@ -1748,85 +1773,19 @@ async function selectSpecialty(specialtyId: number, specialtyName: string) {
   
   activeBooking.value.specialtyId = specialtyId
   activeBooking.value.specialtyName = specialtyName
-  activeBooking.value.step = 'doctor'
   
-  isLoading.value = true
-  try {
-    const doctors = await appointmentApi.getDoctorsBySpecialty(specialtyId)
-    if (!doctors.length) {
-      addBotMessage(`Gâu! Hiện chưa có bác sĩ nào trực thuộc chuyên khoa ${specialtyName}.`)
-      activeBooking.value = null
-      return
-    }
-    
-    const msgId = nextMessageId()
-    const msg: ChatMessage = {
-      id: msgId,
-      sender: 'bot',
-      text: `Gâu! Tiếp theo, hãy chọn bác sĩ khám của khoa ${specialtyName}:`,
-      doctorSelector: {
-        doctors: doctors.map(d => ({
-          doctorId: Number(d.doctorId),
-          doctorName: d.doctorName || d.fullName || 'Bác sĩ',
-          examFee: Number(d.examFee || 150000),
-          specialtyName: d.specialtyName || specialtyName
-        }))
-      }
-    }
-    messages.value.push(msg)
-    saveAllSessions()
-  } catch (error) {
-    console.error('Failed to select specialty', error)
-    addBotMessage('Gâu! Có lỗi xảy ra khi tải danh sách bác sĩ.')
-    activeBooking.value = null
-  } finally {
-    isLoading.value = false
-  }
+  await processNextBookingStep('')
 }
 
-function selectDoctor(doctorId: number, doctorName: string, examFee: number) {
+async function selectDoctor(doctorId: number, doctorName: string, examFee: number) {
   if (!activeBooking.value) return
   addUserMessage(`Tôi chọn bác sĩ: ${doctorName}`)
   
   activeBooking.value.doctorId = doctorId
   activeBooking.value.doctorName = doctorName
   activeBooking.value.examFee = examFee
-  activeBooking.value.step = 'date'
   
-  // Create 3 date candidates: Today, Tomorrow, Day after tomorrow
-  const dates = []
-  const today = new Date()
-  
-  const dayNames = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy']
-  
-  for (let i = 0; i < 7; i++) {
-    const d = new Date()
-    d.setDate(today.getDate() + i)
-    const yyyy = d.getFullYear()
-    const mm = String(d.getMonth() + 1).padStart(2, '0')
-    const dd = String(d.getDate()).padStart(2, '0')
-    const dateStr = `${yyyy}-${mm}-${dd}`
-    
-    let label = ''
-    if (i === 0) label = `Hôm nay (${dd}/${mm})`
-    else if (i === 1) label = `Ngày mai (${dd}/${mm})`
-    else {
-      const dayName = dayNames[d.getDay()]
-      label = `${dayName} (${dd}/${mm})`
-    }
-    
-    dates.push({ label, value: dateStr })
-  }
-  
-  const msgId = nextMessageId()
-  const msg: ChatMessage = {
-    id: msgId,
-    sender: 'bot',
-    text: `Gâu! Hãy chọn ngày bạn muốn đến khám với ${doctorName}:`,
-    dateSelector: { dates }
-  }
-  messages.value.push(msg)
-  saveAllSessions()
+  await processNextBookingStep('')
 }
 
 async function selectDate(dateValue: string, dateLabel: string, skipAddUserMessage?: boolean) {
@@ -1836,54 +1795,8 @@ async function selectDate(dateValue: string, dateLabel: string, skipAddUserMessa
   }
   
   activeBooking.value.appointmentDate = dateValue
-  activeBooking.value.step = 'time'
   
-  const doctorId = activeBooking.value.doctorId!
-  const doctorName = activeBooking.value.doctorName!
-  
-  isLoading.value = true
-  
-  // Pre-insert a message with loading state
-  const msgId = nextMessageId()
-  const msg: ChatMessage = {
-    id: msgId,
-    sender: 'bot',
-    text: `Gâu! Đang tìm các khung giờ trống của ${doctorName} trong ngày ${dateLabel}...`,
-    timeSlotSelector: {
-      slots: [],
-      loading: true
-    }
-  }
-  messages.value.push(msg)
-  saveAllSessions()
-  
-  try {
-    const slots = await appointmentApi.getAvailableSlots(doctorId, dateValue)
-    
-    // Update the message slots
-    const foundMsg = messages.value.find(m => m.id === msgId)
-    if (foundMsg && foundMsg.timeSlotSelector) {
-      foundMsg.timeSlotSelector.loading = false
-      if (slots.length > 0) {
-        foundMsg.text = `Gâu! Hãy chọn một khung giờ khám còn trống cho ngày ${dateLabel}:`
-        foundMsg.timeSlotSelector.slots = slots
-      } else {
-        foundMsg.text = `Gâu! Rất tiếc, ngày ${dateLabel} đã hết sạch giờ khám trống cho bác sĩ ${doctorName}. Bạn hãy quay lại đặt ngày khác hoặc chọn bác sĩ khác nhé.`
-        activeBooking.value = null
-      }
-      saveAllSessions()
-    }
-  } catch (error) {
-    console.error('Failed to load slots', error)
-    const foundMsg = messages.value.find(m => m.id === msgId)
-    if (foundMsg) {
-      foundMsg.text = 'Gâu! Có lỗi xảy ra khi tìm giờ khám trống.'
-      if (foundMsg.timeSlotSelector) foundMsg.timeSlotSelector.loading = false
-    }
-    activeBooking.value = null
-  } finally {
-    isLoading.value = false
-  }
+  await processNextBookingStep('')
 }
 
 function selectTimeSlot(timeValue: string, skipAddUserMessage?: boolean) {
@@ -1893,25 +1806,157 @@ function selectTimeSlot(timeValue: string, skipAddUserMessage?: boolean) {
   }
   
   activeBooking.value.slotTime = timeValue
-  activeBooking.value.step = 'confirm'
   
-  const dateText = formatDate(activeBooking.value.appointmentDate!)
-  
-  const msgId = nextMessageId()
-  const msg: ChatMessage = {
-    id: msgId,
-    sender: 'bot',
-    text: 'Gâu! Dogky đã chuẩn bị xong phiếu đặt lịch. Bạn vui lòng kiểm tra lại thông tin và bấm Xác nhận đặt lịch nhé:',
-    bookingConfirm: {
-      specialtyName: activeBooking.value.specialtyName!,
-      doctorName: activeBooking.value.doctorName!,
-      dateText: dateText || activeBooking.value.appointmentDate!,
-      slotTime: timeValue,
-      fee: activeBooking.value.examFee!
-    }
+  processNextBookingStep('')
+}
+
+async function processNextBookingStep(replyText: string) {
+  if (!activeBooking.value) return
+
+  // 1. Thiếu chuyên khoa
+  if (!activeBooking.value.specialtyId) {
+    activeBooking.value.step = 'specialty'
+    const msgId = nextMessageId()
+    messages.value.push({
+      id: msgId,
+      sender: 'bot',
+      text: replyText || 'Gâu! Hãy chọn chuyên khoa bạn muốn khám nhé:',
+      specialtySelector: {
+        specialties: allSpecialties.value.map(s => ({
+          specialtyId: s.id,
+          specialtyName: s.name
+        }))
+      }
+    })
+    saveAllSessions()
+    return
   }
-  messages.value.push(msg)
-  saveAllSessions()
+
+  // 2. Thiếu bác sĩ
+  if (!activeBooking.value.doctorId) {
+    activeBooking.value.step = 'doctor'
+    isLoading.value = true
+    try {
+      const doctors = await appointmentApi.getDoctorsBySpecialty(activeBooking.value.specialtyId)
+      const msgId = nextMessageId()
+      messages.value.push({
+        id: msgId,
+        sender: 'bot',
+        text: replyText || `Gâu! Hãy chọn bác sĩ khám của khoa ${activeBooking.value.specialtyName}:`,
+        doctorSelector: {
+          doctors: doctors.map(d => ({
+            doctorId: Number(d.doctorId),
+            doctorName: d.doctorName || d.fullName || 'Bác sĩ',
+            examFee: Number(d.examFee || 150000),
+            specialtyName: d.specialtyName || activeBooking.value!.specialtyName!
+          }))
+        }
+      })
+      saveAllSessions()
+    } catch (e) {
+      console.error(e)
+      addBotMessage('Gâu! Không thể tải danh sách bác sĩ của chuyên khoa này.')
+    } finally {
+      isLoading.value = false
+    }
+    return
+  }
+
+  // 3. Thiếu ngày khám
+  if (!activeBooking.value.appointmentDate) {
+    activeBooking.value.step = 'date'
+    const msgId = nextMessageId()
+    messages.value.push({
+      id: msgId,
+      sender: 'bot',
+      text: replyText || `Gâu! Bạn muốn khám với bác sĩ ${activeBooking.value.doctorName} vào ngày nào? Vui lòng nhập ngày khám vào ô chat nhé (ví dụ: "ngày mai", "ngày 10/7",...).`
+    })
+    saveAllSessions()
+    return
+  }
+
+  // 4. Thiếu giờ khám
+  if (!activeBooking.value.slotTime) {
+    activeBooking.value.step = 'time'
+    isLoading.value = true
+    const doctorId = activeBooking.value.doctorId
+    const dateValue = activeBooking.value.appointmentDate
+    const dateLabel = formatDate(dateValue)
+    
+    try {
+      const slots = await appointmentApi.getAvailableSlots(doctorId, dateValue)
+      const msgId = nextMessageId()
+      if (slots.length > 0) {
+        messages.value.push({
+          id: msgId,
+          sender: 'bot',
+          text: replyText || `Gâu! Hãy chọn một khung giờ khám còn trống ngày ${dateLabel} cho bác sĩ ${activeBooking.value.doctorName}:`,
+          timeSlotSelector: { slots }
+        })
+      } else {
+        addBotMessage(`Gâu! Rất tiếc, ngày ${dateLabel} đã hết sạch giờ khám trống cho bác sĩ ${activeBooking.value.doctorName}. Bạn vui lòng chọn ngày khác nhé.`)
+        activeBooking.value.appointmentDate = undefined
+        await processNextBookingStep('')
+      }
+      saveAllSessions()
+    } catch (e) {
+      console.error(e)
+      addBotMessage('Gâu! Có lỗi xảy ra khi tải lịch làm việc của bác sĩ.')
+    } finally {
+      isLoading.value = false
+    }
+    return
+  }
+
+  // 5. Đầy đủ thông tin -> Kiểm tra xem giờ khám có trống không
+  isLoading.value = true
+  const doctorId = activeBooking.value.doctorId
+  const dateValue = activeBooking.value.appointmentDate
+  const dateLabel = formatDate(dateValue)
+  const requestedTime = activeBooking.value.slotTime
+
+  try {
+    const slots = await appointmentApi.getAvailableSlots(doctorId, dateValue)
+    const normalizedReqTime = requestedTime.slice(0, 5)
+    const isAvailable = slots.includes(normalizedReqTime)
+
+    if (isAvailable) {
+      // Giờ khám khả dụng -> Sang bước xác nhận
+      activeBooking.value.step = 'confirm'
+      const msgId = nextMessageId()
+      messages.value.push({
+        id: msgId,
+        sender: 'bot',
+        text: replyText || 'Gâu! Dogky đã lập sẵn phiếu đặt lịch khám. Bạn vui lòng kiểm tra lại thông tin và bấm Xác nhận nhé:',
+        bookingConfirm: {
+          specialtyName: activeBooking.value.specialtyName!,
+          doctorName: activeBooking.value.doctorName!,
+          dateText: dateLabel || dateValue,
+          slotTime: normalizedReqTime,
+          fee: activeBooking.value.examFee!
+        }
+      })
+      bookingReason.value = activeBooking.value.reason || ''
+      saveAllSessions()
+    } else {
+      // Giờ khám không khả dụng -> Yêu cầu chọn giờ khác
+      activeBooking.value.slotTime = undefined
+      activeBooking.value.step = 'time'
+      const msgId = nextMessageId()
+      messages.value.push({
+        id: msgId,
+        sender: 'bot',
+        text: `Gâu! Rất tiếc, khung giờ ${normalizedReqTime} ngày ${dateLabel} của bác sĩ ${activeBooking.value.doctorName} không còn trống. Bạn vui lòng chọn giờ khác dưới đây nhé:`,
+        timeSlotSelector: { slots }
+      })
+      saveAllSessions()
+    }
+  } catch (e) {
+    console.error(e)
+    addBotMessage('Gâu! Lỗi hệ thống khi kiểm tra lịch trống của bác sĩ.')
+  } finally {
+    isLoading.value = false
+  }
 }
 
 async function confirmBooking(reason: string) {
