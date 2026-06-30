@@ -19,7 +19,78 @@
       </div>
     </div>
 
-    <div v-if="!isExamDetailMode" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div v-if="!isExamDetailMode && resource === 'schedule'" class="doctor-schedule-page">
+      <header class="schedule-page-header">
+        <div class="schedule-title-row">
+          <div>
+            <p class="schedule-page-kicker">Lịch trực cá nhân</p>
+            <h1>Lịch làm việc</h1>
+            <p>Theo dõi ca trực, phòng khám và trạng thái nhận lịch trong tuần.</p>
+          </div>
+          <div class="schedule-page-actions">
+            <button type="button" class="schedule-icon-action" :disabled="loading" title="Tuần trước" @click="moveScheduleWeek(-1)">
+              <ChevronLeft class="h-4 w-4" />
+            </button>
+            <button type="button" class="schedule-week-button" @click="goToCurrentScheduleWeek">Tuần này</button>
+            <button type="button" class="schedule-icon-action" :disabled="loading" title="Tuần sau" @click="moveScheduleWeek(1)">
+              <ChevronRight class="h-4 w-4" />
+            </button>
+            <button type="button" class="schedule-icon-action" :disabled="loading" title="Tải lại" @click="loadData">
+              <RefreshCw class="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div class="schedule-header-controls">
+          <div class="schedule-toolbar-main">
+            <span class="relative block">
+              <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                v-model="filters.keyword"
+                class="schedule-search-input"
+                placeholder="Tìm phòng, giờ làm, trạng thái..."
+              />
+            </span>
+            <select v-model="filters.status" class="schedule-select">
+              <option value="">Tất cả trạng thái</option>
+              <option value="available">Còn nhận lịch</option>
+              <option value="full">Đã kín lịch</option>
+            </select>
+          </div>
+          <div class="schedule-range-controls">
+            <label>
+              <span>Từ ngày</span>
+              <input v-model="filters.fromDate" type="date" />
+            </label>
+            <label>
+              <span>Đến ngày</span>
+              <input v-model="filters.toDate" type="date" />
+            </label>
+          </div>
+        </div>
+
+        <div class="schedule-week-summary">
+          <div>
+            <p>Khoảng lịch</p>
+            <strong>{{ scheduleRangeLabel }}</strong>
+          </div>
+          <div>
+            <p>Tổng ca</p>
+            <strong>{{ filteredRows.length }}</strong>
+          </div>
+          <div>
+            <p>Còn nhận lịch</p>
+            <strong>{{ scheduleAvailableCount }}</strong>
+          </div>
+          <div>
+            <p>Tổng giờ trực</p>
+            <strong>{{ scheduleTotalHours }}</strong>
+          </div>
+        </div>
+      </header>
+    </div>
+
+    <div v-if="!isExamDetailMode && resource !== 'schedule'" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">{{ config.kicker }}</p>
@@ -48,11 +119,11 @@
       </div>
     </div>
 
-    <div v-if="!isExamDetailMode" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div v-if="!isExamDetailMode && resource !== 'schedule'" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <MetricCard v-for="metric in metrics" :key="metric.label" :metric="metric" />
     </div>
 
-    <div v-if="!isExamDetailMode" class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div v-if="!isExamDetailMode && resource !== 'schedule'" class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <div class="grid gap-3 xl:grid-cols-[1.4fr_180px_180px_180px_180px_auto] xl:items-end">
         <label class="block">
           <span class="mb-2 block text-sm font-semibold text-slate-700">Tìm kiếm</span>
@@ -177,6 +248,51 @@
       />
     </div>
 
+    <div v-else-if="resource === 'schedule'" class="doctor-schedule-page">
+      <section class="schedule-calendar-shell">
+        <div v-if="loading" class="schedule-loading">
+          <LoadingSkeleton v-for="item in 7" :key="item" />
+        </div>
+
+        <div v-else class="schedule-week-grid">
+          <article
+            v-for="day in scheduleWeekDays"
+            :key="day.iso"
+            :class="['schedule-day-column', day.isToday ? 'is-today' : '']"
+          >
+            <header class="schedule-day-header">
+              <span>{{ day.weekday }}</span>
+              <strong>{{ day.dayNumber }}</strong>
+              <em>{{ day.monthLabel }}</em>
+            </header>
+
+            <div class="schedule-day-body">
+              <button
+                v-for="shift in day.items"
+                :key="shift.key"
+                type="button"
+                class="schedule-shift-card"
+                @click="runAction('view', shift)"
+              >
+                <span :class="['schedule-shift-dot', shift.isAvailable === false ? 'is-full' : 'is-open']"></span>
+                <span class="schedule-shift-time">{{ shift.timeRange }}</span>
+                <span class="schedule-shift-room">{{ shift.room }}</span>
+                <span class="schedule-shift-meta">{{ shift.slotInfo }}</span>
+                <span :class="['schedule-shift-status', shift.isAvailable === false ? 'is-full' : 'is-open']">
+                  {{ shift.status }}
+                </span>
+              </button>
+
+              <div v-if="!day.items.length" class="schedule-empty-day">
+                <CalendarClock class="h-4 w-4" />
+                <span>Không có ca trực</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+
     <div v-else class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div class="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -236,7 +352,61 @@
     </div>
 
     <RecordDrawer v-if="recordDrawerOpen" :row="selectedRecord" @close="recordDrawerOpen = false" />
-    <DetailDrawer v-if="detailDrawerOpen" :row="selectedDetail" :title="config.detailTitle" @close="detailDrawerOpen = false" />
+
+    <Teleport to="body">
+      <div v-if="detailDrawerOpen" class="fixed inset-0 z-[120] bg-slate-950/40 backdrop-blur-sm transition-opacity" @click="closeDetailDrawer"></div>
+      <transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="translate-x-full"
+        enter-to-class="translate-x-0"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="translate-x-0"
+        leave-to-class="translate-x-full"
+      >
+        <div v-if="detailDrawerOpen" class="fixed right-0 top-0 z-[120] flex h-screen w-full max-w-2xl flex-col border-l border-slate-200 bg-white shadow-2xl">
+          <div class="border-b border-slate-100 bg-slate-50/50 p-5">
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex items-start gap-3">
+                <span :class="['flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl', detailAccentClass]">
+                  <component :is="detailIcon" class="h-5 w-5" />
+                </span>
+                <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h2 class="text-lg font-bold text-slate-900">{{ detailTitle }}</h2>
+                    <StatusChip v-if="selectedDetail?.status" :status="selectedDetail.status" />
+                  </div>
+                  <p class="mt-1 font-mono text-xs font-semibold text-slate-500">Mã: {{ selectedDetail?.id || 'Chưa cập nhật' }}</p>
+                </div>
+              </div>
+              <button type="button" class="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600" @click="closeDetailDrawer">
+                <X class="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          <div class="flex-1 overflow-y-auto p-6">
+            <div class="space-y-5">
+              <section v-for="section in detailSections" :key="section.title" class="space-y-3">
+                <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <component :is="section.icon" class="h-4 w-4 text-[#0F52BA]" />
+                  {{ section.title }}
+                </h3>
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <div
+                    v-for="item in section.items"
+                    :key="item.label"
+                    :class="['rounded-xl border border-slate-100 bg-slate-50 p-4', item.full ? 'sm:col-span-2' : '']"
+                  >
+                    <p class="text-xs font-semibold text-slate-400">{{ item.label }}</p>
+                    <p class="mt-1.5 whitespace-pre-line break-words text-sm font-semibold text-slate-900">{{ item.value }}</p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
 
     <Toast :show="toast.show" :title="toast.title" :message="toast.message" :type="toast.type" @close="toast.show = false" />
   </section>
@@ -250,6 +420,8 @@ import {
   AlertTriangle,
   CalendarClock,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   ClipboardCheck,
   ClipboardList,
@@ -322,6 +494,8 @@ interface Row {
 
 interface Column { key: string; label: string; strong?: boolean }
 interface IcdCodeOption { code: string; name: string; specialty: string }
+interface DetailItem { label: string; value: string; full?: boolean }
+interface DetailSection { title: string; icon: any; items: DetailItem[] }
 interface Config {
   kicker: string
   title: string
@@ -613,8 +787,10 @@ const filteredRows = computed(() => {
       const byDate = filters.fromDate || filters.toDate
         ? (!filters.fromDate || rowDate >= filters.fromDate) && (!filters.toDate || rowDate <= filters.toDate)
         : !filters.date || rowDate === filters.date
-      const byStatus = !filters.status || statusBucket(row.status) === filters.status
-      const haystack = normalize([row.id, row.patientName, row.doctorName, row.reason, row.diagnosis, row.diagnosisCode, row.diagnosisSpecialty, row.status, row.room].join(' '))
+      const byStatus = resource.value === 'schedule'
+        ? (!filters.status || (filters.status === 'available' ? row.isAvailable !== false : row.isAvailable === false))
+        : (!filters.status || statusBucket(row.status) === filters.status)
+      const haystack = normalize([row.id, row.patientName, row.doctorName, row.reason, row.diagnosis, row.diagnosisCode, row.diagnosisSpecialty, row.status, row.room, row.timeRange, row.slotInfo, row.timeLabel].join(' '))
       return byDate && byStatus && (!keyword || haystack.includes(keyword))
     })
     .sort(sortRows)
@@ -635,6 +811,133 @@ const metrics = computed(() => {
     { label: 'Đang chờ', value: waiting, note: 'Chờ hoặc đã xác nhận', icon: Clock3, className: 'bg-amber-50 text-amber-700' },
     { label: 'Đang khám', value: progress, note: 'Đang xử lý', icon: Stethoscope, className: 'bg-cyan-50 text-cyan-700' },
     { label: 'Hoàn tất', value: done, note: 'Đã xử lý xong', icon: CheckCircle2, className: 'bg-emerald-50 text-emerald-700' },
+  ]
+})
+
+const scheduleWeekDays = computed(() => {
+  const start = parseIsoDate(filters.fromDate || today())
+  const weekStart = startOfWeek(start)
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(weekStart, index)
+    const iso = localDateIso(date)
+    const items = filteredRows.value.filter((row) => row.date === iso)
+    return {
+      iso,
+      weekday: new Intl.DateTimeFormat('vi-VN', { weekday: 'short' }).format(date),
+      dayNumber: new Intl.DateTimeFormat('vi-VN', { day: '2-digit' }).format(date),
+      monthLabel: new Intl.DateTimeFormat('vi-VN', { month: '2-digit', year: 'numeric' }).format(date),
+      isToday: iso === today(),
+      items,
+    }
+  })
+})
+
+const scheduleAvailableCount = computed(() => filteredRows.value.filter((row) => row.isAvailable !== false).length)
+const scheduleTotalHours = computed(() => {
+  const hours = filteredRows.value.reduce((sum, row) => sum + scheduleDurationHours(row), 0)
+  return `${formatHourNumber(hours)} giờ`
+})
+const scheduleRangeLabel = computed(() => {
+  const from = filters.fromDate || scheduleWeekDays.value[0]?.iso || today()
+  const to = filters.toDate || scheduleWeekDays.value[6]?.iso || from
+  return `${formatDate(from)} - ${formatDate(to)}`
+})
+
+const detailTitle = computed(() => {
+  if (resource.value === 'schedule') return 'Chi tiết lịch làm việc'
+  return config.value.detailTitle
+})
+const detailIcon = computed(() => {
+  if (resource.value === 'schedule') return CalendarClock
+  if (resource.value === 'records') return FileText
+  if (resource.value === 'appointments') return CalendarClock
+  return ClipboardList
+})
+const detailAccentClass = computed(() => {
+  if (resource.value === 'schedule') return 'bg-emerald-50 text-emerald-700'
+  if (resource.value === 'records') return 'bg-indigo-50 text-indigo-700'
+  if (resource.value === 'queue') return 'bg-amber-50 text-amber-700'
+  return 'bg-blue-50 text-[#0F52BA]'
+})
+const detailSections = computed<DetailSection[]>(() => {
+  const row = selectedDetail.value
+  if (!row) return []
+  if (resource.value === 'schedule') {
+    return [
+      {
+        title: 'Thông tin ca trực',
+        icon: CalendarClock,
+        items: [
+          { label: 'Mã lịch', value: detailText(row.id) },
+          { label: 'Bác sĩ', value: detailText(row.doctorName || doctorName.value) },
+          { label: 'Trạng thái', value: detailText(row.status) },
+          { label: 'Slot', value: detailText(row.slotInfo) },
+        ],
+      },
+      {
+        title: 'Thời gian & phòng khám',
+        icon: ClipboardList,
+        items: [
+          { label: 'Ngày trực', value: detailText(row.timeLabel || formatDate(row.date)) },
+          { label: 'Giờ làm việc', value: detailText(row.timeRange) },
+          { label: 'Bắt đầu', value: detailText(row.startTime) },
+          { label: 'Kết thúc', value: detailText(row.endTime) },
+          { label: 'Phòng khám', value: detailText(row.room), full: true },
+        ],
+      },
+    ]
+  }
+  if (resource.value === 'appointments') {
+    return [
+      {
+        title: 'Thông tin lịch hẹn',
+        icon: CalendarClock,
+        items: [
+          { label: 'Mã lịch', value: detailText(row.appointmentId || row.id) },
+          { label: 'Bệnh nhân', value: detailText(row.patientName) },
+          { label: 'Số điện thoại', value: detailText(row.patientPhone) },
+          { label: 'Trạng thái', value: detailText(row.status) },
+        ],
+      },
+      {
+        title: 'Thời gian khám',
+        icon: ClipboardList,
+        items: [
+          { label: 'Ngày giờ hẹn', value: detailText(row.timeLabel) },
+          { label: 'Bác sĩ', value: detailText(row.doctorName || doctorName.value) },
+          { label: 'Lý do khám', value: detailText(row.reason), full: true },
+        ],
+      },
+    ]
+  }
+  if (resource.value === 'queue') {
+    return [
+      {
+        title: 'Thông tin hàng chờ',
+        icon: ClipboardList,
+        items: [
+          { label: 'Số thứ tự', value: detailText(row.id) },
+          { label: 'Bệnh nhân', value: detailText(row.patientName) },
+          { label: 'Ngày giờ', value: detailText(row.timeLabel) },
+          { label: 'Trạng thái', value: detailText(row.status) },
+          { label: 'Lý do khám', value: detailText(row.reason), full: true },
+        ],
+      },
+    ]
+  }
+  return [
+    {
+      title: 'Thông tin chi tiết',
+      icon: FileText,
+      items: [
+        { label: 'Mã', value: detailText(row.id) },
+        { label: 'Bệnh nhân', value: detailText(row.patientName) },
+        { label: 'Ngày khám', value: detailText(row.timeLabel) },
+        { label: 'Trạng thái', value: detailText(row.status) },
+        { label: 'Chẩn đoán', value: detailText(row.diagnosis), full: true },
+        { label: 'Ghi chú', value: detailText(row.note), full: true },
+      ],
+    },
   ]
 })
 
@@ -727,12 +1030,34 @@ async function loadScheduleRows() {
 
 function resetFilters(reload = true) {
   filters.keyword = ''
-  filters.date = resource.value === 'appointments' || route.query.appointmentId ? '' : today()
-  filters.fromDate = resource.value === 'appointments' ? today() : ''
-  filters.toDate = ''
+  if (resource.value === 'schedule') {
+    const start = startOfWeek(new Date())
+    filters.date = ''
+    filters.fromDate = localDateIso(start)
+    filters.toDate = localDateIso(addDays(start, 6))
+  } else {
+    filters.date = resource.value === 'appointments' || route.query.appointmentId ? '' : today()
+    filters.fromDate = resource.value === 'appointments' ? today() : ''
+    filters.toDate = ''
+  }
   filters.status = ''
   page.value = 1
   if (reload) loadData()
+}
+
+function moveScheduleWeek(direction: number) {
+  const base = parseIsoDate(filters.fromDate || today())
+  const start = addDays(startOfWeek(base), direction * 7)
+  filters.fromDate = localDateIso(start)
+  filters.toDate = localDateIso(addDays(start, 6))
+  filters.date = ''
+}
+
+function goToCurrentScheduleWeek() {
+  const start = startOfWeek(new Date())
+  filters.fromDate = localDateIso(start)
+  filters.toDate = localDateIso(addDays(start, 6))
+  filters.date = ''
 }
 
 function rowActions(row: Row) {
@@ -772,6 +1097,11 @@ async function runAction(action: ActionKey, row: Row) {
 function openDetail(row: Row) {
   selectedDetail.value = row
   detailDrawerOpen.value = true
+}
+
+function closeDetailDrawer() {
+  detailDrawerOpen.value = false
+  selectedDetail.value = null
 }
 
 function backToAppointments() {
@@ -1417,6 +1747,10 @@ function specialtyFromIcdCode(value?: string) {
 }
 
 function mapSchedule(item: DoctorSchedule & Record<string, any>): Row {
+  const startTime = String(item.startTime || item.StartTime || '').slice(0, 5) || '--:--'
+  const endTime = String(item.endTime || item.EndTime || '').slice(0, 5) || '--:--'
+  const duration = Number(item.slotDurationMinutes || item.SlotDurationMinutes || 30) || 30
+  const isAvailable = item.isAvailable !== false && item.IsAvailable !== false
   return {
     key: `S${item.scheduleId || item.id}`,
     id: item.scheduleId || item.id,
@@ -1424,10 +1758,15 @@ function mapSchedule(item: DoctorSchedule & Record<string, any>): Row {
     doctorName: displayText(item.doctorName),
     date: normalizeDate(item.workDate),
     timeLabel: formatDate(item.workDate),
-    timeRange: `${item.startTime || '--:--'} - ${item.endTime || '--:--'}`,
-    slotInfo: `${item.slotDurationMinutes || 30} phút/slot`,
+    time: startTime,
+    startTime,
+    endTime,
+    timeRange: `${startTime} - ${endTime}`,
+    slotDurationMinutes: duration,
+    slotInfo: `${duration} phút/slot`,
     room: item.roomName || item.roomNumber || item.room || 'Chưa cập nhật',
-    status: item.isAvailable === false ? 'Hết slot' : 'Còn slot',
+    isAvailable,
+    status: isAvailable ? 'Còn nhận lịch' : 'Đã kín lịch',
     raw: item,
   }
 }
@@ -1490,6 +1829,49 @@ function meaningful(value: unknown) {
 function today() {
   const date = new Date()
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+}
+
+function localDateIso(date: Date) {
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+}
+
+function parseIsoDate(value: string) {
+  const date = new Date(`${String(value || today()).slice(0, 10)}T00:00:00`)
+  return Number.isNaN(date.getTime()) ? new Date() : date
+}
+
+function startOfWeek(date: Date) {
+  const copy = new Date(date)
+  const day = copy.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  copy.setDate(copy.getDate() + diff)
+  copy.setHours(0, 0, 0, 0)
+  return copy
+}
+
+function addDays(date: Date, days: number) {
+  const copy = new Date(date)
+  copy.setDate(copy.getDate() + days)
+  return copy
+}
+
+function scheduleDurationHours(row: Row) {
+  const start = timeToMinutes(row.startTime)
+  const end = timeToMinutes(row.endTime)
+  if (start === null || end === null || end <= start) return 0
+  return (end - start) / 60
+}
+
+function timeToMinutes(value: unknown) {
+  const match = String(value || '').match(/^(\d{1,2}):(\d{2})/)
+  if (!match) return null
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  return Number.isFinite(hour) && Number.isFinite(minute) ? hour * 60 + minute : null
+}
+
+function formatHourNumber(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace('.', ',')
 }
 
 function normalizeDate(value?: string) {
@@ -1761,6 +2143,11 @@ function displayOrEmpty(value: unknown) {
   return textValue || 'Chưa có'
 }
 
+function detailText(value: unknown) {
+  const textValue = String(value ?? '').trim()
+  return textValue || 'Chưa cập nhật'
+}
+
 function patientCitizenId(patient?: (Patient & Record<string, any>) | null) {
   return patient?.citizenId || patient?.CitizenId || ''
 }
@@ -1827,24 +2214,6 @@ const EmptyState = defineComponent({
       h(SearchX, { class: 'mx-auto h-10 w-10 text-slate-300' }),
       h('h2', { class: 'mt-4 text-lg font-bold text-slate-950' }, props.title),
       h('p', { class: 'mt-2 text-sm text-slate-500' }, props.text),
-    ])
-  },
-})
-
-const DetailDrawer = defineComponent({
-  props: { row: { type: Object as PropType<Row | null>, default: null }, title: { type: String, required: true } },
-  emits: ['close'],
-  setup(props, { emit }) {
-    return () => h('div', { class: 'fixed inset-0 z-50 bg-slate-950/40', onClick: () => emit('close') }, [
-      h('aside', { class: 'ml-auto h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-2xl', onClick: (event: Event) => event.stopPropagation() }, [
-        drawerHeader(props.title, emit),
-        h('div', { class: 'mt-6 space-y-3' }, Object.entries(props.row || {}).filter(([key]) => !['raw', 'key'].includes(key)).map(([key, value]) =>
-          h('div', { class: 'rounded-xl border border-slate-200 p-4' }, [
-            h('p', { class: 'text-xs font-bold uppercase tracking-wide text-slate-400' }, key),
-            h('p', { class: 'mt-1 whitespace-pre-wrap text-sm font-semibold text-slate-800' }, String(value || 'Chưa cập nhật')),
-          ]),
-        )),
-      ]),
     ])
   },
 })
@@ -2341,6 +2710,185 @@ function sectionBlock(title: string, rows: [string, any][]) {
 </script>
 
 <style scoped lang="postcss">
+.doctor-schedule-page {
+  @apply space-y-4;
+}
+
+.schedule-page-header {
+  @apply rounded-xl border border-slate-200 bg-white p-4 shadow-sm;
+}
+
+.schedule-title-row {
+  @apply flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between;
+}
+
+.schedule-page-kicker {
+  @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700;
+}
+
+.schedule-page-header h1 {
+  @apply mt-1 text-[1.85rem] font-semibold tracking-normal text-slate-950;
+}
+
+.schedule-page-header p:not(.schedule-page-kicker) {
+  @apply mt-1.5 max-w-2xl text-[13px] font-normal leading-5 text-slate-500;
+}
+
+.schedule-page-actions {
+  @apply flex flex-wrap items-center gap-2;
+}
+
+.schedule-icon-action,
+.schedule-week-button {
+  @apply inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.schedule-icon-action {
+  @apply w-9;
+}
+
+.schedule-week-button {
+  @apply px-3;
+}
+
+.schedule-header-controls {
+  @apply mt-4 grid gap-3 border-t border-slate-100 pt-4 lg:grid-cols-[1fr_auto] lg:items-end;
+}
+
+.schedule-toolbar-main {
+  @apply grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px];
+}
+
+.schedule-search-input,
+.schedule-select,
+.schedule-range-controls input {
+  @apply h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100;
+}
+
+.schedule-search-input {
+  @apply pl-9;
+}
+
+.schedule-range-controls {
+  @apply grid gap-3 sm:grid-cols-2;
+}
+
+.schedule-range-controls label {
+  @apply block;
+}
+
+.schedule-range-controls span {
+  @apply mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-slate-400;
+}
+
+.schedule-week-summary {
+  @apply mt-4 grid overflow-hidden rounded-lg border border-slate-200 bg-slate-50/60 sm:grid-cols-2 xl:grid-cols-4;
+}
+
+.schedule-week-summary > div {
+  @apply border-b border-slate-200/70 p-3 sm:border-r xl:border-b-0;
+}
+
+.schedule-week-summary > div:last-child {
+  @apply border-r-0;
+}
+
+.schedule-week-summary p {
+  @apply text-[11px] font-medium uppercase tracking-wide text-slate-400;
+}
+
+.schedule-week-summary strong {
+  @apply mt-1 block text-base font-semibold text-slate-950;
+}
+
+.schedule-calendar-shell {
+  @apply overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm;
+}
+
+.schedule-loading {
+  @apply grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4;
+}
+
+.schedule-week-grid {
+  @apply grid min-w-full lg:grid-cols-7;
+}
+
+.schedule-day-column {
+  @apply min-h-[320px] border-b border-slate-100 bg-white lg:border-b-0 lg:border-r;
+}
+
+.schedule-day-column:last-child {
+  @apply border-r-0;
+}
+
+.schedule-day-column.is-today {
+  @apply bg-blue-50/30;
+}
+
+.schedule-day-header {
+  @apply flex items-center gap-2 border-b border-slate-100 bg-slate-50/80 px-3 py-3 lg:flex-col lg:items-start lg:gap-0;
+}
+
+.schedule-day-header span {
+  @apply text-[11px] font-medium uppercase tracking-wide text-slate-400;
+}
+
+.schedule-day-header strong {
+  @apply text-xl font-semibold leading-none text-slate-950;
+}
+
+.schedule-day-header em {
+  @apply text-[11px] not-italic text-slate-400;
+}
+
+.schedule-day-body {
+  @apply space-y-2 p-3;
+}
+
+.schedule-shift-card {
+  @apply relative block w-full rounded-lg border border-slate-200 bg-white p-3 text-left transition hover:border-blue-200 hover:bg-blue-50/60 hover:shadow-sm focus:outline-none focus:ring-4 focus:ring-blue-100;
+}
+
+.schedule-shift-dot {
+  @apply absolute right-3 top-3 h-2.5 w-2.5 rounded-full;
+}
+
+.schedule-shift-dot.is-open {
+  @apply bg-emerald-400;
+}
+
+.schedule-shift-dot.is-full {
+  @apply bg-slate-300;
+}
+
+.schedule-shift-time {
+  @apply block pr-5 text-sm font-semibold text-slate-950;
+}
+
+.schedule-shift-room {
+  @apply mt-1 block text-[12px] font-normal text-slate-500;
+}
+
+.schedule-shift-meta {
+  @apply mt-2 inline-flex rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-500;
+}
+
+.schedule-shift-status {
+  @apply mt-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium;
+}
+
+.schedule-shift-status.is-open {
+  @apply bg-emerald-50 text-emerald-700;
+}
+
+.schedule-shift-status.is-full {
+  @apply bg-slate-100 text-slate-500;
+}
+
+.schedule-empty-day {
+  @apply flex min-h-[130px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 bg-slate-50/70 text-center text-[12px] font-normal text-slate-400;
+}
+
 .form-input {
   @apply h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100;
 }

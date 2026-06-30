@@ -552,17 +552,24 @@ function formatLongDate(value: string) {
 </script>
 
 <style scoped>
-:global(html:has(.clinical-portal-shell .booking-page)),
-:global(body:has(.clinical-portal-shell .booking-page)) {
-  position: fixed;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+:global(html:has(.booking-page)),
+:global(body:has(.booking-page)),
+:global(#app:has(.booking-page)) {
+  width: 100% !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+:global(.clinical-portal-shell:has(.booking-page)) {
+  height: 100vh !important;
+  overflow: hidden !important;
 }
 
 .booking-page {
   width: 100%;
   max-width: 100%;
+  min-height: 0;
   overflow-x: hidden;
   color: #10233f;
   font-weight: 400;

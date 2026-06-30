@@ -433,7 +433,10 @@
             </div>
           </template>
           <template v-else-if="column.key === 'reason'">
-            <span class="line-clamp-2 text-[13px] leading-5 text-slate-600" :title="record.reason">{{ record.reason }}</span>
+            <div class="appointment-reason-cell">
+              <span class="line-clamp-1 text-[13px] leading-5 text-slate-700">{{ appointmentReasonMain(record) }}</span>
+              <span v-if="appointmentReasonMeta(record)" class="appointment-reason-meta">{{ appointmentReasonMeta(record) }}</span>
+            </div>
           </template>
           <template v-else-if="column.key === 'status'">
             <ATag :bordered="false" :class="['appointment-status', appointmentStatusClass(record.status)]">{{ record.status }}</ATag>
@@ -1242,8 +1245,10 @@ function handlePrescriptionTableChange(pagination: { current?: number; pageSize?
 }
 
 function appointmentColumnFilter(key: string) {
-  return (filterValue: string | number | boolean, record: Row) =>
-    normalizeSearchText(record[key]).includes(normalizeSearchText(filterValue))
+  return (filterValue: string | number | boolean, record: Row) => {
+    const searchValue = key === 'reason' ? record.reasonSearch || record.reason : record[key]
+    return normalizeSearchText(searchValue).includes(normalizeSearchText(filterValue))
+  }
 }
 
 function billColumnFilter(key: string) {
@@ -1356,7 +1361,7 @@ const detailSections = computed<DetailSection[]>(() => {
         items: [
           { label: 'Ngày giờ hẹn', value: String(row.dateTime || formatAppointmentDateTime(row.appointmentDate, row.slotTime) || 'Chưa cập nhật') },
           { label: 'Trạng thái', value: String(row.status || 'Chưa cập nhật') },
-          { label: 'Lý do khám', value: String(row.reason || 'Chưa ghi nhận'), full: true },
+          { label: 'Lý do khám', value: appointmentReasonDetailText(row), full: true },
         ],
       },
     ]
@@ -1439,7 +1444,7 @@ watch(resource, () => {
 
 onMounted(() => {
   window.addEventListener('patient-profile-updated', handlePatientProfileUpdated)
-  
+
   const lastLogin = localStorage.getItem('cliniccare_last_login')
   if (lastLogin) {
     const d = new Date(lastLogin)
@@ -1692,6 +1697,7 @@ function mapAppointment(item: Appointment & Record<string, any>): Row {
   const specialtyName = cleanDisplayText(getAny(item, 'specialtyName', 'SpecialtyName'))
   const room = appointmentRoom(item)
   const reason = cleanDisplayText(getAny(item, 'reason', 'Reason'))
+  const reasonParts = parseAppointmentReason(reason)
   const status = getAny(item, 'status', 'Status')
 
   return {
@@ -1703,10 +1709,73 @@ function mapAppointment(item: Appointment & Record<string, any>): Row {
     appointmentDate,
     slotTime,
     dateTime: formatAppointmentDateTime(appointmentDate, slotTime),
-    reason: reason || 'Chưa ghi nhận',
+    reason: reasonParts.main || 'Chưa ghi nhận',
+    reasonRaw: reason,
+    reasonSupport: reasonParts.support,
+    reasonCompanions: reasonParts.companions,
+    reasonDetails: reasonParts.details,
+    reasonSearch: [reasonParts.main, reasonParts.support, ...reasonParts.companions, reason].filter(Boolean).join(' '),
     status: statusLabel(status),
     raw: item,
   }
+}
+
+function parseAppointmentReason(value: unknown) {
+  const raw = cleanDisplayText(value)
+  if (!raw) return { main: '', support: '', companions: [] as string[], details: [] as string[] }
+
+  const supportMarker = 'Nhu cầu hỗ trợ:'
+  const companionMarker = 'Người đi cùng/người thân:'
+  const supportIndex = raw.indexOf(supportMarker)
+  const companionIndex = raw.indexOf(companionMarker)
+  const markers = [supportIndex, companionIndex].filter((index) => index >= 0)
+  const firstMarker = markers.length ? Math.min(...markers) : -1
+  const main = cleanDisplayText(firstMarker >= 0 ? raw.slice(0, firstMarker) : raw)
+
+  let support = ''
+  if (supportIndex >= 0) {
+    const supportEnd = companionIndex > supportIndex ? companionIndex : raw.length
+    support = cleanDisplayText(raw.slice(supportIndex + supportMarker.length, supportEnd))
+  }
+
+  const companions = companionIndex >= 0
+    ? raw
+        .slice(companionIndex + companionMarker.length)
+        .split(/\n| - (?=[^-:]+ - Quan hệ:)/)
+        .map((item) => cleanDisplayText(item.replace(/^-+\s*/, '')))
+        .filter(Boolean)
+    : []
+
+  const details = [
+    main ? `Lý do chính: ${main}` : '',
+    support ? `Nhu cầu hỗ trợ: ${support}` : '',
+    ...companions.map((item) => `Người đi cùng: ${formatCompanionReason(item)}`),
+  ].filter(Boolean)
+
+  return { main, support, companions, details }
+}
+
+function formatCompanionReason(value: string) {
+  return cleanDisplayText(value.replace(/\s+-\s+/g, ' · '))
+}
+
+function appointmentReasonMain(row: Row) {
+  return cleanDisplayText(row.reason) || cleanDisplayText(row.reasonMain) || 'Chưa ghi nhận'
+}
+
+function appointmentReasonMeta(row: Row) {
+  const support = cleanDisplayText(row.reasonSupport)
+  const companionCount = Array.isArray(row.reasonCompanions) ? row.reasonCompanions.length : 0
+  if (support && companionCount) return `${support} · ${companionCount} người đi cùng`
+  if (support) return support
+  if (companionCount) return `${companionCount} người đi cùng`
+  return ''
+}
+
+function appointmentReasonDetailText(row: Row) {
+  const details = Array.isArray(row.reasonDetails) ? row.reasonDetails.filter(Boolean) : []
+  if (details.length) return details.join('\n')
+  return cleanDisplayText(row.reasonRaw || row.reason) || 'Chưa ghi nhận'
 }
 
 function appointmentRoom(item: Appointment & Record<string, any>) {
@@ -2571,6 +2640,25 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
 
 :deep(.appointment-table-shell .ant-pagination-options .ant-select-selection-item) {
   line-height: 28px;
+}
+
+.appointment-reason-cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.appointment-reason-meta {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: #8a99ad;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 :deep(.appointment-status) {

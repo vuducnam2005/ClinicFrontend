@@ -319,6 +319,10 @@ export const medicalRecordApi = {
     const response = await client.get('/api/v1/medical/patients', { params: { pageSize: 100, ...params } })
     return normalizePatients(response.data)
   },
+  async lookupPatientsForBooking(params?: { keyword?: string; limit?: number }) {
+    const response = await client.get('/api/v1/medical/patients/lookup', { params: { limit: 20, ...params } })
+    return normalizePatients(response.data)
+  },
   async getPatient(id: string | number) {
     const response = await client.get(`/api/v1/medical/patients/${id}`)
     return normalizePatient(readApiResponse<any>(response.data))

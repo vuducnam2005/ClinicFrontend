@@ -1,5 +1,5 @@
 <template>
-  <form :class="['af-form', `af-${layout}`]" @submit.prevent="submit">
+  <form :class="['af-form', `af-${layout}`]" novalidate @submit.prevent="submit">
     <div class="af-fields">
       <div class="af-fld">
         <label class="af-lbl">Họ và tên <span class="af-req">*</span></label>
@@ -117,7 +117,39 @@
             <div class="af-companion-grid">
               <label class="af-fld">
                 <span class="af-lbl">Họ tên <span class="af-req">*</span></span>
-                <input v-model="companion.fullName" type="text" class="af-inp" placeholder="Ví dụ: Nguyễn Văn B" required />
+                <div class="af-patient-combobox">
+                  <input
+                    v-model="companion.fullName"
+                    type="text"
+                    class="af-inp"
+                    placeholder="Gõ tên hoặc mã bệnh nhân..."
+                    required
+                    autocomplete="off"
+                    @focus="openCompanionPatientSearch(companion)"
+                    @input="handleCompanionNameInput(companion)"
+                    @blur="closeCompanionPatientSearch"
+                  />
+                  <div v-if="activeCompanionKey === companion.key" class="af-patient-menu">
+                    <button
+                      v-for="patient in companionPatientMatches(companion)"
+                      :key="patientOptionKey(patient)"
+                      type="button"
+                      class="af-patient-option"
+                      @mousedown.prevent="selectCompanionPatient(companion, patient)"
+                    >
+                      <span>
+                        <b>{{ patient.fullName }}</b>
+                        <small>{{ patientCode(patient) }}</small>
+                      </span>
+                      <em>{{ patientPhone(patient) || 'Chưa có SĐT' }}</em>
+                    </button>
+                    <div v-if="patientsLoading" class="af-patient-empty">Đang tải bệnh nhân...</div>
+                    <div v-else-if="!companionPatientMatches(companion).length" class="af-patient-empty">
+                      Không tìm thấy bệnh nhân phù hợp. Bạn vẫn có thể nhập tay.
+                    </div>
+                  </div>
+                </div>
+                <span v-if="companion.patientId" class="af-selected-patient">Đã chọn bệnh nhân {{ companion.patientCode || `#${companion.patientId}` }}</span>
               </label>
               <label class="af-fld">
                 <span class="af-lbl">Quan hệ</span>
@@ -155,7 +187,9 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { Trash2 } from 'lucide-vue-next'
 import { authApi } from '@/services/authApi'
+import { medicalRecordApi } from '@/services/medicalRecordApi'
 import type { CreateAppointmentRequest } from '@/types/appointment'
+import type { Patient } from '@/types/medicalRecord'
 
 const props = withDefaults(defineProps<{
   doctorId: number
@@ -183,6 +217,8 @@ const props = withDefaults(defineProps<{
 
 interface CompanionForm {
   key: number
+  patientId?: number
+  patientCode?: string
   fullName: string
   relationship: string
   phoneNumber: string
@@ -218,6 +254,12 @@ const form = reactive({
 const phoneError = ref('')
 const phoneValidating = ref(false)
 const companionKey = ref(0)
+const patientsLoading = ref(false)
+const patientsLoaded = ref(false)
+const activeCompanionKey = ref<number | null>(null)
+const patientOptions = ref<Patient[]>([])
+const lastPatientLookupKeyword = ref('')
+const pendingPatientLookupKeyword = ref('')
 
 const supportOptions = [
   { value: 'wheelchair', label: 'Cần xe lăn' },
@@ -330,6 +372,8 @@ function addCompanion() {
   companionKey.value += 1
   form.companions.push({
     key: companionKey.value,
+    patientId: undefined,
+    patientCode: '',
     fullName: '',
     relationship: '',
     phoneNumber: '',
@@ -396,6 +440,7 @@ function buildPatients() {
     ...form.companions
       .filter((item) => item.fullName.trim() || item.phoneNumber.trim() || item.reason.trim())
       .map((item) => ({
+        ...(Number(item.patientId) > 0 ? { patientId: Number(item.patientId) } : {}),
         fullName: item.fullName.trim(),
         phoneNumber: item.phoneNumber.trim() || undefined,
         relationship: item.relationship.trim() || undefined,
@@ -420,6 +465,139 @@ function normalizeGender(value?: string) {
   if (lower === 'male' || lower === 'nam') return 'Nam'
   if (lower === 'female' || lower === 'nữ' || lower === 'nu') return 'Nữ'
   return raw
+}
+
+async function ensurePatientsLoaded(keyword = '') {
+  const lookupKeyword = keyword.trim()
+  if (patientsLoading.value) {
+    pendingPatientLookupKeyword.value = lookupKeyword
+    return
+  }
+  if (patientsLoaded.value && normalizeLookup(lastPatientLookupKeyword.value) === normalizeLookup(lookupKeyword)) return
+  patientsLoading.value = true
+  pendingPatientLookupKeyword.value = ''
+  try {
+    const [medicalPatients, authPatients] = await Promise.all([
+      medicalRecordApi.lookupPatientsForBooking({ keyword: lookupKeyword || undefined, limit: 30 })
+        .catch(() => medicalRecordApi.getPatients({ keyword: lookupKeyword || undefined, pageSize: 30 }))
+        .catch(() => [] as Patient[]),
+      authApi.getUsers()
+        .then((users) => users
+          .filter((user) => Number(user.roleId) === 4 || String(user.roleName || '').toLowerCase() === 'patient')
+          .map((user) => ({
+            patientId: user.patientId || '',
+            id: user.patientId || undefined,
+            fullName: user.fullName,
+            email: user.email,
+            phoneNumber: user.phoneNumber,
+          }) as Patient))
+        .catch(() => [] as Patient[]),
+    ])
+    patientOptions.value = mergePatientOptions([...medicalPatients, ...authPatients])
+    patientsLoaded.value = true
+    lastPatientLookupKeyword.value = lookupKeyword
+  } catch {
+    patientOptions.value = []
+  } finally {
+    patientsLoading.value = false
+    const pendingKeyword = pendingPatientLookupKeyword.value
+    if (pendingKeyword && normalizeLookup(pendingKeyword) !== normalizeLookup(lastPatientLookupKeyword.value)) {
+      void ensurePatientsLoaded(pendingKeyword)
+    }
+  }
+}
+
+function openCompanionPatientSearch(companion: CompanionForm) {
+  activeCompanionKey.value = companion.key
+  void ensurePatientsLoaded(companion.fullName)
+}
+
+function closeCompanionPatientSearch() {
+  window.setTimeout(() => {
+    activeCompanionKey.value = null
+  }, 120)
+}
+
+function handleCompanionNameInput(companion: CompanionForm) {
+  companion.patientId = undefined
+  companion.patientCode = ''
+  void ensurePatientsLoaded(companion.fullName)
+}
+
+function companionPatientMatches(companion: CompanionForm) {
+  const keyword = normalizeLookup(companion.fullName)
+  const candidates = patientOptions.value
+    .filter((patient) => !isSelectedPatientForAnotherCompanion(companion, patient))
+    .filter((patient) => {
+      if (!keyword) return true
+      return [
+        patient.fullName,
+        patient.patientCode,
+        patient.patientIdCode,
+        patient.phoneNumber,
+        patient.phone,
+        patient.citizenId,
+      ].some((value) => normalizeLookup(value).includes(keyword))
+    })
+
+  return candidates.slice(0, 8)
+}
+
+function selectCompanionPatient(companion: CompanionForm, patient: Patient) {
+  companion.patientId = Number(patient.patientId || patient.id) || undefined
+  companion.patientCode = patientCode(patient)
+  companion.fullName = patient.fullName || companion.fullName
+  companion.phoneNumber = patientPhone(patient) || companion.phoneNumber
+  activeCompanionKey.value = null
+}
+
+function isSelectedPatientForAnotherCompanion(companion: CompanionForm, patient: Patient) {
+  const patientId = Number(patient.patientId || patient.id)
+  if (!patientId) return false
+  return form.companions.some((item) => item.key !== companion.key && Number(item.patientId) === patientId)
+}
+
+function patientOptionKey(patient: Patient) {
+  return String(patient.patientId || patient.id || patient.patientCode || patient.fullName)
+}
+
+function patientCode(patient: Patient) {
+  return String(patient.patientCode || patient.patientIdCode || patient.patientId || patient.id || '')
+}
+
+function patientPhone(patient: Patient) {
+  return String(patient.phoneNumber || patient.phone || '').trim()
+}
+
+function normalizeLookup(value: unknown) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+function mergePatientOptions(patients: Patient[]) {
+  const map = new Map<string, Patient>()
+  for (const patient of patients) {
+    if (!patient?.fullName) continue
+    const key = [
+      patient.patientId || patient.id,
+      patient.patientCode || patient.patientIdCode,
+      patient.phoneNumber || patient.phone,
+      normalizeLookup(patient.fullName),
+    ].filter(Boolean).join('|')
+    const existing = map.get(key)
+    map.set(key, {
+      ...(existing || {}),
+      ...patient,
+      patientId: String(patient.patientId || existing?.patientId || patient.id || ''),
+      id: patient.id || existing?.id || patient.patientId,
+      phoneNumber: patient.phoneNumber || patient.phone || existing?.phoneNumber || existing?.phone,
+      patientCode: patient.patientCode || patient.patientIdCode || existing?.patientCode || existing?.patientIdCode,
+    })
+  }
+  return Array.from(map.values()).sort((a, b) => String(a.fullName || '').localeCompare(String(b.fullName || ''), 'vi'))
 }
 </script>
 
@@ -461,7 +639,7 @@ function normalizeGender(value?: string) {
 .af-lbl {
   color: #51617a;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .af-req {
@@ -476,7 +654,7 @@ function normalizeGender(value?: string) {
   background: #fff;
   color: #0f172a;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   outline: none;
   transition: border-color 160ms ease, box-shadow 160ms ease;
   box-sizing: border-box;
@@ -579,7 +757,7 @@ function normalizeGender(value?: string) {
   margin: 0;
   color: #10233f;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -718,7 +896,7 @@ function normalizeGender(value?: string) {
 .af-companion-title b {
   color: #10233f;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .af-companion-remove {
@@ -749,6 +927,110 @@ function normalizeGender(value?: string) {
   display: grid;
   grid-template-columns: 1.2fr 0.8fr 1fr;
   gap: 12px;
+}
+
+.af-patient-combobox {
+  position: relative;
+}
+
+.af-patient-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(460px, 100%);
+  max-height: 174px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid #dbe7f5;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.af-patient-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.af-patient-menu::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.af-patient-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.af-patient-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-bottom: 1px solid #eef3f8;
+  background: #fff;
+  min-height: 58px;
+  padding: 8px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.af-patient-option:last-child {
+  border-bottom: 0;
+}
+
+.af-patient-option:hover {
+  background: #f0f7ff;
+}
+
+.af-patient-option span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.af-patient-option b {
+  overflow: hidden;
+  color: #10233f;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.af-patient-option small,
+.af-patient-option em {
+  color: #71819a;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.af-patient-option em {
+  color: #667996;
+  white-space: nowrap;
+}
+
+.af-patient-empty {
+  padding: 12px;
+  color: #71819a;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.af-selected-patient {
+  align-self: flex-start;
+  border-radius: 999px;
+  background: #e0f2fe;
+  padding: 3px 8px;
+  color: #0369a1;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .af-actions {
