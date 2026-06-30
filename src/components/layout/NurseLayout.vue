@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { CalendarCheck, CreditCard, LayoutDashboard, PackageOpen, Pill, Users } from 'lucide-vue-next'
+import { CalendarCheck, CreditCard, LayoutDashboard, PackageOpen, Pill, Users, ClipboardList } from 'lucide-vue-next'
 import ClinicalPortalLayout from './ClinicalPortalLayout.vue'
 
 const menuGroups = [
@@ -24,6 +24,7 @@ const menuGroups = [
     items: [
       { label: 'Thu viện phí', to: '/nurse/bills', icon: CreditCard },
       { label: 'Kho thuốc', to: '/nurse/medicines', icon: PackageOpen },
+      { label: 'Yêu cầu nhập kho', to: '/nurse/inventory-slips', icon: ClipboardList },
       { label: 'Phát thuốc', to: '/nurse/prescriptions', icon: Pill },
     ],
   },
