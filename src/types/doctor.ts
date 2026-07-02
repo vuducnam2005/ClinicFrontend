@@ -24,6 +24,8 @@ export interface DoctorSchedule {
   scheduleId: number
   doctorId: number
   doctorName: string
+  roomNumber?: string
+  roomName?: string
   workDate: string
   startTime: string
   endTime: string

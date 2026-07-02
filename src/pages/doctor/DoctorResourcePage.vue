@@ -1,5 +1,7 @@
 <template>
   <section class="space-y-6">
+    <FullscreenLoader :show="loading" />
+
     <div v-if="isExamDetailMode" class="sticky top-0 z-20 -mx-2 border-b border-slate-200 bg-white/95 px-2 py-3 backdrop-blur">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-3">
@@ -90,7 +92,7 @@
       </header>
     </div>
 
-    <div v-if="!isExamDetailMode && resource !== 'schedule'" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div v-if="!isExamDetailMode && resource !== 'schedule' && resource !== 'records'" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">{{ config.kicker }}</p>
@@ -119,11 +121,11 @@
       </div>
     </div>
 
-    <div v-if="!isExamDetailMode && resource !== 'schedule'" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div v-if="!isExamDetailMode && resource !== 'schedule' && resource !== 'records'" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <MetricCard v-for="metric in metrics" :key="metric.label" :metric="metric" />
     </div>
 
-    <div v-if="!isExamDetailMode && resource !== 'schedule'" class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div v-if="!isExamDetailMode && resource !== 'schedule' && resource !== 'records'" class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <div class="grid gap-3 xl:grid-cols-[1.4fr_180px_180px_180px_180px_auto] xl:items-end">
         <label class="block">
           <span class="mb-2 block text-sm font-semibold text-slate-700">Tìm kiếm</span>
@@ -157,7 +159,143 @@
       <button type="button" class="ml-2 font-bold text-blue-700 underline" @click="loadData">Thử lại</button>
     </div>
 
-    <div v-if="resource === 'examine' && isExamDetailMode">
+    <div v-if="resource === 'records'" class="doctor-records-page">
+      <header class="doctor-records-header">
+        <div>
+          <h1>Hồ sơ bệnh án</h1>
+          <p>Theo dõi bệnh án đã lưu theo bác sĩ đang đăng nhập, gồm chẩn đoán, tái khám và trạng thái xử lý.</p>
+        </div>
+        <div class="doctor-records-header-actions">
+          <BaseButton variant="outline" :disabled="loading || !filteredRows.length" @click="exportDoctorRecordsExcel">
+            <template #icon><Download class="h-4 w-4" /></template>
+            Xuất Excel
+          </BaseButton>
+        </div>
+      </header>
+
+      <div class="doctor-records-stats">
+        <div class="doctor-record-stat-card is-total">
+          <div class="flex items-center justify-between">
+            <span>Tổng số hồ sơ</span>
+            <span class="doctor-record-stat-icon"><FileHeart class="h-5 w-5" /></span>
+          </div>
+          <p>{{ doctorRecordStats.total }}</p>
+          <small>Tất cả hồ sơ bệnh án</small>
+        </div>
+        <div class="doctor-record-stat-card is-completed">
+          <div class="flex items-center justify-between">
+            <span>Đã hoàn tất</span>
+            <span class="doctor-record-stat-icon"><CheckCircle2 class="h-5 w-5" /></span>
+          </div>
+          <p>{{ doctorRecordStats.completed }}</p>
+          <small>Khám xong & lưu kết quả</small>
+        </div>
+        <div class="doctor-record-stat-card is-draft">
+          <div class="flex items-center justify-between">
+            <span>Bản nháp</span>
+            <span class="doctor-record-stat-icon"><FilePenLine class="h-5 w-5" /></span>
+          </div>
+          <p>{{ doctorRecordStats.draft }}</p>
+          <small>Bệnh án chưa hoàn thành</small>
+        </div>
+        <div class="doctor-record-stat-card is-follow">
+          <div class="flex items-center justify-between">
+            <span>Có lịch tái khám</span>
+            <span class="doctor-record-stat-icon"><CalendarClock class="h-5 w-5" /></span>
+          </div>
+          <p>{{ doctorRecordStats.followUp }}</p>
+          <small>Bệnh nhân có lịch hẹn tới</small>
+        </div>
+      </div>
+
+      <div class="doctor-record-table-shell">
+        <ATable
+          :columns="doctorRecordTableColumns"
+          :data-source="filteredRows"
+          :pagination="doctorRecordPagination"
+          :row-key="doctorRecordIdentity"
+          size="middle"
+          table-layout="fixed"
+          @change="handleDoctorRecordTableChange"
+        >
+          <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+            <div class="doctor-record-filter">
+              <p class="doctor-record-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+              <AInput
+                :value="selectedKeys[0]"
+                :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+                allow-clear
+                autofocus
+                @change="setSelectedKeys(getDoctorRecordFilterKeys($event))"
+                @press-enter="confirm()"
+              >
+                <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+              </AInput>
+              <div class="doctor-record-filter-actions">
+                <AButton size="small" class="doctor-record-filter-reset" @click="clearDoctorRecordFilter(clearFilters, confirm)">Đặt lại</AButton>
+                <AButton type="primary" size="small" class="doctor-record-filter-submit" @click="confirm()">Áp dụng</AButton>
+              </div>
+            </div>
+          </template>
+          <template #customFilterIcon="{ filtered, column }">
+            <CheckSquare v-if="column.key === 'status'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+            <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          </template>
+          <template #emptyText>
+            <div class="py-8 text-center">
+              <FileHeart class="mx-auto h-9 w-9 text-slate-300" />
+              <p class="mt-3 font-bold text-slate-800">Không có hồ sơ bệnh án phù hợp</p>
+              <p class="mt-1 text-sm text-slate-500">Thử đổi bộ lọc hoặc từ khóa tìm kiếm trong từng cột.</p>
+            </div>
+          </template>
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'code'">
+              <span class="font-mono text-xs font-semibold text-[#0F52BA]">{{ doctorRecordCode(record) }}</span>
+            </template>
+            <template v-else-if="column.key === 'patientName'">
+              <span class="line-clamp-2 text-[13px] font-bold leading-5 text-slate-800" :title="doctorRecordPatientName(record)">
+                {{ doctorRecordPatientName(record) }}
+              </span>
+            </template>
+            <template v-else-if="column.key === 'diagnosis'">
+              <span class="line-clamp-2 max-w-sm text-[13px] font-medium leading-5 text-slate-700" :title="doctorRecordDiagnosis(record)">
+                {{ doctorRecordDiagnosis(record) }}
+              </span>
+            </template>
+            <template v-else-if="column.key === 'diagnosisCode'">
+              <span class="font-mono text-xs font-medium text-slate-600">{{ record.diagnosisCode || '-' }}</span>
+            </template>
+            <template v-else-if="column.key === 'createdAt'">
+              <div class="flex items-center gap-2 whitespace-nowrap">
+                <CalendarClock class="h-3.5 w-3.5 text-slate-400" />
+                <span class="text-[13px] font-medium text-slate-600">{{ formatDate(record.date || record.raw?.createdAt) }}</span>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'followUpDate'">
+              <ATag v-if="doctorRecordFollowUpDate(record)" :bordered="false" class="doctor-record-follow-tag">{{ formatDate(doctorRecordFollowUpDate(record)) }}</ATag>
+              <span v-else class="text-xs font-semibold text-slate-400">Chưa có</span>
+            </template>
+            <template v-else-if="column.key === 'status'">
+              <ATag :bordered="false" :class="['doctor-record-status-tag', doctorRecordStatusClass(record.status)]">
+                {{ statusText(record.status) }}
+              </ATag>
+            </template>
+            <template v-else-if="column.key === 'actions'">
+              <div class="doctor-record-actions">
+                <button type="button" class="doctor-record-action-button doctor-record-action-primary" title="Xem chi tiết bệnh án" @click="openRecord(record)">
+                  <Eye class="h-4 w-4" />
+                </button>
+                <button type="button" class="doctor-record-action-button doctor-record-action-muted" title="In hồ sơ bệnh án" @click="printDoctorRecord(record)">
+                  <Printer class="h-4 w-4" />
+                </button>
+              </div>
+            </template>
+          </template>
+        </ATable>
+      </div>
+    </div>
+
+    <div v-else-if="resource === 'examine' && isExamDetailMode">
       <ExaminationWorkspace
         :row="selectedRow"
         :active-visit="activeVisit"
@@ -351,7 +489,143 @@
       <EmptyState v-else :title="config.emptyTitle" :text="config.emptyText" />
     </div>
 
-    <RecordDrawer v-if="recordDrawerOpen" :row="selectedRecord" @close="recordDrawerOpen = false" />
+    <RecordDrawer v-if="recordDrawerOpen && resource !== 'records'" :row="selectedRecord" @close="recordDrawerOpen = false" />
+
+    <Teleport to="body">
+      <div v-if="recordDrawerOpen && resource === 'records'" class="fixed inset-0 z-[120] bg-slate-950/40 backdrop-blur-sm transition-opacity" @click="closeRecordDrawer"></div>
+      <transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="translate-x-full"
+        enter-to-class="translate-x-0"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="translate-x-0"
+        leave-to-class="translate-x-full"
+      >
+        <div v-if="recordDrawerOpen && resource === 'records'" class="fixed right-0 top-0 z-[120] flex h-screen w-full max-w-2xl flex-col border-l border-slate-200 bg-white shadow-2xl">
+          <div class="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/50 p-5">
+            <div class="flex items-start gap-3">
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700">
+                <FileHeart class="h-5 w-5" />
+              </span>
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <h2 class="text-lg font-bold text-slate-900">Chi tiết bệnh án</h2>
+                  <span :class="['rounded-full px-2 py-0.5 text-[10px] font-bold', doctorRecordStatusClass(selectedRecord?.status)]">
+                    {{ statusText(selectedRecord?.status) }}
+                  </span>
+                </div>
+                <p class="mt-1 font-mono text-xs font-semibold text-slate-500">Mã: {{ doctorRecordCode(selectedRecord) }}</p>
+              </div>
+            </div>
+            <button type="button" class="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600" @click="closeRecordDrawer">
+              <X class="h-5 w-5" />
+            </button>
+          </div>
+
+          <div class="flex overflow-x-auto border-b border-slate-100 bg-slate-50/20 px-3">
+            <button
+              v-for="tab in doctorRecordTabs"
+              :key="tab.key"
+              type="button"
+              :class="[
+                'relative inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition',
+                currentRecordTab === tab.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700',
+              ]"
+              @click="currentRecordTab = tab.key"
+            >
+              <component :is="tab.icon" class="h-4 w-4" />
+              {{ tab.label }}
+            </button>
+          </div>
+
+          <div class="flex-1 space-y-6 overflow-y-auto p-6">
+            <div v-if="currentRecordTab === 'overview'" class="space-y-4">
+              <DoctorRecordSection title="Thông tin hồ sơ">
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <DoctorRecordInfo label="Mã bệnh án" :value="doctorRecordCode(selectedRecord)" mono />
+                  <DoctorRecordInfo label="Mã lượt khám" :value="selectedRecord?.raw?.visitId || selectedRecord?.visitId" mono />
+                  <DoctorRecordInfo label="Bệnh nhân" :value="selectedRecord?.patientName" />
+                  <DoctorRecordInfo label="Bác sĩ điều trị" :value="selectedRecord?.doctorName || doctorName" />
+                </div>
+              </DoctorRecordSection>
+              <DoctorRecordSection title="Thời gian xử lý">
+                <div class="rounded-xl border border-slate-100 bg-white p-4 text-sm text-slate-600">
+                  <div class="flex items-center justify-between border-b border-slate-50 pb-2">
+                    <span>Trạng thái:</span>
+                    <span :class="['inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold', doctorRecordStatusClass(selectedRecord?.status)]">{{ statusText(selectedRecord?.status) }}</span>
+                  </div>
+                  <div class="mt-2 flex justify-between">
+                    <span>Ngày lập hồ sơ:</span>
+                    <span class="font-semibold text-slate-800">{{ formatDateTime(selectedRecord?.raw?.createdAt || selectedRecord?.date) }}</span>
+                  </div>
+                  <div v-if="selectedRecord?.raw?.updatedAt" class="mt-2 flex justify-between">
+                    <span>Cập nhật lần cuối:</span>
+                    <span class="font-semibold text-slate-800">{{ formatDateTime(selectedRecord.raw.updatedAt) }}</span>
+                  </div>
+                  <div v-if="selectedRecord?.raw?.completedAt" class="mt-2 flex justify-between">
+                    <span>Hoàn tất lúc:</span>
+                    <span class="font-semibold text-slate-800">{{ formatDateTime(selectedRecord.raw.completedAt) }}</span>
+                  </div>
+                </div>
+              </DoctorRecordSection>
+            </div>
+
+            <div v-if="currentRecordTab === 'diagnosis'" class="space-y-4">
+              <div class="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div>
+                  <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Mã ICD</span>
+                  <p class="mt-1 w-fit rounded-lg bg-blue-50 px-2.5 py-1 font-mono text-sm font-bold text-blue-700">{{ selectedRecord?.diagnosisCode || 'Chưa ghi nhận mã ICD' }}</p>
+                </div>
+                <div>
+                  <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Chẩn đoán</span>
+                  <p class="mt-1 text-base font-bold leading-relaxed text-slate-800">{{ doctorRecordDiagnosis(selectedRecord) }}</p>
+                </div>
+                <div>
+                  <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Chuyên khoa ICD</span>
+                  <p class="mt-1 text-sm font-semibold text-slate-700">{{ selectedRecord?.diagnosisSpecialty || 'Chưa cập nhật' }}</p>
+                </div>
+              </div>
+              <div class="space-y-2 rounded-xl border border-slate-100 bg-slate-50 p-5">
+                <span class="block text-xs font-bold uppercase tracking-wider text-slate-400">Ghi chú và dặn dò của bác sĩ</span>
+                <p class="whitespace-pre-line text-sm leading-relaxed text-slate-700">{{ selectedRecord?.note || 'Chưa có ghi chú' }}</p>
+              </div>
+            </div>
+
+            <div v-if="currentRecordTab === 'treatment'" class="space-y-4">
+              <div class="space-y-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <span class="block text-xs font-bold uppercase tracking-wider text-slate-400">Kế hoạch điều trị</span>
+                <p class="whitespace-pre-line text-sm leading-relaxed text-slate-800">{{ selectedRecord?.raw?.treatmentPlan || 'Chưa có kế hoạch điều trị' }}</p>
+              </div>
+              <div class="space-y-3 rounded-xl border border-slate-100 bg-slate-50 p-5">
+                <span class="block text-xs font-bold uppercase tracking-wider text-slate-400">Ngày tái khám dự kiến</span>
+                <div class="flex items-center gap-3">
+                  <template v-if="doctorRecordFollowUpDate(selectedRecord)">
+                    <p class="text-base font-bold text-slate-800">{{ formatDate(doctorRecordFollowUpDate(selectedRecord)) }}</p>
+                    <span :class="['rounded-full px-2.5 py-1 text-xs font-bold', doctorRecordFollowUpStatus === 'UPCOMING' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800']">
+                      {{ doctorRecordFollowUpStatus === 'UPCOMING' ? 'Sắp tái khám' : 'Đã qua lịch tái khám' }}
+                    </span>
+                  </template>
+                  <span v-else class="text-xs font-medium text-slate-400">Chưa có lịch tái khám</span>
+                </div>
+              </div>
+              <div class="flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50/50 p-4 text-xs text-blue-700">
+                <span class="shrink-0 font-bold">Lưu ý:</span>
+                <p>Theo dõi lịch tái khám và hướng dẫn điều trị đã ghi trong hồ sơ.</p>
+              </div>
+            </div>
+
+            <div v-if="currentRecordTab === 'history'" class="space-y-6">
+              <div class="relative ml-4 space-y-8 border-l border-slate-200 py-2 pl-8">
+                <DoctorRecordTimelineItem v-if="selectedRecord?.raw?.createdAt || selectedRecord?.date" tone="blue" title="Tạo hồ sơ" :time="formatDateTime(selectedRecord?.raw?.createdAt || selectedRecord?.date)" />
+                <DoctorRecordTimelineItem v-if="selectedRecord?.raw?.updatedAt" tone="amber" title="Cập nhật hồ sơ" :time="formatDateTime(selectedRecord?.raw?.updatedAt)" />
+                <DoctorRecordTimelineItem v-if="selectedRecord?.raw?.completedAt" tone="emerald" title="Bệnh án đã hoàn tất" :time="formatDateTime(selectedRecord?.raw?.completedAt)" />
+                <DoctorRecordTimelineItem v-if="doctorRecordFollowUpDate(selectedRecord)" tone="indigo" title="Hẹn tái khám" :time="formatDate(doctorRecordFollowUpDate(selectedRecord))" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
 
     <Teleport to="body">
       <div v-if="detailDrawerOpen" class="fixed inset-0 z-[120] bg-slate-950/40 backdrop-blur-sm transition-opacity" @click="closeDetailDrawer"></div>
@@ -408,27 +682,206 @@
       </transition>
     </Teleport>
 
+    <div v-if="recordToPrint" class="print-area">
+      <div class="print-container p-6 bg-white max-w-2xl mx-auto text-slate-800">
+        <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4 mb-6">
+          <div>
+            <p class="text-lg font-bold text-[#0F52BA]">MedicareDNU</p>
+            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Care. Safety. Trust. Always.</p>
+          </div>
+          <div class="text-right text-xs text-slate-500">
+            <p>Hệ thống quản lý phòng khám MedicareDNU</p>
+            <p>Thời gian in: {{ currentPrintDateTime() }}</p>
+          </div>
+        </div>
+
+        <div class="text-center mb-6">
+          <h1 class="text-xl font-bold uppercase tracking-wide text-slate-900">Hồ sơ bệnh án</h1>
+          <p class="mt-1 font-mono text-xs text-slate-500">Mã số bệnh án: {{ doctorRecordCode(recordToPrint) }}</p>
+        </div>
+
+        <div class="mb-5 print-section">
+          <h2 class="mb-2 border-b border-slate-200 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">Thông tin bệnh nhân</h2>
+          <div class="grid grid-cols-2 gap-y-2 text-xs">
+            <div><span class="font-bold text-slate-500">Mã bệnh nhân:</span> <span class="font-semibold text-slate-800">{{ printPatientCode(recordToPrint) }}</span></div>
+            <div><span class="font-bold text-slate-500">Họ và tên:</span> <span class="font-semibold text-slate-800">{{ printPatientName(recordToPrint) }}</span></div>
+            <div><span class="font-bold text-slate-500">Ngày sinh:</span> <span class="font-semibold text-slate-800">{{ formatDate(printPatientDateOfBirth()) }}</span></div>
+            <div><span class="font-bold text-slate-500">Giới tính:</span> <span class="font-semibold text-slate-800">{{ printGenderLabel(printPatientGender()) }}</span></div>
+            <div><span class="font-bold text-slate-500">Số điện thoại:</span> <span class="font-semibold text-slate-800">{{ printPatientPhone() }}</span></div>
+            <div><span class="font-bold text-slate-500">Email:</span> <span class="font-semibold text-slate-800">{{ printPatientEmail() }}</span></div>
+            <div><span class="font-bold text-slate-500">CCCD:</span> <span class="font-semibold text-slate-800">{{ printPatientCitizenId() }}</span></div>
+            <div><span class="font-bold text-slate-500">Nhóm máu:</span> <span class="font-semibold text-slate-800">{{ printPatientBloodType() }}</span></div>
+            <div class="col-span-2"><span class="font-bold text-slate-500">Địa chỉ:</span> <span class="font-semibold text-slate-800">{{ printPatientAddress() }}</span></div>
+            <div class="col-span-2"><span class="font-bold text-slate-500">Tiền sử bệnh:</span> <span class="font-semibold text-slate-800">{{ printPatientMedicalHistory() }}</span></div>
+            <div class="col-span-2"><span class="font-bold text-slate-500">Dị ứng:</span> <span class="font-semibold text-slate-800">{{ printPatientAllergy() }}</span></div>
+          </div>
+        </div>
+
+        <div class="mb-5 print-section">
+          <h2 class="mb-2 border-b border-slate-200 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">Thông tin lượt khám</h2>
+          <div class="grid grid-cols-2 gap-y-2 text-xs">
+            <div><span class="font-bold text-slate-500">Mã lịch hẹn:</span> <span class="font-semibold text-slate-800 font-mono">{{ printAppointmentId(recordToPrint) }}</span></div>
+            <div><span class="font-bold text-slate-500">Ngày giờ khám:</span> <span class="font-semibold text-slate-800">{{ printAppointmentTimeLabel(recordToPrint) }}</span></div>
+            <div><span class="font-bold text-slate-500">Chuyên khoa:</span> <span class="font-semibold text-slate-800">{{ printAppointmentSpecialty(recordToPrint) }}</span></div>
+            <div><span class="font-bold text-slate-500">Số thứ tự:</span> <span class="font-semibold text-slate-800">{{ printQueueNumber(recordToPrint) }}</span></div>
+            <div class="col-span-2"><span class="font-bold text-slate-500">Lý do khám:</span> <span class="font-semibold text-slate-800">{{ printChiefComplaint(recordToPrint) }}</span></div>
+          </div>
+        </div>
+
+        <div class="mb-5 print-section">
+          <h2 class="mb-2 border-b border-slate-200 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">Thông tin bệnh án</h2>
+          <div class="grid grid-cols-2 gap-y-2 text-xs">
+            <div><span class="font-bold text-slate-500">Mã lượt khám:</span> <span class="font-semibold text-slate-800 font-mono">{{ printVisitId(recordToPrint) }}</span></div>
+            <div><span class="font-bold text-slate-500">Bác sĩ điều trị:</span> <span class="font-semibold text-slate-800">{{ printDoctorName(recordToPrint) }}</span></div>
+            <div><span class="font-bold text-slate-500">Ngày lập bệnh án:</span> <span class="font-semibold text-slate-800">{{ formatDateTime(printRecordCreatedAt(recordToPrint)) }}</span></div>
+            <div><span class="font-bold text-slate-500">Cập nhật lần cuối:</span> <span class="font-semibold text-slate-800">{{ formatDateTime(printRecordUpdatedAt(recordToPrint)) }}</span></div>
+            <div><span class="font-bold text-slate-500">Hoàn tất lúc:</span> <span class="font-semibold text-slate-800">{{ formatDateTime(printRecordCompletedAt(recordToPrint)) }}</span></div>
+            <div><span class="font-bold text-slate-500">Trạng thái:</span> <span class="font-semibold text-slate-800">{{ statusText(recordToPrint.status) }}</span></div>
+            <div class="col-span-2"><span class="font-bold text-slate-500">Triệu chứng:</span> <span class="font-semibold text-slate-800">{{ printSymptoms(recordToPrint) }}</span></div>
+          </div>
+        </div>
+
+        <div class="mb-5 print-section">
+          <h2 class="mb-2 border-b border-slate-200 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">Sinh hiệu</h2>
+          <div v-if="printVitalItems.length" class="grid grid-cols-4 gap-2 text-xs">
+            <div v-for="item in printVitalItems" :key="item.label" class="rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+              <p class="font-bold text-slate-500">{{ item.label }}</p>
+              <p class="mt-1 font-bold text-slate-900">{{ item.value }}</p>
+            </div>
+          </div>
+          <p v-else class="text-xs italic text-slate-500">Chưa ghi nhận sinh hiệu cho lượt khám này.</p>
+          <div v-if="printVitalNote" class="mt-2 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700">
+            <span class="font-bold">Ghi chú điều dưỡng:</span> {{ printVitalNote }}
+          </div>
+        </div>
+
+        <div class="mb-5 print-section">
+          <h2 class="mb-2 border-b border-slate-200 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">Chẩn đoán</h2>
+          <div class="space-y-2 text-xs">
+            <div><span class="font-bold text-slate-500">Mã ICD:</span> <span class="font-mono font-bold rounded bg-slate-50 px-1.5 py-0.5">{{ recordToPrint.diagnosisCode || 'Chưa có thông tin' }}</span></div>
+            <div><span class="font-bold text-slate-500">Chuyên khoa ICD:</span> <span class="font-semibold text-slate-800">{{ recordToPrint.diagnosisSpecialty || 'Chưa có thông tin' }}</span></div>
+            <div><span class="font-bold text-slate-500">Chẩn đoán bệnh:</span> <span class="mt-0.5 block border-l-2 border-slate-200 pl-3 font-semibold text-slate-800">{{ doctorRecordDiagnosis(recordToPrint) }}</span></div>
+            <div><span class="font-bold text-slate-500">Ghi chú & dặn dò:</span> <span class="mt-0.5 block whitespace-pre-line border-l-2 border-slate-200 pl-3 font-semibold text-slate-700">{{ printDoctorNote(recordToPrint) }}</span></div>
+          </div>
+        </div>
+
+        <div class="mb-6 print-section">
+          <h2 class="mb-2 border-b border-slate-200 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">Kế hoạch điều trị & tái khám</h2>
+          <div class="space-y-2 text-xs">
+            <div><span class="font-bold text-slate-500">Phương án điều trị:</span> <span class="mt-0.5 block whitespace-pre-line border-l-2 border-slate-200 pl-3 font-semibold text-slate-800">{{ printTreatmentPlan(recordToPrint) }}</span></div>
+            <div><span class="font-bold text-slate-500">Lịch hẹn tái khám:</span> <span class="font-bold text-slate-800">{{ formatDate(doctorRecordFollowUpDate(recordToPrint)) }}</span></div>
+          </div>
+        </div>
+
+        <div class="mb-6 print-section">
+          <h2 class="mb-2 border-b border-slate-200 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">Cận lâm sàng</h2>
+          <table v-if="printClinicalOrders.length" class="min-w-full border border-slate-200 text-xs">
+            <thead class="bg-slate-50 text-left font-bold text-slate-600">
+              <tr>
+                <th class="border-r border-slate-200 px-2 py-1.5">Chỉ định</th>
+                <th class="border-r border-slate-200 px-2 py-1.5">Kết quả</th>
+                <th class="border-r border-slate-200 px-2 py-1.5">Kết luận</th>
+                <th class="px-2 py-1.5">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              <tr v-for="order in printClinicalOrders" :key="printClinicalOrderKey(order)">
+                <td class="border-r border-slate-200 px-2 py-1.5">
+                  <p class="font-bold text-slate-800">{{ printClinicalOrderName(order) }}</p>
+                  <p class="text-slate-500">{{ printClinicalOrderType(order) }}</p>
+                </td>
+                <td class="border-r border-slate-200 px-2 py-1.5">{{ printClinicalOrderResult(order) }}</td>
+                <td class="border-r border-slate-200 px-2 py-1.5">{{ printClinicalOrderConclusion(order) }}</td>
+                <td class="px-2 py-1.5 font-semibold">{{ statusText(printClinicalOrderStatus(order)) }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-else class="text-xs italic text-slate-500">Không có chỉ định cận lâm sàng trong bệnh án này.</p>
+        </div>
+
+        <div class="mb-6 print-section">
+          <h2 class="mb-2 border-b border-slate-200 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400">Đơn thuốc</h2>
+          <template v-if="activePrintPrescription">
+            <div class="mb-3 grid grid-cols-2 gap-y-2 text-xs">
+              <div><span class="font-bold text-slate-500">Mã đơn thuốc:</span> <span class="font-mono font-semibold text-slate-800">{{ printPrescriptionCode(activePrintPrescription) }}</span></div>
+              <div><span class="font-bold text-slate-500">Ngày kê đơn:</span> <span class="font-semibold text-slate-800">{{ formatDateTime(printPrescriptionCreatedAt(activePrintPrescription)) }}</span></div>
+              <div><span class="font-bold text-slate-500">Trạng thái:</span> <span class="font-semibold text-slate-800">{{ statusText(printPrescriptionStatus(activePrintPrescription)) }}</span></div>
+              <div><span class="font-bold text-slate-500">Bác sĩ kê đơn:</span> <span class="font-semibold text-slate-800">{{ printDoctorName(recordToPrint) }}</span></div>
+            </div>
+            <table v-if="printPrescriptionItems(activePrintPrescription).length" class="mb-3 min-w-full border border-slate-200 text-xs">
+              <thead class="border-b border-slate-200 bg-slate-50 text-left font-bold text-slate-600">
+                <tr>
+                  <th class="w-10 border-r border-slate-200 px-2 py-1.5 text-center">STT</th>
+                  <th class="border-r border-slate-200 px-2 py-1.5">Tên thuốc</th>
+                  <th class="w-20 border-r border-slate-200 px-2 py-1.5 text-center">Số lượng</th>
+                  <th class="border-r border-slate-200 px-2 py-1.5">Liều dùng</th>
+                  <th class="w-20 border-r border-slate-200 px-2 py-1.5 text-center">Số ngày</th>
+                  <th class="px-2 py-1.5">Hướng dẫn</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200 bg-white">
+                <tr v-for="(item, index) in printPrescriptionItems(activePrintPrescription)" :key="printPrescriptionItemKey(item, index)">
+                  <td class="border-r border-slate-200 px-2 py-1.5 text-center font-medium">{{ index + 1 }}</td>
+                  <td class="border-r border-slate-200 px-2 py-1.5 font-bold text-slate-800">{{ printPrescriptionItemMedicineName(item) }}</td>
+                  <td class="border-r border-slate-200 px-2 py-1.5 text-center font-bold">{{ printPrescriptionItemQuantity(item) }}</td>
+                  <td class="border-r border-slate-200 px-2 py-1.5 font-medium">{{ printPrescriptionItemDosage(item) }}</td>
+                  <td class="border-r border-slate-200 px-2 py-1.5 text-center font-medium">{{ printPrescriptionItemDuration(item) }}</td>
+                  <td class="px-2 py-1.5 font-medium">{{ printPrescriptionItemInstruction(item) }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-if="printPrescriptionNote(activePrintPrescription)" class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-700">
+              <span class="font-bold">Ghi chú đơn thuốc:</span> {{ printPrescriptionNote(activePrintPrescription) }}
+            </div>
+          </template>
+          <p v-else class="text-xs italic text-slate-500">Chưa có đơn thuốc được ghi nhận cho bệnh án này.</p>
+        </div>
+
+        <div class="mt-8 grid grid-cols-2 gap-4 border-t border-slate-200 pt-6 text-center text-xs">
+          <div>
+            <p class="font-bold uppercase tracking-wide text-slate-500">Bệnh nhân</p>
+            <p class="mt-0.5 text-[10px] text-slate-400">(Ký và ghi rõ họ tên)</p>
+            <div class="h-16"></div>
+            <p class="font-bold text-slate-800">{{ printPatientName(recordToPrint) }}</p>
+          </div>
+          <div>
+            <p class="font-bold uppercase tracking-wide text-slate-500">Bác sĩ điều trị</p>
+            <p class="mt-0.5 text-[10px] text-slate-400">(Ký và ghi rõ họ tên)</p>
+            <div class="h-16"></div>
+            <p class="font-bold text-slate-800">{{ printDoctorName(recordToPrint) }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <Toast :show="toast.show" :title="toast.title" :message="toast.message" :type="toast.type" @close="toast.show = false" />
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, reactive, ref, watch, type PropType } from 'vue'
+import { computed, defineComponent, h, nextTick, reactive, ref, watch, type PropType } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from 'ant-design-vue'
 import {
   Activity,
   AlertTriangle,
   CalendarClock,
   CheckCircle2,
+  CheckSquare,
   ChevronLeft,
   ChevronRight,
   Clock3,
   ClipboardCheck,
   ClipboardList,
+  Download,
+  Eye,
+  FileHeart,
+  FilePenLine,
   FileText,
   FlaskConical,
   HeartPulse,
   Plus,
+  Printer,
   RefreshCw,
   RotateCcw,
   Ruler,
@@ -447,6 +900,7 @@ import {
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
+import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
 import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
 import Toast from '@/components/ui/Toast.vue'
 import { useAuthStore } from '@/stores/authStore'
@@ -533,6 +987,15 @@ const recordDrawerOpen = ref(false)
 const detailDrawerOpen = ref(false)
 const selectedRecord = ref<Row | null>(null)
 const selectedDetail = ref<Row | null>(null)
+const recordToPrint = ref<Row | null>(null)
+const printPatient = ref<Record<string, any> | null>(null)
+const printAppointment = ref<Record<string, any> | null>(null)
+const printVisit = ref<Record<string, any> | null>(null)
+const printClinicalOrders = ref<Record<string, any>[]>([])
+const printPrescriptions = ref<Record<string, any>[]>([])
+const currentRecordTab = ref('overview')
+const doctorRecordCurrentPage = ref(1)
+const doctorRecordPageSize = ref(10)
 const toast = reactive({ show: false, title: '', message: '', type: 'success' as ToastType })
 
 const filters = reactive({
@@ -843,6 +1306,136 @@ const scheduleRangeLabel = computed(() => {
   return `${formatDate(from)} - ${formatDate(to)}`
 })
 
+const doctorRecordStats = computed(() => {
+  const total = filteredRows.value.length
+  const completed = filteredRows.value.filter((row) => statusBucket(row.status) === 'completed').length
+  const draft = filteredRows.value.filter((row) => {
+    const value = normalize(row.status)
+    return value.includes('draft') || value.includes('nhap') || value.includes('nháp')
+  }).length
+  const followUp = filteredRows.value.filter((row) => Boolean(doctorRecordFollowUpDate(row))).length
+  return { total, completed, draft, followUp }
+})
+
+const doctorRecordTabs = [
+  { key: 'overview', label: 'Tổng quan', icon: ClipboardList },
+  { key: 'diagnosis', label: 'Chẩn đoán', icon: FileHeart },
+  { key: 'treatment', label: 'Điều trị', icon: FilePenLine },
+  { key: 'history', label: 'Lịch sử', icon: CalendarClock },
+]
+
+const doctorRecordTableColumns = [
+  {
+    title: 'Mã BA',
+    key: 'code',
+    width: 110,
+    customFilterDropdown: true,
+    onFilter: doctorRecordColumnFilter('code'),
+    sorter: (a: Row, b: Row) => doctorRecordCode(a).localeCompare(doctorRecordCode(b), 'vi'),
+  },
+  {
+    title: 'Bệnh nhân',
+    key: 'patientName',
+    width: 180,
+    customFilterDropdown: true,
+    onFilter: doctorRecordColumnFilter('patientName'),
+    sorter: (a: Row, b: Row) => doctorRecordPatientName(a).localeCompare(doctorRecordPatientName(b), 'vi'),
+  },
+  {
+    title: 'Chẩn đoán',
+    key: 'diagnosis',
+    width: 230,
+    customFilterDropdown: true,
+    onFilter: doctorRecordColumnFilter('diagnosis'),
+    sorter: (a: Row, b: Row) => doctorRecordDiagnosis(a).localeCompare(doctorRecordDiagnosis(b), 'vi'),
+  },
+  {
+    title: 'Mã ICD',
+    dataIndex: 'diagnosisCode',
+    key: 'diagnosisCode',
+    width: 138,
+    customFilterDropdown: true,
+    onFilter: doctorRecordColumnFilter('diagnosisCode'),
+  },
+  {
+    title: 'Ngày tạo',
+    key: 'createdAt',
+    width: 132,
+    customFilterDropdown: true,
+    onFilter: doctorRecordColumnFilter('createdAt'),
+    sorter: (a: Row, b: Row) => recordTimestamp(a.date || a.raw?.createdAt) - recordTimestamp(b.date || b.raw?.createdAt),
+    defaultSortOrder: 'descend' as const,
+  },
+  {
+    title: 'Tái khám',
+    key: 'followUpDate',
+    width: 126,
+    customFilterDropdown: true,
+    onFilter: doctorRecordColumnFilter('followUpDate'),
+    sorter: (a: Row, b: Row) => recordTimestamp(doctorRecordFollowUpDate(a)) - recordTimestamp(doctorRecordFollowUpDate(b)),
+  },
+  {
+    title: 'Trạng thái',
+    dataIndex: 'status',
+    key: 'status',
+    width: 136,
+    filters: [
+      { text: 'Hoàn thành', value: 'Hoàn thành' },
+      { text: 'Đang khám', value: 'Đang khám' },
+      { text: 'Chờ khám', value: 'Chờ khám' },
+      { text: 'Chưa cập nhật', value: 'Chưa cập nhật' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: Row) => statusText(record.status) === String(filterValue),
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 104,
+    align: 'center' as const,
+  },
+]
+
+const doctorRecordPagination = computed(() => ({
+  current: doctorRecordCurrentPage.value,
+  pageSize: doctorRecordPageSize.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50', '100'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} bệnh án`,
+  locale: { items_per_page: ' / trang' },
+}))
+
+const doctorRecordFollowUpStatus = computed(() => {
+  const followUpDate = doctorRecordFollowUpDate(selectedRecord.value)
+  if (!followUpDate) return 'NONE'
+  const followDate = new Date(followUpDate)
+  const todayDate = new Date()
+  todayDate.setHours(0, 0, 0, 0)
+  return followDate >= todayDate ? 'UPCOMING' : 'OVERDUE'
+})
+
+const printVitalSigns = computed(() => parsePrintVitalSigns(objectValue(recordToPrint.value, 'vitalSignsJson', 'VitalSignsJson') || objectValue(printVisit.value, 'vitalSignsJson', 'VitalSignsJson')))
+const printVitalItems = computed(() => {
+  const vitals = printVitalSigns.value
+  const items = [
+    { label: 'Nhiệt độ', value: printVitalDisplay(vitals, ['temperature', 'Temperature'], '°C') },
+    { label: 'Huyết áp', value: printVitalDisplay(vitals, ['bloodPressure', 'BloodPressure']) },
+    { label: 'Mạch', value: printVitalDisplay(vitals, ['heartRate', 'HeartRate'], 'lần/phút') },
+    { label: 'Nhịp thở', value: printVitalDisplay(vitals, ['respiratoryRate', 'RespiratoryRate'], 'lần/phút') },
+    { label: 'SpO2', value: printVitalDisplay(vitals, ['spo2', 'Spo2', 'spO2', 'SpO2'], '%') },
+    { label: 'Cân nặng', value: printVitalDisplay(vitals, ['weight', 'Weight'], 'kg') },
+    { label: 'Chiều cao', value: printVitalDisplay(vitals, ['height', 'Height'], 'cm') },
+    { label: 'BMI', value: printVitalBmiDisplay(vitals) },
+  ]
+  return items.filter((item) => item.value)
+})
+const printVitalNote = computed(() => String(readFirst(printVitalSigns.value, 'note', 'Note') || '').trim())
+const activePrintPrescription = computed(() => printPrescriptions.value[0] || null)
+
 const detailTitle = computed(() => {
   if (resource.value === 'schedule') return 'Chi tiết lịch làm việc'
   return config.value.detailTitle
@@ -1024,8 +1617,12 @@ async function loadRecordRows() {
 }
 
 async function loadScheduleRows() {
-  const data = await appointmentApi.getDoctorSchedulesByDoctor(doctorId.value)
-  return filterSchedulesForDoctor(data, authStore.user).map(mapSchedule)
+  const [data, doctor] = await Promise.all([
+    appointmentApi.getDoctorSchedulesByDoctor(doctorId.value),
+    appointmentApi.getDoctor(doctorId.value).catch(() => null as Doctor | null),
+  ])
+  const room = doctorRoom(doctor)
+  return filterSchedulesForDoctor(data, authStore.user).map((schedule) => mapSchedule({ ...schedule, roomNumber: schedule.roomNumber || room }))
 }
 
 function resetFilters(reload = true) {
@@ -1036,7 +1633,7 @@ function resetFilters(reload = true) {
     filters.fromDate = localDateIso(start)
     filters.toDate = localDateIso(addDays(start, 6))
   } else {
-    filters.date = resource.value === 'appointments' || route.query.appointmentId ? '' : today()
+    filters.date = resource.value === 'appointments' || resource.value === 'records' || route.query.appointmentId ? '' : today()
     filters.fromDate = resource.value === 'appointments' ? today() : ''
     filters.toDate = ''
   }
@@ -1109,9 +1706,98 @@ function backToAppointments() {
   router.push('/doctor/appointments')
 }
 
-function openRecord(row: Row) {
-  selectedRecord.value = row
+function openRecord(row: Row | Record<string, any>) {
+  selectedRecord.value = row as Row
+  currentRecordTab.value = 'overview'
   recordDrawerOpen.value = true
+}
+
+function closeRecordDrawer() {
+  recordDrawerOpen.value = false
+  selectedRecord.value = null
+}
+
+async function printDoctorRecord(row: Row | Record<string, any>) {
+  const baseRow = row as Row
+  clearPrintState()
+  recordToPrint.value = baseRow
+  const recordId = doctorRecordNumericId(baseRow)
+
+  if (recordId) {
+    try {
+      const completeRecord = await medicalRecordApi.getCompleteMedicalRecord(recordId)
+      applyCompleteRecordForPrint(baseRow, completeRecord)
+    } catch (apiError) {
+      showToast('Chưa tải đủ dữ liệu in', businessError(apiError), 'error')
+      recordToPrint.value = baseRow
+    }
+  }
+
+  await nextTick()
+  window.setTimeout(() => window.print(), 200)
+  window.setTimeout(clearPrintState, 1200)
+}
+
+function currentPrintDateTime() {
+  return formatDateTime(new Date().toISOString())
+}
+
+function exportDoctorRecordsExcel() {
+  const records = filteredRows.value
+  if (!records.length) return showToast('Không có dữ liệu', 'Không có bệnh án để xuất Excel.', 'error')
+
+  const headers = ['Mã BA', 'Bệnh nhân', 'Mã bệnh nhân', 'Chẩn đoán', 'Mã ICD', 'Chuyên khoa ICD', 'Ngày tạo', 'Tái khám', 'Trạng thái', 'Bác sĩ', 'Ghi chú']
+  const columnWidths = [86, 150, 120, 260, 190, 150, 110, 110, 120, 170, 420]
+  const body = records.map((record) => [
+    doctorRecordCode(record),
+    doctorRecordPatientName(record),
+    record.patientId || record.raw?.patientCode || record.raw?.patientIdCode || '',
+    doctorRecordDiagnosis(record),
+    record.diagnosisCode || '',
+    record.diagnosisSpecialty || '',
+    formatDate(record.date || record.raw?.createdAt),
+    doctorRecordFollowUpDate(record) ? formatDate(doctorRecordFollowUpDate(record)) : '',
+    statusText(record.status),
+    record.doctorName || doctorName.value,
+    record.note || '',
+  ])
+  const colGroup = columnWidths.map((width) => `<col style="width:${width}px" />`).join('')
+  const headerHtml = headers
+    .map((header) => `<th class="table-header">${escapeExcelCell(header)}</th>`)
+    .join('')
+  const rowsHtml = body
+    .map((cells, index) => `<tr class="${index % 2 ? 'row-even' : 'row-odd'}">${cells.map((cell, cellIndex) => `<td class="${cellIndex === 10 ? 'wrap-cell' : 'text-cell'}">${escapeExcelCell(cell)}</td>`).join('')}</tr>`)
+    .join('')
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #0f172a; }
+    table { border-collapse: collapse; table-layout: fixed; font-family: Arial, Helvetica, sans-serif; font-size: 13px; }
+    th, td { border: 1px solid #94a3b8; padding: 7px 9px; vertical-align: middle; mso-number-format:"\\@"; }
+    .report-title { background: #0F52BA; color: #ffffff; font-size: 18px; font-weight: 700; text-align: center; height: 34px; }
+    .report-meta { background: #EAF2FF; color: #1e3a8a; font-size: 13px; font-weight: 600; text-align: center; height: 26px; }
+    .table-header { background: #D9EAFD; color: #0f172a; font-weight: 700; text-align: center; white-space: normal; }
+    .row-odd td { background: #ffffff; }
+    .row-even td { background: #F8FBFF; }
+    .text-cell { white-space: nowrap; }
+    .wrap-cell { white-space: normal; mso-style-parent: style0; }
+  </style>
+</head>
+<body>
+  <table>
+    ${colGroup}
+    <tr><td class="report-title" colspan="${headers.length}">DANH SÁCH HỒ SƠ BỆNH ÁN</td></tr>
+    <tr><td class="report-meta" colspan="${headers.length}">Bác sĩ: ${escapeExcelCell(doctorName.value)} | Ngày xuất: ${escapeExcelCell(formatDate(today()))} | Tổng: ${records.length} hồ sơ</td></tr>
+    <tr>${headerHtml}</tr>
+    ${rowsHtml}
+  </table>
+</body>
+</html>`
+  const blob = new Blob([`\ufeff${html}`], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+  downloadBlob(blob, `ho-so-benh-an-bac-si-${today()}.xls`)
+  showToast('Đã xuất Excel', `Đã xuất ${records.length} hồ sơ bệnh án.`, 'success')
 }
 
 async function openExamFromRow(row: Row) {
@@ -1764,7 +2450,7 @@ function mapSchedule(item: DoctorSchedule & Record<string, any>): Row {
     timeRange: `${startTime} - ${endTime}`,
     slotDurationMinutes: duration,
     slotInfo: `${duration} phút/slot`,
-    room: item.roomName || item.roomNumber || item.room || 'Chưa cập nhật',
+    room: roomDisplay(item.roomName || item.RoomName || item.roomNumber || item.RoomNumber || item.room || item.Room),
     isAvailable,
     status: isAvailable ? 'Còn nhận lịch' : 'Đã kín lịch',
     raw: item,
@@ -1983,6 +2669,12 @@ function doctorRoom(doctor?: (Doctor & Record<string, any>) | null) {
   return meaningful(doctor?.roomNumber || doctor?.RoomNumber || doctor?.roomName || doctor?.RoomName || doctor?.room || doctor?.Room)
 }
 
+function roomDisplay(value: unknown) {
+  const room = meaningful(value)
+  if (!room) return 'Chưa cập nhật'
+  return normalize(room).startsWith('phong') ? room : `Phòng ${room}`
+}
+
 function visitRoom(row?: Row | null) {
   return meaningful(
     row?.room
@@ -2143,6 +2835,413 @@ function displayOrEmpty(value: unknown) {
   return textValue || 'Chưa có'
 }
 
+function doctorRecordIdentity(record: Row | Record<string, any>) {
+  return String(record.key || record.medicalRecordId || record.raw?.medicalRecordId || record.id || `${record.patientId}-${record.date}-${record.diagnosisCode}`)
+}
+
+function doctorRecordCode(record?: Row | Record<string, any> | null) {
+  return String(
+    record?.id
+    || record?.raw?.medicalRecordCode
+    || record?.raw?.medicalRecordIdCode
+    || record?.raw?.recordIdCode
+    || record?.raw?.recordId
+    || record?.medicalRecordId
+    || record?.raw?.medicalRecordId
+    || 'Chưa cập nhật',
+  )
+}
+
+function doctorRecordDiagnosis(record?: Row | Record<string, any> | null) {
+  return String(record?.diagnosis || record?.raw?.diagnosisText || record?.raw?.diagnosis || 'Chưa cập nhật chẩn đoán')
+}
+
+function doctorRecordPatientName(record?: Row | Record<string, any> | null) {
+  const value = record?.patientName || record?.raw?.patientName || record?.raw?.PatientName
+  if (value) return String(value)
+  const code = record?.raw?.patientCode || record?.raw?.patientIdCode || record?.patientId
+  return code ? `Bệnh nhân #${code}` : 'Chưa cập nhật'
+}
+
+function doctorRecordFollowUpDate(record?: Row | Record<string, any> | null) {
+  return String(record?.raw?.followUpDate || record?.raw?.FollowUpDate || record?.followUpDate || '').slice(0, 10)
+}
+
+function doctorRecordSearchField(record: Row, key: string) {
+  if (key === 'code') return doctorRecordCode(record)
+  if (key === 'patientName') return doctorRecordPatientName(record)
+  if (key === 'diagnosis') return doctorRecordDiagnosis(record)
+  if (key === 'diagnosisCode') return record.diagnosisCode || '-'
+  if (key === 'createdAt') return formatDate(record.date || record.raw?.createdAt)
+  if (key === 'followUpDate') return doctorRecordFollowUpDate(record) ? formatDate(doctorRecordFollowUpDate(record)) : 'Chưa có'
+  if (key === 'status') return statusText(record.status)
+  return ''
+}
+
+function doctorRecordColumnFilter(key: string) {
+  return (filterValue: string | number | boolean, record: Row) =>
+    normalize(doctorRecordSearchField(record, key)).includes(normalize(filterValue))
+}
+
+function getDoctorRecordFilterKeys(event: Event) {
+  const filterValue = (event.target as HTMLInputElement)?.value || ''
+  return filterValue ? [filterValue] : []
+}
+
+function clearDoctorRecordFilter(clearFilters: (() => void) | undefined, confirm: () => void) {
+  clearFilters?.()
+  confirm()
+}
+
+function handleDoctorRecordTableChange(pagination: { current?: number; pageSize?: number }) {
+  doctorRecordCurrentPage.value = pagination.current || 1
+  doctorRecordPageSize.value = pagination.pageSize || 10
+}
+
+function recordTimestamp(value?: string | null) {
+  if (!value) return 0
+  const time = new Date(value).getTime()
+  return Number.isNaN(time) ? 0 : time
+}
+
+function doctorRecordStatusClass(status?: string) {
+  const bucket = statusBucket(status)
+  if (bucket === 'completed') return 'bg-emerald-50 text-emerald-700'
+  if (bucket === 'progress') return 'bg-blue-50 text-blue-700'
+  if (bucket === 'waiting' || bucket === 'confirmed') return 'bg-amber-50 text-amber-700'
+  if (bucket === 'cancelled') return 'bg-rose-50 text-rose-700'
+  return 'bg-slate-100 text-slate-600'
+}
+
+function doctorRecordNumericId(record?: Row | Record<string, any> | null) {
+  const value = objectValue(record, 'medicalRecordId', 'MedicalRecordId')
+    || objectValue(record?.raw, 'medicalRecordId', 'MedicalRecordId', 'id', 'Id')
+  const id = Number(value)
+  return Number.isFinite(id) && id > 0 ? id : 0
+}
+
+function clearPrintState() {
+  recordToPrint.value = null
+  printPatient.value = null
+  printAppointment.value = null
+  printVisit.value = null
+  printClinicalOrders.value = []
+  printPrescriptions.value = []
+}
+
+function applyCompleteRecordForPrint(baseRow: Row, complete: Record<string, any>) {
+  const patient = complete.patient || complete.Patient || null
+  const appointment = complete.appointment || complete.Appointment || null
+  const visit = complete.visit || complete.Visit || null
+  const medicalRecord = complete.medicalRecord || complete.MedicalRecord || {}
+  const clinicalOrders = complete.clinicalOrders || complete.ClinicalOrders || []
+  const prescriptions = complete.prescriptions || complete.Prescriptions || []
+
+  printPatient.value = patient
+  printAppointment.value = appointment
+  printVisit.value = visit
+  printClinicalOrders.value = Array.isArray(clinicalOrders) ? clinicalOrders : []
+  printPrescriptions.value = Array.isArray(prescriptions) ? prescriptions : []
+
+  const mergedRaw = { ...(baseRow.raw || {}), ...medicalRecord }
+  recordToPrint.value = {
+    ...baseRow,
+    raw: mergedRaw,
+    id: objectValue(medicalRecord, 'medicalRecordCode', 'MedicalRecordCode', 'medicalRecordIdCode', 'MedicalRecordIdCode', 'recordIdCode', 'RecordIdCode')
+      || baseRow.id,
+    medicalRecordId: objectValue(medicalRecord, 'medicalRecordId', 'MedicalRecordId', 'id', 'Id') || baseRow.medicalRecordId,
+    visitId: objectValue(medicalRecord, 'visitId', 'VisitId') || objectValue(visit, 'visitId', 'VisitId', 'id', 'Id') || baseRow.visitId,
+    appointmentId: objectValue(visit, 'appointmentId', 'AppointmentId') || objectValue(appointment, 'appointmentId', 'AppointmentId') || baseRow.appointmentId,
+    patientId: objectValue(medicalRecord, 'patientId', 'PatientId') || objectValue(patient, 'patientId', 'PatientId', 'id', 'Id') || baseRow.patientId,
+    doctorId: objectValue(medicalRecord, 'doctorId', 'DoctorId') || objectValue(visit, 'doctorId', 'DoctorId') || objectValue(appointment, 'doctorId', 'DoctorId') || baseRow.doctorId,
+    patientName: objectValue(patient, 'fullName', 'FullName', 'name', 'Name') || objectValue(medicalRecord, 'patientName', 'PatientName') || baseRow.patientName,
+    doctorName: objectValue(visit, 'doctorName', 'DoctorName') || objectValue(appointment, 'doctorNameSnapshot', 'DoctorNameSnapshot', 'doctorName', 'DoctorName') || baseRow.doctorName,
+    diagnosis: objectValue(medicalRecord, 'diagnosisText', 'DiagnosisText', 'diagnosis', 'Diagnosis') || baseRow.diagnosis,
+    diagnosisCode: objectValue(medicalRecord, 'diagnosisCode', 'DiagnosisCode') || baseRow.diagnosisCode,
+    diagnosisSpecialty: objectValue(medicalRecord, 'diagnosisSpecialty', 'DiagnosisSpecialty') || baseRow.diagnosisSpecialty,
+    note: objectValue(medicalRecord, 'doctorNote', 'DoctorNote', 'doctorNotes', 'DoctorNotes') || baseRow.note,
+    status: objectValue(medicalRecord, 'status', 'Status') || baseRow.status,
+    date: normalizeDate(objectValue(medicalRecord, 'examDate', 'ExamDate', 'createdAt', 'CreatedAt') as string) || baseRow.date,
+    followUpDate: objectValue(medicalRecord, 'followUpDate', 'FollowUpDate') || baseRow.followUpDate,
+    chiefComplaint: objectValue(visit, 'chiefComplaint', 'ChiefComplaint') || objectValue(appointment, 'reason', 'Reason') || baseRow.chiefComplaint,
+    symptoms: objectValue(visit, 'symptoms', 'Symptoms') || objectValue(medicalRecord, 'symptoms', 'Symptoms') || baseRow.symptoms,
+    vitalSignsJson: objectValue(visit, 'vitalSignsJson', 'VitalSignsJson') || objectValue(medicalRecord, 'vitalSignsJson', 'VitalSignsJson') || baseRow.vitalSignsJson,
+  }
+}
+
+function objectValue(source: unknown, ...keys: string[]) {
+  const data = source as Record<string, any> | null | undefined
+  if (!data) return undefined
+  for (const key of keys) {
+    const value = data[key]
+    if (value !== undefined && value !== null && String(value).trim() !== '') return value
+  }
+  return undefined
+}
+
+function readFirst(source: Record<string, any>, ...keys: string[]) {
+  return objectValue(source, ...keys)
+}
+
+function parsePrintVitalSigns(value: unknown): Record<string, any> {
+  if (!value) return {}
+  if (typeof value === 'object') return value as Record<string, any>
+  try {
+    const parsed = JSON.parse(String(value))
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, any> : {}
+  } catch {
+    return {}
+  }
+}
+
+function printVitalDisplay(source: Record<string, any>, keys: string[], unit = '') {
+  const value = readFirst(source, ...keys)
+  if (value === undefined) return ''
+  return `${value}${unit ? ` ${unit}` : ''}`
+}
+
+function printVitalBmiDisplay(source: Record<string, any>) {
+  const weight = Number(readFirst(source, 'weight', 'Weight'))
+  const height = Number(readFirst(source, 'height', 'Height'))
+  if (!Number.isFinite(weight) || !Number.isFinite(height) || weight <= 0 || height <= 0) return ''
+  const heightMeters = height / 100
+  return `${(weight / (heightMeters * heightMeters)).toFixed(1)} kg/m²`
+}
+
+function printPatientCode(record?: Row | Record<string, any> | null) {
+  return objectValue(printPatient.value, 'patientCode', 'PatientCode', 'patientIdCode', 'PatientIdCode', 'id', 'Id')
+    || objectValue(record, 'patientId')
+    || objectValue(record?.raw, 'patientCode', 'PatientCode', 'patientIdCode', 'PatientIdCode')
+    || 'Chưa có thông tin'
+}
+
+function printPatientName(record?: Row | Record<string, any> | null) {
+  return objectValue(printPatient.value, 'fullName', 'FullName', 'name', 'Name') || doctorRecordPatientName(record)
+}
+
+function printPatientDateOfBirth() {
+  return objectValue(printPatient.value, 'dateOfBirth', 'DateOfBirth') as string | undefined
+}
+
+function printPatientGender() {
+  return objectValue(printPatient.value, 'gender', 'Gender') as string | undefined
+}
+
+function printPatientPhone() {
+  return objectValue(printPatient.value, 'phoneNumber', 'PhoneNumber', 'phone', 'Phone') || 'Chưa có thông tin'
+}
+
+function printPatientEmail() {
+  return objectValue(printPatient.value, 'email', 'Email') || 'Chưa có thông tin'
+}
+
+function printPatientCitizenId() {
+  return objectValue(printPatient.value, 'citizenId', 'CitizenId') || 'Chưa có thông tin'
+}
+
+function printPatientBloodType() {
+  return objectValue(printPatient.value, 'bloodType', 'BloodType') || 'Chưa có thông tin'
+}
+
+function printPatientAddress() {
+  return objectValue(printPatient.value, 'address', 'Address') || 'Chưa có thông tin'
+}
+
+function printPatientMedicalHistory() {
+  return objectValue(printPatient.value, 'medicalHistory', 'MedicalHistory') || 'Chưa ghi nhận'
+}
+
+function printPatientAllergy() {
+  return objectValue(printPatient.value, 'allergyNote', 'AllergyNote', 'allergies', 'Allergies') || 'Chưa ghi nhận'
+}
+
+function printGenderLabel(value?: string) {
+  const normalized = normalize(value)
+  if (normalized === 'male' || normalized === 'nam') return 'Nam'
+  if (normalized === 'female' || normalized === 'nu') return 'Nữ'
+  return value || 'Chưa cập nhật'
+}
+
+function printAppointmentId(record?: Row | Record<string, any> | null) {
+  return objectValue(printAppointment.value, 'appointmentId', 'AppointmentId')
+    || objectValue(printVisit.value, 'appointmentId', 'AppointmentId')
+    || objectValue(record, 'appointmentId')
+    || 'Chưa có thông tin'
+}
+
+function printAppointmentTimeLabel(record?: Row | Record<string, any> | null) {
+  const scheduledAt = objectValue(printAppointment.value, 'scheduledAt', 'ScheduledAt')
+    || objectValue(printVisit.value, 'visitDate', 'VisitDate', 'createdAt', 'CreatedAt')
+    || objectValue(record?.raw, 'examDate', 'ExamDate', 'createdAt', 'CreatedAt')
+    || objectValue(record, 'date')
+  if (scheduledAt) return formatDateTime(scheduledAt as string)
+  const appointmentDate = objectValue(printAppointment.value, 'appointmentDate', 'AppointmentDate')
+  if (!appointmentDate) return 'Chưa có thông tin'
+  return `${formatDate(appointmentDate as string)} · ${objectValue(printAppointment.value, 'slotTime', 'SlotTime') || '--:--'}`
+}
+
+function printAppointmentSpecialty(record?: Row | Record<string, any> | null) {
+  return objectValue(printAppointment.value, 'specialtyName', 'SpecialtyName', 'specialtyNameSnapshot', 'SpecialtyNameSnapshot')
+    || objectValue(record?.raw, 'specialtyName', 'SpecialtyName', 'specialtyNameSnapshot', 'SpecialtyNameSnapshot')
+    || 'Chưa có thông tin'
+}
+
+function printQueueNumber(record?: Row | Record<string, any> | null) {
+  return objectValue(printAppointment.value, 'queueNumber', 'QueueNumber')
+    || objectValue(record?.raw, 'queueNumber', 'QueueNumber')
+    || 'Chưa có thông tin'
+}
+
+function printChiefComplaint(record?: Row | Record<string, any> | null) {
+  return objectValue(printAppointment.value, 'reason', 'Reason')
+    || objectValue(printVisit.value, 'chiefComplaint', 'ChiefComplaint')
+    || objectValue(record, 'chiefComplaint', 'reason')
+    || 'Chưa ghi nhận'
+}
+
+function printVisitId(record?: Row | Record<string, any> | null) {
+  return objectValue(record, 'visitId')
+    || objectValue(record?.raw, 'visitId', 'VisitId')
+    || objectValue(printVisit.value, 'visitId', 'VisitId', 'id', 'Id')
+    || 'Chưa có thông tin'
+}
+
+function printDoctorName(record?: Row | Record<string, any> | null) {
+  return objectValue(record, 'doctorName')
+    || objectValue(printVisit.value, 'doctorName', 'DoctorName')
+    || objectValue(printAppointment.value, 'doctorNameSnapshot', 'DoctorNameSnapshot', 'doctorName', 'DoctorName')
+    || doctorName.value
+}
+
+function printRecordCreatedAt(record?: Row | Record<string, any> | null) {
+  return objectValue(record?.raw, 'createdAt', 'CreatedAt') || objectValue(record, 'date') as string | undefined
+}
+
+function printRecordUpdatedAt(record?: Row | Record<string, any> | null) {
+  return objectValue(record?.raw, 'updatedAt', 'UpdatedAt', 'createdAt', 'CreatedAt') || objectValue(record, 'date') as string | undefined
+}
+
+function printRecordCompletedAt(record?: Row | Record<string, any> | null) {
+  return objectValue(record?.raw, 'completedAt', 'CompletedAt') || objectValue(printVisit.value, 'completedAt', 'CompletedAt') as string | undefined
+}
+
+function printSymptoms(record?: Row | Record<string, any> | null) {
+  return objectValue(record, 'symptoms')
+    || objectValue(printVisit.value, 'symptoms', 'Symptoms')
+    || objectValue(record?.raw, 'symptoms', 'Symptoms')
+    || 'Chưa ghi nhận'
+}
+
+function printDoctorNote(record?: Row | Record<string, any> | null) {
+  return objectValue(record, 'note')
+    || objectValue(record?.raw, 'doctorNote', 'DoctorNote', 'doctorNotes', 'DoctorNotes')
+    || 'Chưa có ghi chú'
+}
+
+function printTreatmentPlan(record?: Row | Record<string, any> | null) {
+  return objectValue(record?.raw, 'treatmentPlan', 'TreatmentPlan') || 'Chưa có kế hoạch điều trị'
+}
+
+function printClinicalOrderKey(order: Record<string, any>) {
+  return String(objectValue(order, 'clinicalOrderId', 'ClinicalOrderId', 'id', 'Id', 'clinicalOrderCode', 'ClinicalOrderCode') || JSON.stringify(order))
+}
+
+function printClinicalOrderName(order: Record<string, any>) {
+  return String(objectValue(order, 'orderName', 'OrderName', 'name', 'Name') || 'Chưa cập nhật')
+}
+
+function printClinicalOrderType(order: Record<string, any>) {
+  return String(objectValue(order, 'clinicalOrderCode', 'ClinicalOrderCode', 'orderType', 'OrderType') || '')
+}
+
+function printClinicalOrderResult(order: Record<string, any>) {
+  const resultText = String(objectValue(order, 'resultText', 'ResultText') || '').trim()
+  if (resultText) return resultText
+  const value = String(objectValue(order, 'resultValue', 'ResultValue') || '').trim()
+  const unit = String(objectValue(order, 'resultUnit', 'ResultUnit') || '').trim()
+  return [value, unit].filter(Boolean).join(' ') || 'Chưa có kết quả'
+}
+
+function printClinicalOrderConclusion(order: Record<string, any>) {
+  return objectValue(order, 'conclusion', 'Conclusion') || 'Chưa có kết luận'
+}
+
+function printClinicalOrderStatus(order: Record<string, any>) {
+  return String(objectValue(order, 'status', 'Status') || '')
+}
+
+function printPrescriptionCode(prescription?: Record<string, any> | null) {
+  const code = objectValue(prescription, 'prescriptionCode', 'PrescriptionCode', 'prescriptionIdCode', 'PrescriptionIdCode', 'code', 'Code')
+  if (code) return String(code)
+  const id = Number(objectValue(prescription, 'prescriptionId', 'PrescriptionId', 'id', 'Id'))
+  return Number.isFinite(id) && id > 0 ? `DT${String(id).padStart(3, '0')}` : 'Chưa cập nhật'
+}
+
+function printPrescriptionCreatedAt(prescription?: Record<string, any> | null) {
+  return objectValue(prescription, 'createdAt', 'CreatedAt', 'submittedAt', 'SubmittedAt') as string | undefined
+}
+
+function printPrescriptionStatus(prescription?: Record<string, any> | null) {
+  return String(objectValue(prescription, 'status', 'Status') || '')
+}
+
+function printPrescriptionItems(prescription?: Record<string, any> | null) {
+  const items = objectValue(prescription, 'items', 'Items', 'prescriptionItems', 'PrescriptionItems')
+  return Array.isArray(items) ? items as Record<string, any>[] : []
+}
+
+function printPrescriptionItemKey(item: Record<string, any>, index: number) {
+  return String(objectValue(item, 'id', 'Id', 'prescriptionItemId', 'PrescriptionItemId') || index)
+}
+
+function printPrescriptionItemMedicineName(item: Record<string, any>) {
+  return String(objectValue(item, 'medicineNameSnapshot', 'MedicineNameSnapshot', 'medicineName', 'MedicineName') || 'Chưa cập nhật')
+}
+
+function printPrescriptionItemQuantity(item: Record<string, any>) {
+  const quantity = objectValue(item, 'quantity', 'Quantity') || '-'
+  const unit = String(objectValue(item, 'unitSnapshot', 'UnitSnapshot', 'unit', 'Unit') || '').trim()
+  return [quantity, unit].filter(Boolean).join(' ')
+}
+
+function printPrescriptionItemDosage(item: Record<string, any>) {
+  const dosage = String(objectValue(item, 'dosage', 'Dosage') || '').trim()
+  const frequency = String(objectValue(item, 'frequency', 'Frequency') || '').trim()
+  return [dosage, frequency].filter(Boolean).join(' · ') || 'Chưa cập nhật'
+}
+
+function printPrescriptionItemDuration(item: Record<string, any>) {
+  const days = Number(objectValue(item, 'durationDays', 'DurationDays'))
+  return Number.isFinite(days) && days > 0 ? `${days} ngày` : 'Chưa cập nhật'
+}
+
+function printPrescriptionItemInstruction(item: Record<string, any>) {
+  return String(objectValue(item, 'usageInstruction', 'UsageInstruction', 'note', 'Note') || '').trim() || 'Theo dặn dò của bác sĩ'
+}
+
+function printPrescriptionNote(prescription?: Record<string, any> | null) {
+  return String(objectValue(prescription, 'note', 'Note') || '').trim()
+}
+
+function escapeExcelCell(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
 function detailText(value: unknown) {
   const textValue = String(value ?? '').trim()
   return textValue || 'Chưa cập nhật'
@@ -2214,6 +3313,61 @@ const EmptyState = defineComponent({
       h(SearchX, { class: 'mx-auto h-10 w-10 text-slate-300' }),
       h('h2', { class: 'mt-4 text-lg font-bold text-slate-950' }, props.title),
       h('p', { class: 'mt-2 text-sm text-slate-500' }, props.text),
+    ])
+  },
+})
+
+const DoctorRecordSection = defineComponent({
+  props: { title: { type: String, required: true } },
+  setup(props, { slots }) {
+    return () => h('div', { class: 'space-y-2' }, [
+      h('h3', { class: 'text-xs font-bold uppercase tracking-wider text-slate-400' }, props.title),
+      slots.default?.(),
+    ])
+  },
+})
+
+const DoctorRecordInfo = defineComponent({
+  props: {
+    label: { type: String, required: true },
+    value: { type: [String, Number], default: '' },
+    mono: Boolean,
+  },
+  setup(props) {
+    return () => h('div', { class: 'rounded-xl border border-slate-100 bg-slate-50 p-3' }, [
+      h('span', { class: 'text-xs font-semibold text-slate-400' }, props.label),
+      h('p', {
+        class: [
+          'mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-bold text-slate-800',
+          props.mono ? 'font-mono' : '',
+        ],
+        title: displayOrEmpty(props.value),
+      }, displayOrEmpty(props.value)),
+    ])
+  },
+})
+
+const DoctorRecordTimelineItem = defineComponent({
+  props: {
+    tone: { type: String as PropType<'blue' | 'amber' | 'emerald' | 'indigo'>, required: true },
+    title: { type: String, required: true },
+    time: { type: String, required: true },
+  },
+  setup(props) {
+    const toneClass = computed(() => {
+      if (props.tone === 'amber') return 'bg-amber-100 text-amber-700 [&>span]:bg-amber-600'
+      if (props.tone === 'emerald') return 'bg-emerald-100 text-emerald-700 [&>span]:bg-emerald-600'
+      if (props.tone === 'indigo') return 'bg-indigo-100 text-indigo-700 [&>span]:bg-indigo-600'
+      return 'bg-blue-100 text-blue-700 [&>span]:bg-blue-600'
+    })
+    return () => h('div', { class: 'relative' }, [
+      h('span', { class: ['absolute -left-[41px] top-0.5 flex h-6 w-6 items-center justify-center rounded-full ring-4 ring-white', toneClass.value] }, [
+        h('span', { class: 'h-2.5 w-2.5 rounded-full' }),
+      ]),
+      h('div', null, [
+        h('h4', { class: 'text-sm font-bold text-slate-900' }, props.title),
+        h('p', { class: 'mt-1 text-xs text-slate-500' }, props.time),
+      ]),
     ])
   },
 })
@@ -2714,6 +3868,337 @@ function sectionBlock(title: string, rows: [string, any][]) {
   @apply space-y-4;
 }
 
+.doctor-records-page {
+  @apply space-y-6;
+}
+
+.doctor-records-header {
+  @apply flex flex-col gap-4 px-1 sm:flex-row sm:items-start sm:justify-between;
+}
+
+.doctor-records-header h1 {
+  @apply text-[1.75rem] font-bold tracking-normal text-slate-950;
+}
+
+.doctor-records-header p {
+  @apply mt-1.5 max-w-3xl text-[13px] font-medium leading-5 text-slate-500;
+}
+
+.doctor-records-header-actions {
+  @apply flex flex-wrap gap-2;
+}
+
+.doctor-records-stats {
+  @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4;
+}
+
+.doctor-record-stat-card {
+  @apply flex min-h-[140px] flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition;
+}
+
+.doctor-record-stat-card > div > span:first-child {
+  @apply text-sm font-bold text-slate-700;
+}
+
+.doctor-record-stat-card p {
+  @apply mt-4 text-3xl font-extrabold tracking-tight text-slate-900;
+}
+
+.doctor-record-stat-card small {
+  @apply mt-1 block text-xs font-medium text-slate-500;
+}
+
+.doctor-record-stat-icon {
+  @apply flex h-10 w-10 items-center justify-center rounded-xl;
+}
+
+.doctor-record-stat-card.is-total {
+  @apply hover:border-blue-200 hover:shadow-[0_12px_24px_rgba(15,82,186,0.06)];
+}
+
+.doctor-record-stat-card.is-total .doctor-record-stat-icon {
+  @apply bg-blue-50 text-blue-600;
+}
+
+.doctor-record-stat-card.is-completed {
+  @apply hover:border-emerald-200 hover:shadow-[0_12px_24px_rgba(16,185,129,0.06)];
+}
+
+.doctor-record-stat-card.is-completed .doctor-record-stat-icon {
+  @apply bg-emerald-50 text-emerald-600;
+}
+
+.doctor-record-stat-card.is-draft {
+  @apply hover:border-amber-200 hover:shadow-[0_12px_24px_rgba(245,158,11,0.06)];
+}
+
+.doctor-record-stat-card.is-draft .doctor-record-stat-icon {
+  @apply bg-amber-50 text-amber-600;
+}
+
+.doctor-record-stat-card.is-follow {
+  @apply hover:border-indigo-200 hover:shadow-[0_12px_24px_rgba(99,102,241,0.06)];
+}
+
+.doctor-record-stat-card.is-follow .doctor-record-stat-icon {
+  @apply bg-indigo-50 text-indigo-600;
+}
+
+.doctor-record-table-shell {
+  overflow: hidden;
+  border: 1px solid #e5eaf1;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgb(15 23 42 / 0.035);
+}
+
+.doctor-record-filter {
+  width: 260px;
+  padding: 12px;
+}
+
+.doctor-record-filter-title {
+  color: #475569;
+  font-size: 12px;
+  font-weight: 650;
+  margin: 0 0 8px;
+}
+
+.doctor-record-filter-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.doctor-record-filter-reset {
+  border-color: #e2e8f0;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.doctor-record-filter-submit {
+  background: #0F52BA;
+  border-color: #0F52BA;
+  font-weight: 500;
+}
+
+.doctor-record-follow-tag,
+.doctor-record-status-tag {
+  align-items: center;
+  border: 0 !important;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  margin: 0;
+  padding: 2px 9px;
+}
+
+.doctor-record-follow-tag {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.doctor-record-follow-tag :deep(svg) {
+  display: none;
+}
+
+.doctor-record-actions {
+  display: inline-flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.doctor-record-action-button {
+  align-items: center;
+  border-radius: 7px;
+  display: inline-flex;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.doctor-record-action-primary {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #4338ca;
+}
+
+.doctor-record-action-primary:hover {
+  background: #e0e7ff;
+  border-color: #a5b4fc;
+  color: #3730a3;
+  transform: translateY(-1px);
+}
+
+.doctor-record-action-muted {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #b45309;
+}
+
+.doctor-record-action-muted:hover {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+  transform: translateY(-1px);
+}
+
+.doctor-record-action-button:focus-visible {
+  outline: 2px solid #bfdbfe;
+  outline-offset: 2px;
+}
+
+.doctor-record-table-shell :deep(.ant-table) {
+  color: #334155;
+  font-size: 13px;
+}
+
+.doctor-record-table-shell :deep(.ant-table-container),
+.doctor-record-table-shell :deep(.ant-table-content) {
+  overflow-x: hidden !important;
+}
+
+.doctor-record-table-shell :deep(.ant-table table) {
+  width: 100% !important;
+  table-layout: fixed !important;
+}
+
+.doctor-record-table-shell :deep(.ant-table-thead > tr > th) {
+  height: 44px;
+  background: #f9fbfd;
+  border-bottom: 1px solid #e8edf3;
+  color: #64748b;
+  font-size: 11.5px;
+  font-weight: 650;
+  padding-block: 10px;
+  padding-inline: 12px;
+}
+
+.doctor-record-table-shell :deep(.ant-table-tbody > tr > td) {
+  height: 52px;
+  border-bottom-color: #eef2f7;
+  padding-block: 11px;
+  padding-inline: 12px;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.doctor-record-table-shell :deep(.ant-table-tbody > tr:last-child > td) {
+  border-bottom: 0;
+}
+
+.doctor-record-table-shell :deep(.ant-table-tbody > tr:hover > td) {
+  background: #f7faff;
+}
+
+.doctor-record-table-shell :deep(.ant-table-tbody > tr > td.ant-table-cell-fix-right),
+.doctor-record-table-shell :deep(.ant-table-thead > tr > th.ant-table-cell-fix-right) {
+  background: #ffffff;
+}
+
+.doctor-record-table-shell :deep(.ant-table-tbody > tr:hover > .ant-table-cell-fix-right) {
+  background: #f7faff;
+}
+
+.doctor-record-table-shell :deep(.ant-pagination) {
+  min-height: 58px;
+  border-top: 1px solid #eef2f7;
+  background: #fbfcfe;
+  gap: 4px;
+  margin: 0;
+  padding: 13px 16px;
+}
+
+.doctor-record-table-shell :deep(.ant-table-cell-fix-right-first::after) {
+  box-shadow: inset -8px 0 8px -8px rgb(15 23 42 / 0.16);
+}
+
+.doctor-record-table-shell :deep(.ant-table-column-sorter),
+.doctor-record-table-shell :deep(.ant-table-filter-trigger) {
+  color: #94a3b8;
+  opacity: 0.45;
+  transition: color 160ms ease, opacity 160ms ease;
+}
+
+.doctor-record-table-shell :deep(th:hover .ant-table-column-sorter),
+.doctor-record-table-shell :deep(th:hover .ant-table-filter-trigger),
+.doctor-record-table-shell :deep(.ant-table-filter-trigger.active) {
+  opacity: 1;
+}
+
+.doctor-record-table-shell :deep(.ant-table-filter-trigger:hover),
+.doctor-record-table-shell :deep(.ant-table-filter-trigger.active),
+.doctor-record-table-shell :deep(.ant-table-column-sorter-up.active),
+.doctor-record-table-shell :deep(.ant-table-column-sorter-down.active) {
+  color: #0f52ba;
+}
+
+.doctor-record-table-shell :deep(.ant-pagination-total-text) {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 30px;
+  margin-right: auto;
+}
+
+.doctor-record-table-shell :deep(.ant-pagination-item),
+.doctor-record-table-shell :deep(.ant-pagination-prev .ant-pagination-item-link),
+.doctor-record-table-shell :deep(.ant-pagination-next .ant-pagination-item-link) {
+  min-width: 30px;
+  height: 30px;
+  margin-inline-end: 0;
+  border-color: transparent;
+  border-radius: 8px;
+  background: transparent;
+  line-height: 28px;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.doctor-record-table-shell :deep(.ant-pagination-item:hover),
+.doctor-record-table-shell :deep(.ant-pagination-prev:not(.ant-pagination-disabled) .ant-pagination-item-link:hover),
+.doctor-record-table-shell :deep(.ant-pagination-next:not(.ant-pagination-disabled) .ant-pagination-item-link:hover) {
+  background: #eaf2ff;
+  border-color: transparent;
+  color: #0f52ba;
+}
+
+.doctor-record-table-shell :deep(.ant-pagination-item-active) {
+  background: #0f52ba;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgb(15 82 186 / 0.2);
+}
+
+.doctor-record-table-shell :deep(.ant-pagination-item-active:hover) {
+  background: #003c90;
+  border-color: transparent;
+}
+
+.doctor-record-table-shell :deep(.ant-pagination-item-active a),
+.doctor-record-table-shell :deep(.ant-pagination-item-active:hover a),
+.doctor-record-table-shell :deep(.ant-pagination-item-active:focus a) {
+  color: #ffffff;
+}
+
+.doctor-record-table-shell :deep(.ant-pagination-options) {
+  margin-inline-start: 8px;
+}
+
+.doctor-record-table-shell :deep(.ant-pagination-options .ant-select-selector) {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  border-radius: 8px;
+  box-shadow: none;
+  font-size: 12px;
+  height: 30px;
+}
+
+.doctor-record-table-shell :deep(.ant-pagination-options .ant-select-selection-item) {
+  line-height: 28px;
+}
+
 .schedule-page-header {
   @apply rounded-xl border border-slate-200 bg-white p-4 shadow-sm;
 }
@@ -2899,5 +4384,71 @@ function sectionBlock(title: string, rows: [string, any][]) {
 
 .pager-btn {
   @apply h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50;
+}
+</style>
+
+<style>
+.print-area {
+  display: none !important;
+}
+
+@media print {
+  html,
+  body {
+    background: white !important;
+    color: #0f172a !important;
+    font-family: Arial, "Helvetica Neue", sans-serif !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible !important;
+  }
+
+  .print-area {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .print-container {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 11px !important;
+    line-height: 1.45 !important;
+  }
+
+  .print-container h1,
+  .print-container h2 {
+    letter-spacing: 0 !important;
+  }
+
+  .print-container h2 {
+    color: #0f4c9a !important;
+  }
+
+  .print-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  @page {
+    size: A4;
+    margin: 12mm 14mm 14mm;
+  }
 }
 </style>
