@@ -1617,8 +1617,12 @@ async function loadRecordRows() {
 }
 
 async function loadScheduleRows() {
-  const data = await appointmentApi.getDoctorSchedulesByDoctor(doctorId.value)
-  return filterSchedulesForDoctor(data, authStore.user).map(mapSchedule)
+  const [data, doctor] = await Promise.all([
+    appointmentApi.getDoctorSchedulesByDoctor(doctorId.value),
+    appointmentApi.getDoctor(doctorId.value).catch(() => null as Doctor | null),
+  ])
+  const room = doctorRoom(doctor)
+  return filterSchedulesForDoctor(data, authStore.user).map((schedule) => mapSchedule({ ...schedule, roomNumber: schedule.roomNumber || room }))
 }
 
 function resetFilters(reload = true) {
@@ -2446,7 +2450,7 @@ function mapSchedule(item: DoctorSchedule & Record<string, any>): Row {
     timeRange: `${startTime} - ${endTime}`,
     slotDurationMinutes: duration,
     slotInfo: `${duration} phút/slot`,
-    room: item.roomName || item.roomNumber || item.room || 'Chưa cập nhật',
+    room: roomDisplay(item.roomName || item.RoomName || item.roomNumber || item.RoomNumber || item.room || item.Room),
     isAvailable,
     status: isAvailable ? 'Còn nhận lịch' : 'Đã kín lịch',
     raw: item,
@@ -2663,6 +2667,12 @@ function medicinePrice(medicineIdValue: number) {
 
 function doctorRoom(doctor?: (Doctor & Record<string, any>) | null) {
   return meaningful(doctor?.roomNumber || doctor?.RoomNumber || doctor?.roomName || doctor?.RoomName || doctor?.room || doctor?.Room)
+}
+
+function roomDisplay(value: unknown) {
+  const room = meaningful(value)
+  if (!room) return 'Chưa cập nhật'
+  return normalize(room).startsWith('phong') ? room : `Phòng ${room}`
 }
 
 function visitRoom(row?: Row | null) {
