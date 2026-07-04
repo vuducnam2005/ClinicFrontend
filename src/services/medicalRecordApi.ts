@@ -243,6 +243,17 @@ function enrichRecordPatient(record: MedicalRecord, patient?: Patient): MedicalR
   }
 }
 
+function enrichVisitPatient(visit: MedicalVisit, patient?: Patient): MedicalVisit {
+  if (!patient) return visit
+  return {
+    ...visit,
+    patientId: visit.patientId || toPositiveNumber(patient.patientId) || toPositiveNumber(patient.id),
+    patientCode: visit.patientCode || patient.patientCode || patient.patientIdCode,
+    patientIdCode: visit.patientIdCode || patient.patientIdCode || patient.patientCode,
+    patientName: visit.patientName || patient.fullName,
+  }
+}
+
 function patientKeys(patient: Partial<Patient> & Record<string, any>) {
   const numericKeys = [
     patient.patientId,
@@ -298,6 +309,12 @@ function appointmentDateTime(payload: Record<string, any>) {
   const date = String(payload.appointmentDate || payload.scheduledAt || '').slice(0, 10)
   const time = String(payload.slotTime || '00:00').slice(0, 5)
   return date ? `${date}T${time}:00` : new Date().toISOString()
+}
+
+function recordTime(value?: string) {
+  if (!value) return 0
+  const time = new Date(value).getTime()
+  return Number.isNaN(time) ? 0 : time
 }
 
 function eventBase(prefix: string, type: string) {
@@ -383,6 +400,33 @@ export const medicalRecordApi = {
         enrichRecordPatient(record, sourcePatient || patientByKey.get(String(record.patientId || record.patientCode || record.patientIdCode || ''))),
       )
     })
+  },
+  async getVisits(doctorId?: number): Promise<MedicalVisit[]> {
+    const patients = await this.getPatients({ pageSize: 100 })
+    const patientIds = Array.from(new Set(patients.flatMap(patientKeys).filter(Boolean)))
+    const histories = await Promise.allSettled(patientIds.map((id) => this.getPatientHistory(id)))
+    const patientByKey = new Map<string, Patient>()
+    patients.forEach((patient) => {
+      patientKeys(patient).forEach((key) => patientByKey.set(key, patient))
+      if (patient.patientCode) patientByKey.set(String(patient.patientCode), patient)
+      if (patient.patientIdCode) patientByKey.set(String(patient.patientIdCode), patient)
+    })
+
+    const visits = histories.flatMap((result, index) => {
+      if (result.status !== 'fulfilled') return []
+      const sourcePatient = result.value.patient || patientByKey.get(patientIds[index]) || patients[index]
+      return result.value.visits.map((visit) =>
+        enrichVisitPatient(visit, sourcePatient || patientByKey.get(String(visit.patientId || visit.patientCode || visit.patientIdCode || ''))),
+      )
+    })
+    const uniqueVisits = new Map<number | string, MedicalVisit>()
+    for (const visit of visits) {
+      if (doctorId && Number(visit.doctorId) !== Number(doctorId)) continue
+      const key = visit.visitId || visit.id || `${visit.patientId}-${visit.visitDate || visit.createdAt || ''}`
+      if (key && !uniqueVisits.has(key)) uniqueVisits.set(key, visit)
+    }
+    return Array.from(uniqueVisits.values())
+      .sort((left, right) => recordTime(right.visitDate || right.createdAt) - recordTime(left.visitDate || left.createdAt))
   },
   async getVisitsToday(doctorId?: number) {
     const response = await client.get('/api/v1/medical/visits/today', { params: doctorId ? { doctorId } : undefined })

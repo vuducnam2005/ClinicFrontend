@@ -25,7 +25,6 @@
       <header class="schedule-page-header">
         <div class="schedule-title-row">
           <div>
-            <p class="schedule-page-kicker">Lịch trực cá nhân</p>
             <h1>Lịch làm việc</h1>
             <p>Theo dõi ca trực, phòng khám và trạng thái nhận lịch trong tuần.</p>
           </div>
@@ -42,7 +41,9 @@
             </button>
           </div>
         </div>
+      </header>
 
+      <section class="schedule-controls-card">
         <div class="schedule-header-controls">
           <div class="schedule-toolbar-main">
             <span class="relative block">
@@ -89,10 +90,62 @@
             <strong>{{ scheduleTotalHours }}</strong>
           </div>
         </div>
+      </section>
+
+      <section class="schedule-calendar-shell">
+        <div v-if="loading" class="schedule-loading">
+          <LoadingSkeleton v-for="item in 7" :key="item" />
+        </div>
+
+        <div v-else class="schedule-week-grid">
+          <article
+            v-for="day in scheduleWeekDays"
+            :key="day.iso"
+            :class="['schedule-day-column', day.isToday ? 'is-today' : '']"
+          >
+            <header class="schedule-day-header">
+              <span>{{ day.weekday }}</span>
+              <strong>{{ day.dayNumber }}</strong>
+              <em>{{ day.monthLabel }}</em>
+            </header>
+
+            <div class="schedule-day-body">
+              <button
+                v-for="shift in day.items"
+                :key="shift.key"
+                type="button"
+                class="schedule-shift-card"
+                @click="runAction('view', shift)"
+              >
+                <span :class="['schedule-shift-dot', shift.isAvailable === false ? 'is-full' : 'is-open']"></span>
+                <span class="schedule-shift-time">{{ shift.timeRange }}</span>
+                <span class="schedule-shift-room">{{ shift.room }}</span>
+                <span class="schedule-shift-meta">{{ shift.slotInfo }}</span>
+                <span :class="['schedule-shift-status', shift.isAvailable === false ? 'is-full' : 'is-open']">
+                  {{ shift.status }}
+                </span>
+              </button>
+
+              <div v-if="!day.items.length" class="schedule-empty-day">
+                <CalendarClock class="h-4 w-4" />
+                <span>Không có ca trực</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="!isExamDetailMode && (resource === 'appointments' || resource === 'examine')" class="doctor-queue-page">
+      <header class="doctor-queue-page-header">
+        <div>
+          <h1>{{ config.title }}</h1>
+          <span>{{ config.description }}</span>
+        </div>
       </header>
     </div>
 
-    <div v-if="!isExamDetailMode && resource !== 'schedule' && resource !== 'records' && resource !== 'queue'" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div v-if="!isExamDetailMode && resource !== 'schedule' && resource !== 'records' && resource !== 'queue' && resource !== 'appointments' && resource !== 'examine'" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">{{ config.kicker }}</p>
@@ -125,7 +178,7 @@
       <MetricCard v-for="metric in metrics" :key="metric.label" :metric="metric" />
     </div>
 
-    <div v-if="!isExamDetailMode && resource !== 'schedule' && resource !== 'records' && resource !== 'queue'" class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div v-if="!isExamDetailMode && resource !== 'schedule' && resource !== 'records' && resource !== 'queue' && resource !== 'appointments' && resource !== 'examine'" class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <div class="grid gap-3 xl:grid-cols-[1.4fr_180px_180px_180px_180px_auto] xl:items-end">
         <label class="block">
           <span class="mb-2 block text-sm font-semibold text-slate-700">Tìm kiếm</span>
@@ -157,6 +210,155 @@
     <div v-if="error" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
       {{ error }}
       <button type="button" class="ml-2 font-bold text-blue-700 underline" @click="loadData">Thử lại</button>
+    </div>
+
+    <div v-if="resource === 'appointments'" class="doctor-record-table-shell">
+      <ATable
+        :columns="doctorAppointmentTableColumns"
+        :data-source="filteredRows"
+        :pagination="doctorAppointmentPagination"
+        :row-key="doctorAppointmentIdentity"
+        size="middle"
+        table-layout="fixed"
+        @change="handleDoctorAppointmentTableChange"
+      >
+        <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+          <div class="doctor-record-filter">
+            <p class="doctor-record-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+            <AInput
+              :value="selectedKeys[0]"
+              :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+              allow-clear
+              autofocus
+              @change="setSelectedKeys(getDoctorAppointmentFilterKeys($event))"
+              @press-enter="confirm()"
+            >
+              <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+            </AInput>
+            <div class="doctor-record-filter-actions">
+              <AButton size="small" class="doctor-record-filter-reset" @click="clearDoctorAppointmentFilter(clearFilters, confirm)">Đặt lại</AButton>
+              <AButton type="primary" size="small" class="doctor-record-filter-submit" @click="confirm()">Áp dụng</AButton>
+            </div>
+          </div>
+        </template>
+        <template #customFilterIcon="{ filtered, column }">
+          <CheckSquare v-if="column.key === 'status'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+        </template>
+        <template #emptyText>
+          <div class="py-8 text-center">
+            <CalendarClock class="mx-auto h-9 w-9 text-slate-300" />
+            <p class="mt-3 font-bold text-slate-800">Không có lịch hẹn phù hợp</p>
+            <p class="mt-1 text-sm text-slate-500">Thử đổi bộ lọc trong từng cột hoặc kiểm tra lịch hẹn sắp tới.</p>
+          </div>
+        </template>
+          <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'appointmentNo'">
+            <span class="font-mono text-xs font-semibold text-[#0F52BA]">{{ doctorAppointmentCode(record) }}</span>
+          </template>
+          <template v-else-if="column.key === 'patientName'">
+            <div class="min-w-0">
+              <p class="truncate text-[13px] font-bold text-slate-900" :title="record.patientName">{{ record.patientName }}</p>
+              <p class="mt-0.5 text-[11px] font-semibold text-slate-400">BN {{ record.patientId || 'Chưa cập nhật' }}</p>
+            </div>
+          </template>
+          <template v-else-if="column.key === 'timeLabel'">
+            <div class="flex items-center gap-2 whitespace-nowrap">
+              <CalendarClock class="h-3.5 w-3.5 text-slate-400" />
+              <span class="text-[13px] font-medium text-slate-600">{{ record.timeLabel || 'Chưa cập nhật' }}</span>
+            </div>
+          </template>
+          <template v-else-if="column.key === 'reason'">
+            <span class="line-clamp-2 text-[13px] font-medium text-slate-700" :title="record.reason">{{ record.reason || 'Chưa ghi lý do' }}</span>
+          </template>
+          <template v-else-if="column.key === 'status'">
+            <ATag :bordered="false" :class="['doctor-record-status-tag', doctorRecordStatusClass(record.status)]">{{ statusText(record.status) }}</ATag>
+          </template>
+          <template v-else-if="column.key === 'actions'">
+            <div class="doctor-record-actions">
+              <button type="button" class="doctor-record-action-button doctor-record-action-primary" title="Xem chi tiết lịch hẹn" @click="runAppointmentAction('view', record)">
+                <Eye class="h-4 w-4" />
+              </button>
+            </div>
+          </template>
+        </template>
+      </ATable>
+    </div>
+
+    <div v-if="resource === 'examine' && !isExamDetailMode" class="doctor-record-table-shell">
+      <ATable
+        :columns="doctorExamineTableColumns"
+        :data-source="filteredRows"
+        :pagination="doctorExaminePagination"
+        :row-key="doctorExamineIdentity"
+        size="middle"
+        table-layout="fixed"
+        @change="handleDoctorExamineTableChange"
+      >
+        <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+          <div class="doctor-record-filter">
+            <p class="doctor-record-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+            <AInput
+              :value="selectedKeys[0]"
+              :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+              allow-clear
+              autofocus
+              @change="setSelectedKeys(getDoctorExamineFilterKeys($event))"
+              @press-enter="confirm()"
+            >
+              <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+            </AInput>
+            <div class="doctor-record-filter-actions">
+              <AButton size="small" class="doctor-record-filter-reset" @click="clearDoctorExamineFilter(clearFilters, confirm)">Đặt lại</AButton>
+              <AButton type="primary" size="small" class="doctor-record-filter-submit" @click="confirm()">Áp dụng</AButton>
+            </div>
+          </div>
+        </template>
+        <template #customFilterIcon="{ filtered, column }">
+          <CheckSquare v-if="column.key === 'status' || column.key === 'vitals'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+        </template>
+        <template #emptyText>
+          <div class="py-8 text-center">
+            <Stethoscope class="mx-auto h-9 w-9 text-slate-300" />
+            <p class="mt-3 font-bold text-slate-800">Không có lượt khám phù hợp</p>
+            <p class="mt-1 text-sm text-slate-500">Bệnh nhân sẽ xuất hiện sau khi y tá check-in và tạo lượt khám.</p>
+          </div>
+        </template>
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'visitNo'">
+            <span class="font-mono text-xs font-semibold text-[#0F52BA]">{{ doctorExamineCode(record) }}</span>
+          </template>
+          <template v-else-if="column.key === 'patientName'">
+            <div class="min-w-0">
+              <p class="truncate text-[13px] font-bold text-slate-900" :title="record.patientName">{{ record.patientName }}</p>
+              <p class="mt-0.5 text-[11px] font-semibold text-slate-400">BN {{ record.patientId || 'Chưa cập nhật' }}</p>
+            </div>
+          </template>
+          <template v-else-if="column.key === 'timeLabel'">
+            <div class="flex items-center gap-2 whitespace-nowrap">
+              <CalendarClock class="h-3.5 w-3.5 text-slate-400" />
+              <span class="text-[13px] font-medium text-slate-600">{{ record.timeLabel || 'Chưa cập nhật' }}</span>
+            </div>
+          </template>
+          <template v-else-if="column.key === 'reason'">
+            <span class="line-clamp-2 text-[13px] font-medium text-slate-700" :title="record.reason">{{ record.reason || 'Chưa ghi lý do' }}</span>
+          </template>
+          <template v-else-if="column.key === 'vitals'">
+            <ATag :bordered="false" :class="['doctor-queue-vital-tag', queueVitalClass(record)]">{{ queueVitalLabel(record) }}</ATag>
+          </template>
+          <template v-else-if="column.key === 'status'">
+            <ATag :bordered="false" :class="['doctor-record-status-tag', doctorRecordStatusClass(record.status)]">{{ statusText(record.status) }}</ATag>
+          </template>
+          <template v-else-if="column.key === 'actions'">
+            <div class="doctor-record-actions">
+              <button v-if="statusBucket(record.status) !== 'completed'" type="button" class="doctor-record-action-button doctor-record-action-primary" title="Mở khám & kê đơn" @click="runExamineAction('start', record)">
+                <Stethoscope class="h-4 w-4" />
+              </button>
+            </div>
+          </template>
+        </template>
+      </ATable>
     </div>
 
     <div v-if="resource === 'records'" class="doctor-records-page">
@@ -325,135 +527,25 @@
       />
     </div>
 
-    <div v-else-if="resource === 'examine'" class="grid gap-6 xl:grid-cols-[420px_1fr]">
-      <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div class="border-b border-slate-100 p-4">
-          <h2 class="font-bold text-slate-950">Bệnh nhân cần khám</h2>
-          <p class="mt-1 text-sm text-slate-500">Chọn một lượt khám đã check-in để ghi bệnh án và kê đơn.</p>
-        </div>
-        <div v-if="loading" class="space-y-3 p-4">
-          <LoadingSkeleton v-for="item in 4" :key="item" />
-        </div>
-        <div v-else-if="filteredRows.length" class="max-h-[720px] divide-y divide-slate-100 overflow-y-auto">
-          <button
-            v-for="row in filteredRows"
-            :key="row.key"
-            type="button"
-            :class="[
-              'block w-full p-4 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-blue-100',
-              selectedRow?.key === row.key ? 'bg-blue-50' : 'bg-white',
-            ]"
-            @click="selectVisit(row)"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <p class="truncate font-bold text-slate-950">{{ row.patientName }}</p>
-                <p class="mt-1 text-sm text-slate-500">{{ row.timeLabel }} · {{ row.reason }}</p>
-              </div>
-              <StatusChip :status="row.status" />
-            </div>
-          </button>
-        </div>
-        <EmptyState v-else title="Không có lượt khám phù hợp" text="Chưa có lượt khám hôm nay cho bác sĩ này hoặc bệnh nhân chưa được làm thủ tục tiếp nhận." />
-      </div>
-
-      <ExaminationWorkspace
-        :row="selectedRow"
-        :active-visit="activeVisit"
-        :active-record="activeRecord"
-        :active-patient="activePatient"
-        :clinical-orders="clinicalOrders"
-        :medicines="medicines"
-        :medicine-loading="medicineLoading"
-        :saving="savingExam"
-        :exam-form="examForm"
-        :vitals-form="vitalsForm"
-        :history-form="historyForm"
-        :order-form="orderForm"
-        :clinical-checklist="clinicalChecklist"
-        :prescription-items="prescriptionItems"
-        @start="startVisit"
-        @save-draft="saveDraft"
-        @save-vitals="saveVitals"
-        @save-record="saveMedicalRecord"
-        @add-order="addClinicalOrder"
-        @save-order-result="saveClinicalOrderResult"
-        @add-prescription-row="addPrescriptionRow"
-        @select-prescription-medicine="selectPrescriptionMedicine"
-        @toggle-medicine="toggleMedicine"
-        @remove-medicine="removeMedicine"
-        @submit="submitExamination"
-      />
-    </div>
-
-    <div v-else-if="resource === 'schedule'" class="doctor-schedule-page">
-      <section class="schedule-calendar-shell">
-        <div v-if="loading" class="schedule-loading">
-          <LoadingSkeleton v-for="item in 7" :key="item" />
-        </div>
-
-        <div v-else class="schedule-week-grid">
-          <article
-            v-for="day in scheduleWeekDays"
-            :key="day.iso"
-            :class="['schedule-day-column', day.isToday ? 'is-today' : '']"
-          >
-            <header class="schedule-day-header">
-              <span>{{ day.weekday }}</span>
-              <strong>{{ day.dayNumber }}</strong>
-              <em>{{ day.monthLabel }}</em>
-            </header>
-
-            <div class="schedule-day-body">
-              <button
-                v-for="shift in day.items"
-                :key="shift.key"
-                type="button"
-                class="schedule-shift-card"
-                @click="runAction('view', shift)"
-              >
-                <span :class="['schedule-shift-dot', shift.isAvailable === false ? 'is-full' : 'is-open']"></span>
-                <span class="schedule-shift-time">{{ shift.timeRange }}</span>
-                <span class="schedule-shift-room">{{ shift.room }}</span>
-                <span class="schedule-shift-meta">{{ shift.slotInfo }}</span>
-                <span :class="['schedule-shift-status', shift.isAvailable === false ? 'is-full' : 'is-open']">
-                  {{ shift.status }}
-                </span>
-              </button>
-
-              <div v-if="!day.items.length" class="schedule-empty-day">
-                <CalendarClock class="h-4 w-4" />
-                <span>Không có ca trực</span>
-              </div>
-            </div>
-          </article>
-        </div>
-      </section>
-    </div>
-
-    <div v-else-if="resource === 'queue'" class="doctor-record-table-shell">
-      <div class="doctor-queue-table-header">
+    <div v-else-if="resource === 'queue'" class="doctor-queue-page">
+      <header class="doctor-queue-page-header">
         <div>
-          <p>Hàng chờ</p>
-          <h2>Hàng đợi khám</h2>
+          <h1>{{ config.title }}</h1>
+          <span>{{ config.description }}</span>
         </div>
-        <div class="doctor-queue-table-actions">
-          <span>{{ filteredRows.length }} lượt chờ</span>
-          <button type="button" :disabled="loading" @click="loadData">
-            <RefreshCw class="h-4 w-4" />
-            Tải lại
-          </button>
-        </div>
-      </div>
-      <ATable
-        :columns="doctorQueueTableColumns"
-        :data-source="filteredRows"
-        :pagination="doctorQueuePagination"
-        :row-key="doctorQueueIdentity"
-        size="middle"
-        table-layout="fixed"
-        @change="handleDoctorQueueTableChange"
-      >
+        <strong>{{ filteredRows.length }} lượt chờ</strong>
+      </header>
+
+      <div class="doctor-record-table-shell">
+        <ATable
+          :columns="doctorQueueTableColumns"
+          :data-source="filteredRows"
+          :pagination="doctorQueuePagination"
+          :row-key="doctorQueueIdentity"
+          size="middle"
+          table-layout="fixed"
+          @change="handleDoctorQueueTableChange"
+        >
         <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
           <div class="doctor-record-filter">
             <p class="doctor-record-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
@@ -523,10 +615,11 @@
             </div>
           </template>
         </template>
-      </ATable>
+        </ATable>
+      </div>
     </div>
 
-    <div v-else class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <div v-else-if="resource !== 'schedule' && resource !== 'appointments' && resource !== 'examine'" class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div class="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 class="font-bold text-slate-950">{{ config.tableTitle }}</h2>
@@ -1105,6 +1198,10 @@ const printVisit = ref<Record<string, any> | null>(null)
 const printClinicalOrders = ref<Record<string, any>[]>([])
 const printPrescriptions = ref<Record<string, any>[]>([])
 const currentRecordTab = ref('overview')
+const doctorAppointmentCurrentPage = ref(1)
+const doctorAppointmentPageSize = ref(10)
+const doctorExamineCurrentPage = ref(1)
+const doctorExaminePageSize = ref(10)
 const doctorRecordCurrentPage = ref(1)
 const doctorRecordPageSize = ref(10)
 const doctorQueueCurrentPage = ref(1)
@@ -1389,7 +1486,7 @@ const configs: Record<Resource, Config> = {
     description: 'Theo dõi ca làm, thời gian bắt đầu-kết thúc và trạng thái nhận lịch của bác sĩ.',
     endpoint: 'GET /appointment/api/doctor-schedules/doctor/{doctorId}',
     searchPlaceholder: 'Tìm ngày, ca làm, phòng khám...',
-    tableTitle: 'Lịch làm việc cá nhân',
+    tableTitle: 'Danh sách ca trực',
     tableSubtitle: 'Dữ liệu lịch trực theo bác sĩ đang đăng nhập.',
     emptyTitle: 'Chưa có lịch làm việc',
     emptyText: 'Không tìm thấy lịch làm việc phù hợp với bộ lọc hiện tại.',
@@ -1493,6 +1590,154 @@ const doctorRecordTabs = [
   { key: 'treatment', label: 'Điều trị', icon: FilePenLine },
   { key: 'history', label: 'Lịch sử', icon: CalendarClock },
 ]
+
+const doctorAppointmentTableColumns = [
+  {
+    title: 'Mã lịch hẹn',
+    key: 'appointmentNo',
+    width: 126,
+    customFilterDropdown: true,
+    onFilter: doctorAppointmentColumnFilter('appointmentNo'),
+    sorter: (a: Row, b: Row) => appointmentNumericId(a) - appointmentNumericId(b),
+  },
+  {
+    title: 'Bệnh nhân',
+    key: 'patientName',
+    width: 190,
+    customFilterDropdown: true,
+    onFilter: doctorAppointmentColumnFilter('patientName'),
+    sorter: (a: Row, b: Row) => String(a.patientName || '').localeCompare(String(b.patientName || ''), 'vi'),
+  },
+  {
+    title: 'Ngày giờ',
+    key: 'timeLabel',
+    width: 164,
+    customFilterDropdown: true,
+    onFilter: doctorAppointmentColumnFilter('timeLabel'),
+    sorter: (a: Row, b: Row) => appointmentSortTimestamp(a) - appointmentSortTimestamp(b) || appointmentNumericId(a) - appointmentNumericId(b),
+    defaultSortOrder: 'descend' as const,
+  },
+  {
+    title: 'Lý do',
+    key: 'reason',
+    width: 260,
+    customFilterDropdown: true,
+    onFilter: doctorAppointmentColumnFilter('reason'),
+  },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 150,
+    filters: [
+      { text: 'Đã xác nhận', value: 'Đã xác nhận' },
+      { text: 'Đã check-in', value: 'Đã check-in' },
+      { text: 'Đang khám', value: 'Đang khám' },
+      { text: 'Hoàn thành', value: 'Hoàn thành' },
+      { text: 'Đã hủy', value: 'Đã hủy' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: Row) => statusText(record.status) === String(filterValue),
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 104,
+    align: 'center' as const,
+  },
+]
+
+const doctorAppointmentPagination = computed(() => ({
+  current: doctorAppointmentCurrentPage.value,
+  pageSize: doctorAppointmentPageSize.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} lịch hẹn`,
+  locale: { items_per_page: ' / trang' },
+}))
+
+const doctorExamineTableColumns = [
+  {
+    title: 'Mã lượt khám',
+    key: 'visitNo',
+    width: 126,
+    customFilterDropdown: true,
+    onFilter: doctorExamineColumnFilter('visitNo'),
+    sorter: (a: Row, b: Row) => doctorExamineNumericId(a) - doctorExamineNumericId(b),
+  },
+  {
+    title: 'Bệnh nhân',
+    key: 'patientName',
+    width: 190,
+    customFilterDropdown: true,
+    onFilter: doctorExamineColumnFilter('patientName'),
+    sorter: (a: Row, b: Row) => String(a.patientName || '').localeCompare(String(b.patientName || ''), 'vi'),
+  },
+  {
+    title: 'Ngày giờ',
+    key: 'timeLabel',
+    width: 164,
+    customFilterDropdown: true,
+    onFilter: doctorExamineColumnFilter('timeLabel'),
+    sorter: (a: Row, b: Row) => doctorExamineSortTimestamp(a) - doctorExamineSortTimestamp(b) || doctorExamineNumericId(a) - doctorExamineNumericId(b),
+    defaultSortOrder: 'descend' as const,
+  },
+  {
+    title: 'Lý do',
+    key: 'reason',
+    width: 260,
+    customFilterDropdown: true,
+    onFilter: doctorExamineColumnFilter('reason'),
+  },
+  {
+    title: 'Sinh hiệu',
+    key: 'vitals',
+    width: 150,
+    filters: [
+      { text: 'Đã đo sinh hiệu', value: 'Đã đo sinh hiệu' },
+      { text: 'Chưa đo sinh hiệu', value: 'Chưa đo sinh hiệu' },
+      { text: 'Đang khám', value: 'Đang khám' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: Row) => queueVitalLabel(record) === String(filterValue),
+    sorter: (a: Row, b: Row) => queueVitalLabel(a).localeCompare(queueVitalLabel(b), 'vi'),
+  },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 140,
+    filters: [
+      { text: 'Chờ khám', value: 'Chờ khám' },
+      { text: 'Đang khám', value: 'Đang khám' },
+      { text: 'Hoàn thành', value: 'Hoàn thành' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: Row) => statusText(record.status) === String(filterValue),
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 104,
+    align: 'center' as const,
+  },
+]
+
+const doctorExaminePagination = computed(() => ({
+  current: doctorExamineCurrentPage.value,
+  pageSize: doctorExaminePageSize.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} lượt khám`,
+  locale: { items_per_page: ' / trang' },
+}))
 
 const doctorRecordTableColumns = [
   {
@@ -1808,6 +2053,10 @@ async function loadData() {
   note.value = ''
   rows.value = []
   page.value = 1
+  doctorAppointmentCurrentPage.value = 1
+  doctorExamineCurrentPage.value = 1
+  doctorRecordCurrentPage.value = 1
+  doctorQueueCurrentPage.value = 1
 
   try {
     if (!doctorId.value) {
@@ -1853,7 +2102,7 @@ async function loadQueueRows() {
 
 async function loadVisitRows() {
   try {
-    const data = await medicalRecordApi.getVisitsToday(doctorId.value)
+    const data = await medicalRecordApi.getVisits(doctorId.value)
     const visitRows = data.map(mapVisit)
     const appointmentId = Number(route.query.appointmentId || 0)
     const hasRequestedVisit = appointmentId && visitRows.some((row) => Number(row.appointmentId) === appointmentId)
@@ -1891,8 +2140,8 @@ function resetFilters(reload = true) {
     filters.fromDate = localDateIso(start)
     filters.toDate = localDateIso(addDays(start, 6))
   } else {
-    filters.date = resource.value === 'appointments' || resource.value === 'records' || route.query.appointmentId ? '' : today()
-    filters.fromDate = resource.value === 'appointments' ? today() : ''
+    filters.date = resource.value === 'appointments' || resource.value === 'examine' || resource.value === 'records' || route.query.appointmentId ? '' : today()
+    filters.fromDate = ''
     filters.toDate = ''
   }
   filters.status = ''
@@ -2119,6 +2368,14 @@ function exportDoctorRecordsExcel() {
 }
 
 function runQueueAction(action: ActionKey, row: Row | Record<string, any>) {
+  return runAction(action, row as Row)
+}
+
+function runAppointmentAction(action: ActionKey, row: Row | Record<string, any>) {
+  return runAction(action, row as Row)
+}
+
+function runExamineAction(action: ActionKey, row: Row | Record<string, any>) {
   return runAction(action, row as Row)
 }
 
@@ -2651,10 +2908,11 @@ function clearExamOnly() {
 }
 
 function mapAppointment(item: Appointment): Row {
+  const appointmentId = Number((item as any).appointmentId || (item as any).AppointmentId || (item as any).id || (item as any).Id || 0) || undefined
   return {
-    key: `A${item.appointmentId}`,
-    id: item.appointmentId,
-    appointmentId: item.appointmentId,
+    key: `A${appointmentId || item.appointmentId}`,
+    id: appointmentId || item.appointmentId,
+    appointmentId: appointmentId || item.appointmentId,
     patientId: item.patientId,
     doctorId: item.doctorId,
     patientName: displayText(item.patientName) || 'Chưa có tên',
@@ -2783,6 +3041,16 @@ function mapSchedule(item: DoctorSchedule & Record<string, any>): Row {
 }
 
 function sortRows(a: Row, b: Row) {
+  if (resource.value === 'appointments') {
+    const timeCompare = appointmentSortTimestamp(b) - appointmentSortTimestamp(a)
+    if (timeCompare) return timeCompare
+    return appointmentNumericId(b) - appointmentNumericId(a)
+  }
+  if (resource.value === 'examine') {
+    const timeCompare = doctorExamineSortTimestamp(b) - doctorExamineSortTimestamp(a)
+    if (timeCompare) return timeCompare
+    return doctorExamineNumericId(b) - doctorExamineNumericId(a)
+  }
   const dateCompare = String(a.date || '').localeCompare(String(b.date || ''))
   if (dateCompare) return dateCompare
   return String(a.time || '').localeCompare(String(b.time || ''))
@@ -3241,6 +3509,122 @@ function bmiValue(height: unknown, weight: unknown) {
 function displayOrEmpty(value: unknown) {
   const textValue = String(value ?? '').trim()
   return textValue || 'Chưa có'
+}
+
+function appointmentNumericId(record?: Row | Record<string, any> | null) {
+  const value = record?.appointmentId
+    || record?.id
+    || record?.raw?.appointmentId
+    || record?.raw?.AppointmentId
+    || record?.raw?.id
+    || record?.raw?.Id
+  const id = Number(value)
+  return Number.isFinite(id) ? id : 0
+}
+
+function doctorAppointmentCode(record?: Row | Record<string, any> | null) {
+  const id = appointmentNumericId(record)
+  return id ? `LH${id}` : 'LH--'
+}
+
+function appointmentSortTimestamp(record?: Row | Record<string, any> | null) {
+  const date = String(record?.date || record?.raw?.appointmentDate || record?.raw?.AppointmentDate || '').slice(0, 10)
+  const time = String(record?.time || record?.raw?.slotTime || record?.raw?.SlotTime || '00:00').slice(0, 5)
+  const timestamp = new Date(`${date || '1970-01-01'}T${time || '00:00'}:00`).getTime()
+  return Number.isNaN(timestamp) ? 0 : timestamp
+}
+
+function doctorAppointmentIdentity(record: Row | Record<string, any>) {
+  return String(record.key || record.appointmentId || record.id)
+}
+
+function doctorAppointmentSearchField(record: Row, key: string) {
+  if (key === 'appointmentNo') return doctorAppointmentCode(record)
+  if (key === 'patientName') return [record.patientName, record.patientId].filter(Boolean).join(' ')
+  if (key === 'timeLabel') return record.timeLabel || formatDate(record.date)
+  if (key === 'reason') return record.reason || ''
+  if (key === 'status') return statusText(record.status)
+  return ''
+}
+
+function doctorAppointmentColumnFilter(key: string) {
+  return (filterValue: string | number | boolean, record: Row) =>
+    normalize(doctorAppointmentSearchField(record, key)).includes(normalize(filterValue))
+}
+
+function getDoctorAppointmentFilterKeys(event: Event) {
+  const filterValue = (event.target as HTMLInputElement)?.value || ''
+  return filterValue ? [filterValue] : []
+}
+
+function clearDoctorAppointmentFilter(clearFilters: (() => void) | undefined, confirm: () => void) {
+  clearFilters?.()
+  confirm()
+}
+
+function handleDoctorAppointmentTableChange(pagination: { current?: number; pageSize?: number }) {
+  doctorAppointmentCurrentPage.value = pagination.current || 1
+  doctorAppointmentPageSize.value = pagination.pageSize || 10
+}
+
+function doctorExamineNumericId(record?: Row | Record<string, any> | null) {
+  const value = record?.visitId
+    || record?.id
+    || record?.raw?.visitId
+    || record?.raw?.VisitId
+    || record?.raw?.id
+    || record?.raw?.Id
+  const id = Number(value)
+  return Number.isFinite(id) ? id : 0
+}
+
+function doctorExamineCode(record?: Row | Record<string, any> | null) {
+  const id = doctorExamineNumericId(record)
+  return id ? `LK${id}` : 'LK--'
+}
+
+function doctorExamineSortTimestamp(record?: Row | Record<string, any> | null) {
+  return recordTimestamp(
+    record?.raw?.visitDate
+    || record?.raw?.VisitDate
+    || record?.raw?.createdAt
+    || record?.raw?.CreatedAt
+    || record?.date,
+  )
+}
+
+function doctorExamineIdentity(record: Row | Record<string, any>) {
+  return String(record.key || record.visitId || record.id)
+}
+
+function doctorExamineSearchField(record: Row, key: string) {
+  if (key === 'visitNo') return doctorExamineCode(record)
+  if (key === 'patientName') return [record.patientName, record.patientId].filter(Boolean).join(' ')
+  if (key === 'timeLabel') return record.timeLabel || formatDate(record.date)
+  if (key === 'reason') return record.reason || ''
+  if (key === 'vitals') return queueVitalLabel(record)
+  if (key === 'status') return statusText(record.status)
+  return ''
+}
+
+function doctorExamineColumnFilter(key: string) {
+  return (filterValue: string | number | boolean, record: Row) =>
+    normalize(doctorExamineSearchField(record, key)).includes(normalize(filterValue))
+}
+
+function getDoctorExamineFilterKeys(event: Event) {
+  const filterValue = (event.target as HTMLInputElement)?.value || ''
+  return filterValue ? [filterValue] : []
+}
+
+function clearDoctorExamineFilter(clearFilters: (() => void) | undefined, confirm: () => void) {
+  clearFilters?.()
+  confirm()
+}
+
+function handleDoctorExamineTableChange(pagination: { current?: number; pageSize?: number }) {
+  doctorExamineCurrentPage.value = pagination.current || 1
+  doctorExaminePageSize.value = pagination.pageSize || 10
 }
 
 function doctorRecordIdentity(record: Row | Record<string, any>) {
@@ -4322,7 +4706,7 @@ function sectionBlock(title: string, rows: [string, any][]) {
 
 <style scoped lang="postcss">
 .doctor-schedule-page {
-  @apply space-y-4;
+  @apply overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm;
 }
 
 .doctor-records-page {
@@ -4334,11 +4718,11 @@ function sectionBlock(title: string, rows: [string, any][]) {
 }
 
 .doctor-records-header h1 {
-  @apply text-[1.75rem] font-bold tracking-normal text-slate-950;
+  @apply text-2xl font-bold tracking-normal text-slate-900;
 }
 
 .doctor-records-header p {
-  @apply mt-1.5 max-w-3xl text-[13px] font-medium leading-5 text-slate-500;
+  @apply mt-1.5 max-w-3xl text-sm font-medium leading-6 text-slate-500;
 }
 
 .doctor-records-header-actions {
@@ -4482,6 +4866,7 @@ function sectionBlock(title: string, rows: [string, any][]) {
   background: #eef2ff;
   border: 1px solid #c7d2fe;
   color: #4338ca;
+  font-weight: 500;
 }
 
 .doctor-record-action-primary:hover {
@@ -4660,12 +5045,32 @@ function sectionBlock(title: string, rows: [string, any][]) {
   @apply space-y-4;
 }
 
+.doctor-queue-page-header {
+  @apply flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between;
+}
+
+.doctor-queue-page-header h1 {
+  @apply text-2xl font-bold tracking-normal text-slate-900;
+}
+
+.doctor-queue-page-header span {
+  @apply max-w-2xl text-sm font-medium leading-6 text-slate-500;
+}
+
+.doctor-queue-page-header strong {
+  @apply inline-flex h-10 shrink-0 items-center rounded-xl bg-blue-50 px-3 text-sm font-bold text-blue-700;
+}
+
 .doctor-queue-shell {
   @apply overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm;
 }
 
 .doctor-queue-table-header {
   @apply flex flex-col gap-3 border-b border-slate-100 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between;
+}
+
+.doctor-queue-table-header.is-actions-only {
+  @apply justify-end py-3;
 }
 
 .doctor-queue-table-header p {
@@ -4750,7 +5155,7 @@ function sectionBlock(title: string, rows: [string, any][]) {
   border-radius: 999px;
   display: inline-flex;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 18px;
   margin: 0;
   padding: 2px 9px;
@@ -4833,27 +5238,27 @@ function sectionBlock(title: string, rows: [string, any][]) {
 }
 
 .schedule-page-header {
-  @apply rounded-xl border border-slate-200 bg-white p-4 shadow-sm;
+  @apply px-1 pb-4;
 }
 
 .schedule-title-row {
   @apply flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between;
 }
 
-.schedule-page-kicker {
-  @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700;
-}
-
 .schedule-page-header h1 {
-  @apply mt-1 text-[1.85rem] font-semibold tracking-normal text-slate-950;
+  @apply text-2xl font-bold tracking-normal text-slate-900;
 }
 
-.schedule-page-header p:not(.schedule-page-kicker) {
-  @apply mt-1.5 max-w-2xl text-[13px] font-normal leading-5 text-slate-500;
+.schedule-page-header p {
+  @apply mt-1.5 max-w-2xl text-sm font-medium leading-6 text-slate-500;
 }
 
 .schedule-page-actions {
   @apply flex flex-wrap items-center gap-2;
+}
+
+.schedule-controls-card {
+  @apply border-t border-slate-100 pt-4;
 }
 
 .schedule-icon-action,
@@ -4870,7 +5275,7 @@ function sectionBlock(title: string, rows: [string, any][]) {
 }
 
 .schedule-header-controls {
-  @apply mt-4 grid gap-3 border-t border-slate-100 pt-4 lg:grid-cols-[1fr_auto] lg:items-end;
+  @apply grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end;
 }
 
 .schedule-toolbar-main {
@@ -4920,7 +5325,7 @@ function sectionBlock(title: string, rows: [string, any][]) {
 }
 
 .schedule-calendar-shell {
-  @apply overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm;
+  @apply mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white;
 }
 
 .schedule-loading {
