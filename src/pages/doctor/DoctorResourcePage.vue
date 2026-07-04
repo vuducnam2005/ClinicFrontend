@@ -92,7 +92,7 @@
       </header>
     </div>
 
-    <div v-if="!isExamDetailMode && resource !== 'schedule' && resource !== 'records'" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div v-if="!isExamDetailMode && resource !== 'schedule' && resource !== 'records' && resource !== 'queue'" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">{{ config.kicker }}</p>
@@ -121,11 +121,11 @@
       </div>
     </div>
 
-    <div v-if="!isExamDetailMode && resource !== 'schedule' && resource !== 'records'" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div v-if="!isExamDetailMode && resource !== 'schedule' && resource !== 'records' && resource !== 'queue'" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <MetricCard v-for="metric in metrics" :key="metric.label" :metric="metric" />
     </div>
 
-    <div v-if="!isExamDetailMode && resource !== 'schedule' && resource !== 'records'" class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div v-if="!isExamDetailMode && resource !== 'schedule' && resource !== 'records' && resource !== 'queue'" class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <div class="grid gap-3 xl:grid-cols-[1.4fr_180px_180px_180px_180px_auto] xl:items-end">
         <label class="block">
           <span class="mb-2 block text-sm font-semibold text-slate-700">Tìm kiếm</span>
@@ -429,6 +429,101 @@
           </article>
         </div>
       </section>
+    </div>
+
+    <div v-else-if="resource === 'queue'" class="doctor-record-table-shell">
+      <div class="doctor-queue-table-header">
+        <div>
+          <p>Hàng chờ</p>
+          <h2>Hàng đợi khám</h2>
+        </div>
+        <div class="doctor-queue-table-actions">
+          <span>{{ filteredRows.length }} lượt chờ</span>
+          <button type="button" :disabled="loading" @click="loadData">
+            <RefreshCw class="h-4 w-4" />
+            Tải lại
+          </button>
+        </div>
+      </div>
+      <ATable
+        :columns="doctorQueueTableColumns"
+        :data-source="filteredRows"
+        :pagination="doctorQueuePagination"
+        :row-key="doctorQueueIdentity"
+        size="middle"
+        table-layout="fixed"
+        @change="handleDoctorQueueTableChange"
+      >
+        <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+          <div class="doctor-record-filter">
+            <p class="doctor-record-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+            <AInput
+              :value="selectedKeys[0]"
+              :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+              allow-clear
+              autofocus
+              @change="setSelectedKeys(getDoctorQueueFilterKeys($event))"
+              @press-enter="confirm()"
+            >
+              <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+            </AInput>
+            <div class="doctor-record-filter-actions">
+              <AButton size="small" class="doctor-record-filter-reset" @click="clearDoctorQueueFilter(clearFilters, confirm)">Đặt lại</AButton>
+              <AButton type="primary" size="small" class="doctor-record-filter-submit" @click="confirm()">Áp dụng</AButton>
+            </div>
+          </div>
+        </template>
+        <template #customFilterIcon="{ filtered, column }">
+          <CheckSquare v-if="column.key === 'status' || column.key === 'vitals'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+        </template>
+        <template #emptyText>
+          <div class="py-8 text-center">
+            <ClipboardList class="mx-auto h-9 w-9 text-slate-300" />
+            <p class="mt-3 font-bold text-slate-800">Không có bệnh nhân trong hàng chờ</p>
+            <p class="mt-1 text-sm text-slate-500">Bệnh nhân sẽ xuất hiện sau khi y tá tiếp nhận/check-in.</p>
+          </div>
+        </template>
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'queueNo'">
+            <span class="font-mono text-xs font-semibold text-[#0F52BA]">#{{ record.id || record.visitId || '--' }}</span>
+          </template>
+          <template v-else-if="column.key === 'patientName'">
+            <div class="min-w-0">
+              <p class="truncate text-[13px] font-bold text-slate-900" :title="record.patientName">{{ record.patientName }}</p>
+              <p class="mt-0.5 text-[11px] font-semibold text-slate-400">BN {{ record.patientId || 'Chưa cập nhật' }}</p>
+            </div>
+          </template>
+          <template v-else-if="column.key === 'timeLabel'">
+            <div class="flex items-center gap-2 whitespace-nowrap">
+              <CalendarClock class="h-3.5 w-3.5 text-slate-400" />
+              <span class="text-[13px] font-medium text-slate-600">{{ record.timeLabel || 'Chưa cập nhật' }}</span>
+            </div>
+          </template>
+          <template v-else-if="column.key === 'room'">
+            <span class="line-clamp-2 text-[13px] font-medium text-slate-700">{{ queueRoomOrSpecialty(record) }}</span>
+          </template>
+          <template v-else-if="column.key === 'reason'">
+            <span class="line-clamp-2 text-[13px] font-medium text-slate-700" :title="record.reason">{{ record.reason || 'Chưa ghi lý do' }}</span>
+          </template>
+          <template v-else-if="column.key === 'vitals'">
+            <ATag :bordered="false" :class="['doctor-queue-vital-tag', queueVitalClass(record)]">{{ queueVitalLabel(record) }}</ATag>
+          </template>
+          <template v-else-if="column.key === 'status'">
+            <ATag :bordered="false" :class="['doctor-record-status-tag', doctorRecordStatusClass(record.status)]">{{ statusText(record.status) }}</ATag>
+          </template>
+          <template v-else-if="column.key === 'actions'">
+            <div class="doctor-record-actions">
+              <button type="button" class="doctor-record-action-button doctor-record-action-primary" title="Xem chi tiết hàng chờ" @click="runQueueAction('view', record)">
+                <Eye class="h-4 w-4" />
+              </button>
+              <button type="button" class="doctor-record-action-button doctor-record-action-muted" title="Vào khám" @click="runQueueAction('start', record)">
+                <Stethoscope class="h-4 w-4" />
+              </button>
+            </div>
+          </template>
+        </template>
+      </ATable>
     </div>
 
     <div v-else class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -950,6 +1045,22 @@ interface Column { key: string; label: string; strong?: boolean }
 interface IcdCodeOption { code: string; name: string; specialty: string }
 interface DetailItem { label: string; value: string; full?: boolean }
 interface DetailSection { title: string; icon: any; items: DetailItem[] }
+type VitalFieldType = 'number' | 'text'
+interface VitalFieldConfig {
+  key: string
+  label: string
+  unit?: string
+  type: VitalFieldType
+  min?: number
+  max?: number
+  step?: string
+  maxLength?: number
+  placeholder?: string
+}
+interface VitalSpecialtyProfile {
+  baseKeys: string[]
+  requiredKeys: string[]
+}
 interface Config {
   kicker: string
   title: string
@@ -996,6 +1107,8 @@ const printPrescriptions = ref<Record<string, any>[]>([])
 const currentRecordTab = ref('overview')
 const doctorRecordCurrentPage = ref(1)
 const doctorRecordPageSize = ref(10)
+const doctorQueueCurrentPage = ref(1)
+const doctorQueuePageSize = ref(10)
 const toast = reactive({ show: false, title: '', message: '', type: 'success' as ToastType })
 
 const filters = reactive({
@@ -1019,7 +1132,7 @@ const examForm = reactive({
   conclusionStatus: 'Hoàn thành',
 })
 
-const vitalsForm = reactive({
+const vitalsForm = reactive<Record<string, string>>({
   bloodPressure: '',
   heartRate: '',
   temperature: '',
@@ -1027,6 +1140,7 @@ const vitalsForm = reactive({
   spo2: '',
   height: '',
   weight: '',
+  note: '',
 })
 
 const historyForm = reactive({
@@ -1059,6 +1173,62 @@ const formTextareaClass = 'w-full resize-none rounded-xl border border-slate-200
 const compactOptionClass = 'flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold leading-5 transition'
 
 const prescriptionItems = ref<PrescriptionItemPayload[]>([])
+
+const baseVitalFields: VitalFieldConfig[] = [
+  { key: 'temperature', label: 'Nhiệt độ', unit: '°C', type: 'number', min: 30, max: 45, step: '0.1', placeholder: '36.8' },
+  { key: 'bloodPressure', label: 'Huyết áp', unit: 'mmHg', type: 'text', maxLength: 30, placeholder: '120/80' },
+  { key: 'heartRate', label: 'Mạch', unit: 'lần/phút', type: 'number', min: 1, max: 250, step: '1' },
+  { key: 'respiratoryRate', label: 'Nhịp thở', unit: 'lần/phút', type: 'number', min: 1, max: 100, step: '1' },
+  { key: 'spo2', label: 'SpO2', unit: '%', type: 'number', min: 1, max: 100, step: '1' },
+  { key: 'height', label: 'Chiều cao', unit: 'cm', type: 'number', min: 1, max: 300, step: '0.1' },
+  { key: 'weight', label: 'Cân nặng', unit: 'kg', type: 'number', min: 1, max: 500, step: '0.1' },
+]
+
+const specialtyExtraVitalFields: Record<string, VitalFieldConfig[]> = {
+  'tim mach': [
+    { key: 'chestPainScore', label: 'Mức đau ngực', unit: '/10', type: 'number', min: 0, max: 10, step: '1', placeholder: '0-10' },
+    { key: 'ecgNote', label: 'Ghi chú ECG nhanh', type: 'text', maxLength: 120 },
+  ],
+  'nhi khoa': [
+    { key: 'headCircumference', label: 'Vòng đầu', unit: 'cm', type: 'number', min: 20, max: 80, step: '0.1' },
+    { key: 'feedingNote', label: 'Ăn bú/ăn uống', type: 'text', maxLength: 120 },
+  ],
+  'da lieu': [
+    { key: 'lesionArea', label: 'Vùng tổn thương da', type: 'text', maxLength: 120 },
+    { key: 'itchScore', label: 'Mức ngứa', unit: '/10', type: 'number', min: 0, max: 10, step: '1' },
+  ],
+  'tai mui hong': [
+    { key: 'painScore', label: 'Mức đau họng/tai', unit: '/10', type: 'number', min: 0, max: 10, step: '1' },
+    { key: 'hearingNote', label: 'Ghi nhận nghe/nói', type: 'text', maxLength: 120 },
+  ],
+  'co xuong khop': [
+    { key: 'painScore', label: 'Mức đau', unit: '/10', type: 'number', min: 0, max: 10, step: '1' },
+    { key: 'mobilityNote', label: 'Vận động', type: 'text', maxLength: 120 },
+  ],
+  'mat': [
+    { key: 'visualAcuityLeft', label: 'Thị lực mắt trái', type: 'text', maxLength: 30 },
+    { key: 'visualAcuityRight', label: 'Thị lực mắt phải', type: 'text', maxLength: 30 },
+  ],
+  'san phu khoa': [
+    { key: 'lastMenstrualPeriod', label: 'Kỳ kinh cuối', type: 'text', maxLength: 60 },
+    { key: 'pregnancyWeek', label: 'Tuần thai', unit: 'tuần', type: 'number', min: 1, max: 42, step: '1' },
+  ],
+}
+
+const defaultVitalProfile: VitalSpecialtyProfile = {
+  baseKeys: ['temperature', 'bloodPressure', 'heartRate', 'spo2'],
+  requiredKeys: ['temperature', 'bloodPressure', 'heartRate', 'spo2'],
+}
+
+const specialtyVitalProfiles: Record<string, VitalSpecialtyProfile> = {
+  'tim mach': { baseKeys: ['bloodPressure', 'heartRate', 'spo2', 'temperature', 'respiratoryRate'], requiredKeys: ['bloodPressure', 'heartRate', 'spo2'] },
+  'nhi khoa': { baseKeys: ['temperature', 'heartRate', 'respiratoryRate', 'spo2', 'height', 'weight'], requiredKeys: ['temperature', 'heartRate', 'spo2', 'weight'] },
+  'da lieu': { baseKeys: ['temperature', 'bloodPressure', 'heartRate'], requiredKeys: ['lesionArea'] },
+  'tai mui hong': { baseKeys: ['temperature', 'heartRate', 'spo2'], requiredKeys: [] },
+  'co xuong khop': { baseKeys: ['bloodPressure', 'heartRate', 'temperature'], requiredKeys: ['painScore'] },
+  'mat': { baseKeys: ['bloodPressure', 'heartRate'], requiredKeys: ['visualAcuityLeft', 'visualAcuityRight'] },
+  'san phu khoa': { baseKeys: ['bloodPressure', 'heartRate', 'temperature', 'height', 'weight'], requiredKeys: ['bloodPressure', 'heartRate'] },
+}
 
 const icdCodes: IcdCodeOption[] = [
   { specialty: 'Tim mạch', code: 'I10', name: 'Tăng huyết áp' },
@@ -1154,14 +1324,14 @@ function icdOptionValue(item: IcdCodeOption) {
 const configs: Record<Resource, Config> = {
   appointments: {
     kicker: 'Lịch khám',
-    title: 'Lịch hẹn',
-    description: 'Quản lý lịch khám, bao gồm lịch hôm nay và các lịch sắp tới của bác sĩ đang đăng nhập.',
+    title: 'Lịch hẹn sắp tới',
+    description: 'Xem trước lịch khám đã được điều phối cho bác sĩ. Các thao tác tiếp nhận, check-in và hủy lịch do y tá xử lý.',
     endpoint: 'GET /appointment/api/appointments/doctor/{doctorId}',
-    searchPlaceholder: 'Tìm tên bệnh nhân, mã lịch hẹn, lý do khám...',
-    tableTitle: 'Danh sách lịch hẹn',
-    tableSubtitle: 'Mặc định hiển thị lịch từ hôm nay trở đi theo bác sĩ đang đăng nhập.',
+    searchPlaceholder: 'Tìm tên bệnh nhân, mã lịch hẹn, lý do khám, trạng thái...',
+    tableTitle: 'Danh sách lịch hẹn readonly',
+    tableSubtitle: 'Mặc định hiển thị lịch từ hôm nay trở đi để bác sĩ chuẩn bị trước ca khám.',
     emptyTitle: 'Không có lịch hẹn phù hợp',
-    emptyText: 'Không tìm thấy lịch hẹn phù hợp với bộ lọc hiện tại.',
+    emptyText: 'Không tìm thấy lịch hẹn sắp tới phù hợp với bộ lọc hiện tại.',
     detailTitle: 'Chi tiết lịch hẹn',
     columns: cols(['id', 'Mã lịch hẹn'], ['patientName', 'Bệnh nhân', true], ['timeLabel', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái']),
   },
@@ -1406,6 +1576,94 @@ const doctorRecordPagination = computed(() => ({
   showTitle: false,
   responsive: true,
   showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} bệnh án`,
+  locale: { items_per_page: ' / trang' },
+}))
+
+const doctorQueueTableColumns = [
+  {
+    title: 'STT',
+    key: 'queueNo',
+    width: 92,
+    customFilterDropdown: true,
+    onFilter: doctorQueueColumnFilter('queueNo'),
+    sorter: (a: Row, b: Row) => Number(a.id || a.visitId || 0) - Number(b.id || b.visitId || 0),
+  },
+  {
+    title: 'Bệnh nhân',
+    key: 'patientName',
+    width: 190,
+    customFilterDropdown: true,
+    onFilter: doctorQueueColumnFilter('patientName'),
+    sorter: (a: Row, b: Row) => String(a.patientName || '').localeCompare(String(b.patientName || ''), 'vi'),
+  },
+  {
+    title: 'Giờ hẹn',
+    key: 'timeLabel',
+    width: 150,
+    customFilterDropdown: true,
+    onFilter: doctorQueueColumnFilter('timeLabel'),
+    sorter: (a: Row, b: Row) => recordTimestamp(a.date || a.raw?.appointmentDate || a.raw?.AppointmentDate) - recordTimestamp(b.date || b.raw?.appointmentDate || b.raw?.AppointmentDate),
+  },
+  {
+    title: 'Phòng/Khoa',
+    key: 'room',
+    width: 160,
+    customFilterDropdown: true,
+    onFilter: doctorQueueColumnFilter('room'),
+    sorter: (a: Row, b: Row) => queueRoomOrSpecialty(a).localeCompare(queueRoomOrSpecialty(b), 'vi'),
+  },
+  {
+    title: 'Lý do',
+    key: 'reason',
+    width: 220,
+    customFilterDropdown: true,
+    onFilter: doctorQueueColumnFilter('reason'),
+  },
+  {
+    title: 'Sinh hiệu',
+    key: 'vitals',
+    width: 150,
+    filters: [
+      { text: 'Đã đo sinh hiệu', value: 'Đã đo sinh hiệu' },
+      { text: 'Chưa đo sinh hiệu', value: 'Chưa đo sinh hiệu' },
+      { text: 'Đang khám', value: 'Đang khám' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: Row) => queueVitalLabel(record) === String(filterValue),
+    sorter: (a: Row, b: Row) => queueVitalLabel(a).localeCompare(queueVitalLabel(b), 'vi'),
+  },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 140,
+    filters: [
+      { text: 'Chờ khám', value: 'Chờ khám' },
+      { text: 'Đã check-in', value: 'Đã check-in' },
+      { text: 'Đang khám', value: 'Đang khám' },
+      { text: 'Hoàn thành', value: 'Hoàn thành' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: Row) => statusText(record.status) === String(filterValue),
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 104,
+    align: 'center' as const,
+  },
+]
+
+const doctorQueuePagination = computed(() => ({
+  current: doctorQueueCurrentPage.value,
+  pageSize: doctorQueuePageSize.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} lượt chờ`,
   locale: { items_per_page: ' / trang' },
 }))
 
@@ -1659,11 +1917,7 @@ function goToCurrentScheduleWeek() {
 
 function rowActions(row: Row) {
   if (resource.value === 'appointments') {
-    const actions = [{ key: 'view' as ActionKey, label: 'Chi tiết', className: 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50' }]
-    if (canCheckInAppointment(row.status)) actions.push({ key: 'checkin', label: 'Vào khám', className: 'bg-blue-600 text-white hover:bg-blue-700' })
-    if (statusBucket(row.status) === 'progress') actions.push({ key: 'checkin', label: 'Tiếp tục khám', className: 'bg-blue-600 text-white hover:bg-blue-700' })
-    if (!['completed', 'cancelled'].includes(statusBucket(row.status))) actions.push({ key: 'cancel', label: 'Hủy', className: 'bg-rose-50 text-rose-700 hover:bg-rose-100' })
-    return actions
+    return [{ key: 'view' as ActionKey, label: 'Chi tiết', className: 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50' }]
   }
   if (resource.value === 'queue') {
     return [
@@ -1675,6 +1929,70 @@ function rowActions(row: Row) {
     return [{ key: 'record' as ActionKey, label: 'Chi tiết', className: 'bg-blue-600 text-white hover:bg-blue-700' }]
   }
   return [{ key: 'view' as ActionKey, label: 'Chi tiết', className: 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50' }]
+}
+
+function queueVitalLabel(row: Row | Record<string, any>) {
+  if (queueHasVitals(row)) return 'Đã đo sinh hiệu'
+  if (statusBucket(row.status) === 'progress') return 'Đang khám'
+  return 'Chưa đo sinh hiệu'
+}
+
+function queueVitalClass(row: Row | Record<string, any>) {
+  if (queueHasVitals(row)) return 'is-done'
+  if (statusBucket(row.status) === 'progress') return 'is-progress'
+  return 'is-missing'
+}
+
+function queueHasVitals(row: Row | Record<string, any>) {
+  const raw = row.raw || {}
+  const vitals = parseVitalSignsValue(raw.vitalSignsJson ?? raw.VitalSignsJson)
+  return [
+    raw.temperature, raw.Temperature, vitals.temperature, vitals.Temperature,
+    raw.bloodPressure, raw.BloodPressure, vitals.bloodPressure, vitals.BloodPressure,
+    raw.heartRate, raw.HeartRate, vitals.heartRate, vitals.HeartRate,
+    raw.respiratoryRate, raw.RespiratoryRate, vitals.respiratoryRate, vitals.RespiratoryRate,
+    raw.spo2, raw.Spo2, raw.spO2, raw.SpO2, vitals.spo2, vitals.Spo2, vitals.spO2, vitals.SpO2,
+    raw.height, raw.Height, vitals.height, vitals.Height,
+    raw.weight, raw.Weight, vitals.weight, vitals.Weight,
+    raw.note, raw.Note, vitals.note, vitals.Note,
+  ].some((value) => value !== undefined && value !== null && String(value).trim() !== '')
+}
+
+function queueVitalSummary(row: Row | Record<string, any>) {
+  const raw = row.raw || {}
+  const vitals = parseVitalSignsValue(raw.vitalSignsJson ?? raw.VitalSignsJson)
+  const parts = [
+    vitals.bloodPressure || vitals.BloodPressure || raw.bloodPressure || raw.BloodPressure,
+    vitalNumberText(vitals.temperature ?? vitals.Temperature ?? raw.temperature ?? raw.Temperature, '°C'),
+    vitalNumberText(vitals.heartRate ?? vitals.HeartRate ?? raw.heartRate ?? raw.HeartRate, 'l/p'),
+    vitalNumberText(vitals.spo2 ?? vitals.Spo2 ?? vitals.spO2 ?? vitals.SpO2 ?? raw.spo2 ?? raw.Spo2 ?? raw.spO2 ?? raw.SpO2, '%'),
+  ].map((item) => String(item || '').trim()).filter(Boolean)
+  return parts.length ? parts.join(' · ') : 'Chưa có'
+}
+
+function vitalNumberText(value: unknown, unit: string) {
+  const textValue = String(value ?? '').trim()
+  return textValue ? `${textValue}${unit}` : ''
+}
+
+function queueWaitLabel(row: Row | Record<string, any>) {
+  const raw = row.raw || {}
+  const value = raw.checkedInAt || raw.CheckedInAt || raw.queueDate || raw.QueueDate || raw.appointmentDate || raw.AppointmentDate || row.date
+  const timestamp = recordTimestamp(value)
+  if (!timestamp) return 'Mới'
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000))
+  if (minutes < 1) return 'Mới'
+  if (minutes < 60) return `${minutes} phút`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest ? `${hours}g ${rest}p` : `${hours} giờ`
+}
+
+function queueRoomOrSpecialty(row: Row | Record<string, any>) {
+  return meaningful(row.room)
+    || meaningful(row.specialtyName)
+    || meaningful(row.raw?.specialtyName || row.raw?.SpecialtyName)
+    || 'Chưa cập nhật'
 }
 
 async function runAction(action: ActionKey, row: Row) {
@@ -1703,7 +2021,7 @@ function closeDetailDrawer() {
 
 function backToAppointments() {
   clearWorkingState()
-  router.push('/doctor/appointments')
+  router.push('/doctor/queue')
 }
 
 function openRecord(row: Row | Record<string, any>) {
@@ -1798,6 +2116,10 @@ function exportDoctorRecordsExcel() {
   const blob = new Blob([`\ufeff${html}`], { type: 'application/vnd.ms-excel;charset=utf-8;' })
   downloadBlob(blob, `ho-so-benh-an-bac-si-${today()}.xls`)
   showToast('Đã xuất Excel', `Đã xuất ${records.length} hồ sơ bệnh án.`, 'success')
+}
+
+function runQueueAction(action: ActionKey, row: Row | Record<string, any>) {
+  return runAction(action, row as Row)
 }
 
 async function openExamFromRow(row: Row) {
@@ -2151,7 +2473,7 @@ async function saveVitals(showSuccess = true) {
       spo2: numberOrNull(vitalsForm.spo2),
       height: numberOrNull(vitalsForm.height),
       weight: numberOrNull(vitalsForm.weight),
-      note: textOrNull(historyNote()),
+      note: textOrNull([vitalsForm.note, historyNote()].filter(Boolean).join('\n')),
     })
     activeVisit.value = await medicalRecordApi.getVisit(activeVisit.value.visitId)
     hydrateVitalsFromVisit(activeVisit.value)
@@ -2322,7 +2644,7 @@ function clearExamOnly() {
   clinicalOrders.value = []
   prescriptionItems.value = []
   Object.assign(examForm, { chiefComplaint: '', symptoms: '', clinicalExam: '', diagnosisCode: '', diagnosisSpecialty: '', diagnosis: '', doctorNote: '', treatmentPlan: '', followUpDate: '', conclusionStatus: 'Hoàn thành' })
-  Object.assign(vitalsForm, { bloodPressure: '', heartRate: '', temperature: '', respiratoryRate: '', spo2: '', height: '', weight: '' })
+  Object.assign(vitalsForm, { bloodPressure: '', heartRate: '', temperature: '', respiratoryRate: '', spo2: '', height: '', weight: '', note: '' })
   Object.assign(historyForm, { diabetes: false, hypertension: false, cardiovascular: false, asthma: false, other: '', allergies: '' })
   Object.assign(clinicalChecklist, { bloodTest: false, urineTest: false, ultrasound: false, xray: false, ecg: false })
   Object.assign(orderForm, { orderType: 'Xét nghiệm', orderName: '', reason: '' })
@@ -2356,6 +2678,7 @@ function mapQueue(item: WaitingQueueItem, appointment?: Appointment): Row {
     key: `Q${item.id || item.queueId || item.appointmentId}`,
     id: queueNumber || item.id || item.appointmentId,
     appointmentId: item.appointmentId,
+    visitId: (item as any).visitId || (item as any).VisitId,
     patientId: item.patientId || appointment?.patientId,
     doctorId: item.doctorId || appointment?.doctorId,
     patientName: displayText(item.patientName || appointment?.patientName) || 'Chưa có tên',
@@ -2365,6 +2688,8 @@ function mapQueue(item: WaitingQueueItem, appointment?: Appointment): Row {
     time: slotTime,
     timeLabel: `${formatDate(appointmentDate)} · ${slotTime || '--:--'}`,
     reason: item.reason || appointment?.reason || item.specialtyName || appointment?.specialtyName || 'Chưa ghi lý do',
+    specialtyName: item.specialtyName || appointment?.specialtyName,
+    room: visitRoom({ raw: { ...appointment, ...item } } as Row),
     status,
     raw: { ...appointment, ...item },
   }
@@ -2696,6 +3021,10 @@ function prescriptionNote() {
 
 function parseVitals(visit?: MedicalVisit | null) {
   const raw = visit?.vitalSignsJson || visit?.VitalSignsJson
+  return parseVitalSignsValue(raw)
+}
+
+function parseVitalSignsValue(raw: unknown) {
   if (!raw || typeof raw !== 'string') return {} as Record<string, any>
   try {
     return JSON.parse(raw)
@@ -2713,6 +3042,85 @@ function hydrateVitalsFromVisit(visit?: MedicalVisit | null) {
   vitalsForm.spo2 = stringValue(vitals.spo2 ?? vitals.Spo2 ?? vitals.spO2 ?? vitals.SpO2)
   vitalsForm.height = stringValue(vitals.height ?? vitals.Height)
   vitalsForm.weight = stringValue(vitals.weight ?? vitals.Weight)
+  vitalsForm.note = stringValue(vitals.note ?? vitals.Note)
+  const extraFromNote = parseSpecialtyVitalsNote(vitalsForm.note)
+  for (const field of doctorVitalFields(selectedRow.value, visit)) {
+    if (baseVitalFields.some((baseField) => baseField.key === field.key)) continue
+    vitalsForm[field.key] = stringValue(
+      vitals[field.key]
+      ?? vitals[pascalCase(field.key)]
+      ?? extraFromNote[field.label]
+      ?? extraFromNote[doctorVitalFieldLabel(field)]
+    )
+  }
+}
+
+function doctorVitalSpecialty(row?: Row | null, visit?: MedicalVisit | null) {
+  return normalize(
+    row?.raw?.specialtyName
+    || row?.raw?.SpecialtyName
+    || row?.raw?.specialtyNameSnapshot
+    || row?.raw?.SpecialtyNameSnapshot
+    || row?.specialtyName
+    || (visit as any)?.specialtyName
+    || (visit as any)?.SpecialtyName
+    || authStore.user?.specialtyName
+    || examForm.diagnosisSpecialty,
+  )
+}
+
+function doctorVitalSpecialtyLabel(row?: Row | null, visit?: MedicalVisit | null) {
+  return meaningful(
+    row?.raw?.specialtyName
+    || row?.raw?.SpecialtyName
+    || row?.raw?.specialtyNameSnapshot
+    || row?.raw?.SpecialtyNameSnapshot
+    || row?.specialtyName
+    || (visit as any)?.specialtyName
+    || (visit as any)?.SpecialtyName
+    || authStore.user?.specialtyName
+    || examForm.diagnosisSpecialty,
+  )
+}
+
+function doctorVitalFields(row?: Row | null, visit?: MedicalVisit | null) {
+  const specialtyKey = doctorVitalSpecialty(row, visit)
+  const profile = specialtyVitalProfiles[specialtyKey] || defaultVitalProfile
+  const extra = specialtyExtraVitalFields[specialtyKey] || []
+  const seen = new Set<string>()
+  const baseFields = profile.baseKeys
+    .map((key) => baseVitalFields.find((field) => field.key === key))
+    .filter(Boolean) as VitalFieldConfig[]
+  return [...baseFields, ...extra].filter((field) => {
+    if (seen.has(field.key)) return false
+    seen.add(field.key)
+    return true
+  })
+}
+
+function doctorVitalFieldLabel(field: VitalFieldConfig) {
+  return `${field.label}${field.unit ? ` (${field.unit})` : ''}`
+}
+
+function doctorSpecialtyExtraFields(row?: Row | null, visit?: MedicalVisit | null) {
+  return doctorVitalFields(row, visit)
+    .filter((field) => !baseVitalFields.some((baseField) => baseField.key === field.key))
+    .filter((field) => meaningful(vitalsForm[field.key]))
+}
+
+function parseSpecialtyVitalsNote(value: unknown) {
+  const result: Record<string, string> = {}
+  const lines = String(value || '').split(/\r?\n/)
+  for (const line of lines) {
+    const match = line.match(/^\s*([^:]+):\s*(.+)\s*$/)
+    if (!match) continue
+    result[match[1].trim()] = match[2].trim()
+  }
+  return result
+}
+
+function pascalCase(value: string) {
+  return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value
 }
 
 function hydrateHistoryFromPatient(patient?: Patient | null) {
@@ -2896,6 +3304,41 @@ function clearDoctorRecordFilter(clearFilters: (() => void) | undefined, confirm
 function handleDoctorRecordTableChange(pagination: { current?: number; pageSize?: number }) {
   doctorRecordCurrentPage.value = pagination.current || 1
   doctorRecordPageSize.value = pagination.pageSize || 10
+}
+
+function doctorQueueIdentity(record: Row | Record<string, any>) {
+  return String(record.key || record.visitId || record.appointmentId || record.id)
+}
+
+function doctorQueueSearchField(record: Row, key: string) {
+  if (key === 'queueNo') return record.id || record.visitId || ''
+  if (key === 'patientName') return [record.patientName, record.patientId].filter(Boolean).join(' ')
+  if (key === 'timeLabel') return record.timeLabel || formatDate(record.date)
+  if (key === 'room') return queueRoomOrSpecialty(record)
+  if (key === 'reason') return record.reason || ''
+  if (key === 'vitals') return queueVitalLabel(record)
+  if (key === 'status') return statusText(record.status)
+  return ''
+}
+
+function doctorQueueColumnFilter(key: string) {
+  return (filterValue: string | number | boolean, record: Row) =>
+    normalize(doctorQueueSearchField(record, key)).includes(normalize(filterValue))
+}
+
+function getDoctorQueueFilterKeys(event: Event) {
+  const filterValue = (event.target as HTMLInputElement)?.value || ''
+  return filterValue ? [filterValue] : []
+}
+
+function clearDoctorQueueFilter(clearFilters: (() => void) | undefined, confirm: () => void) {
+  clearFilters?.()
+  confirm()
+}
+
+function handleDoctorQueueTableChange(pagination: { current?: number; pageSize?: number }) {
+  doctorQueueCurrentPage.value = pagination.current || 1
+  doctorQueuePageSize.value = pagination.pageSize || 10
 }
 
 function recordTimestamp(value?: string | null) {
@@ -3537,20 +3980,22 @@ function renderReasonCard(props: any) {
 
 function renderVitalsCard(props: any, _emit: any) {
   const bmi = bmiValue(props.vitalsForm.height, props.vitalsForm.weight)
+  const fields = doctorVitalFields(props.row, props.activeVisit)
+  const specialtyLabel = doctorVitalSpecialtyLabel(props.row, props.activeVisit)
   return medicalCard('Sinh hiệu', HeartPulse, [
-    h('div', { class: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8' }, [
-      vitalField('Huyết áp', props.vitalsForm.bloodPressure, 'mmHg', HeartPulse),
-      vitalField('Mạch', props.vitalsForm.heartRate, 'lần/phút', Activity),
-      vitalField('Nhiệt độ', props.vitalsForm.temperature, '°C', Thermometer),
-      vitalField('Nhịp thở', props.vitalsForm.respiratoryRate, 'lần/phút', Wind),
-      vitalField('SpO2', props.vitalsForm.spo2, '%', Activity),
-      vitalField('Chiều cao', props.vitalsForm.height, 'cm', Ruler),
-      vitalField('Cân nặng', props.vitalsForm.weight, 'kg', Weight),
-      h('div', { class: 'rounded-xl border border-blue-100 bg-blue-50 p-3' }, [
+    h('div', { class: 'mb-4 flex flex-wrap gap-2' }, [
+      h('span', { class: 'rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700' }, specialtyLabel ? `Chuyên khoa: ${specialtyLabel}` : 'Chuyên khoa chung'),
+      h('span', { class: 'rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600' }, `${fields.length} chỉ số theo dõi`),
+    ]),
+    h('div', { class: 'grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(128px,1fr))]' }, [
+      ...fields.map((field) => vitalField(field.label, props.vitalsForm[field.key], field.unit || '', vitalFieldIcon(field.key))),
+      bmi
+        ? h('div', { class: 'rounded-xl border border-blue-100 bg-blue-50 p-3' }, [
         h('p', { class: 'text-xs font-bold text-blue-700' }, 'BMI'),
         h('p', { class: 'mt-2 text-xl font-bold text-slate-950' }, bmi || 'Chưa có'),
         h('p', { class: 'text-xs text-slate-500' }, bmi ? 'kg/m²' : 'Nhập chiều cao/cân nặng'),
-      ]),
+        ])
+        : null,
     ]),
   ])
 }
@@ -3780,6 +4225,18 @@ function sideInfoItem(label: string, value: unknown) {
     h('span', { class: 'text-sm font-semibold text-slate-500' }, label),
     h('span', { class: 'min-w-0 truncate text-right text-sm font-bold text-slate-950' }, displayOrEmpty(value)),
   ])
+}
+
+function vitalFieldIcon(key: string) {
+  if (key === 'bloodPressure') return HeartPulse
+  if (key === 'heartRate') return Activity
+  if (key === 'temperature') return Thermometer
+  if (key === 'respiratoryRate') return Wind
+  if (key === 'height') return Ruler
+  if (key === 'weight') return Weight
+  if (key.includes('pain')) return AlertTriangle
+  if (key.includes('visual')) return Eye
+  return Activity
 }
 
 function vitalField(label: string, value: any, unit: string, icon: any) {
@@ -4197,6 +4654,182 @@ function sectionBlock(title: string, rows: [string, any][]) {
 
 .doctor-record-table-shell :deep(.ant-pagination-options .ant-select-selection-item) {
   line-height: 28px;
+}
+
+.doctor-queue-page {
+  @apply space-y-4;
+}
+
+.doctor-queue-shell {
+  @apply overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm;
+}
+
+.doctor-queue-table-header {
+  @apply flex flex-col gap-3 border-b border-slate-100 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between;
+}
+
+.doctor-queue-table-header p {
+  @apply text-[11px] font-bold uppercase tracking-[0.18em] text-blue-700;
+}
+
+.doctor-queue-table-header h2 {
+  @apply mt-0.5 text-lg font-bold text-slate-950;
+}
+
+.doctor-queue-table-actions {
+  @apply flex flex-wrap items-center gap-2;
+}
+
+.doctor-queue-table-actions span {
+  @apply rounded-xl bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700;
+}
+
+.doctor-queue-table-actions button {
+  @apply inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.doctor-queue-header {
+  @apply flex flex-col gap-3 border-b border-slate-100 bg-slate-50/60 p-4 sm:flex-row sm:items-center sm:justify-between;
+}
+
+.doctor-queue-header h2 {
+  @apply text-base font-bold text-slate-950;
+}
+
+.doctor-queue-header p {
+  @apply mt-1 text-sm text-slate-500;
+}
+
+.doctor-queue-header > span {
+  @apply rounded-xl bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700;
+}
+
+.doctor-queue-grid {
+  @apply grid gap-4 p-4 xl:grid-cols-2 2xl:grid-cols-3;
+}
+
+.doctor-queue-card {
+  @apply rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md;
+}
+
+.doctor-queue-card-top {
+  @apply flex items-start justify-between gap-4;
+}
+
+.doctor-queue-card h3 {
+  @apply mt-3 truncate text-base font-bold text-slate-950;
+}
+
+.doctor-queue-card p {
+  @apply mt-1 text-xs font-semibold text-slate-500;
+}
+
+.doctor-queue-visit {
+  @apply rounded-lg bg-blue-50 px-2.5 py-1 font-mono text-xs font-bold text-blue-700;
+}
+
+.doctor-queue-vital-chip {
+  @apply rounded-full px-2.5 py-1 text-xs font-bold;
+}
+
+.doctor-queue-vital-chip.is-done {
+  @apply bg-emerald-100 text-emerald-800;
+}
+
+.doctor-queue-vital-chip.is-progress {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.doctor-queue-vital-chip.is-missing {
+  @apply bg-rose-100 text-rose-800;
+}
+
+.doctor-queue-vital-tag {
+  align-items: center;
+  border: 0 !important;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  margin: 0;
+  padding: 2px 9px;
+}
+
+.doctor-queue-vital-tag.is-done {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.doctor-queue-vital-tag.is-progress {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.doctor-queue-vital-tag.is-missing {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.doctor-queue-wait {
+  @apply shrink-0 text-right;
+}
+
+.doctor-queue-wait span {
+  @apply text-[11px] font-bold uppercase tracking-wide text-slate-400;
+}
+
+.doctor-queue-wait strong {
+  @apply mt-1 block text-sm font-bold text-slate-900;
+}
+
+.doctor-queue-info-grid {
+  @apply mt-4 grid gap-3 sm:grid-cols-2;
+}
+
+.doctor-queue-info-grid div {
+  @apply rounded-xl bg-slate-50 px-3 py-2;
+}
+
+.doctor-queue-info-grid span {
+  @apply text-[11px] font-bold uppercase tracking-wide text-slate-400;
+}
+
+.doctor-queue-info-grid strong {
+  @apply mt-1 block truncate text-sm font-semibold text-slate-800;
+}
+
+.doctor-queue-reason {
+  @apply mt-3 line-clamp-2 text-sm font-medium leading-6 text-slate-600;
+}
+
+.doctor-queue-actions {
+  @apply mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3;
+}
+
+.doctor-queue-detail,
+.doctor-queue-start {
+  @apply inline-flex h-10 items-center rounded-xl px-4 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.doctor-queue-detail {
+  @apply border border-slate-200 bg-white text-slate-700 hover:bg-slate-50;
+}
+
+.doctor-queue-start {
+  @apply bg-blue-700 text-white hover:bg-blue-800;
+}
+
+.doctor-queue-pager {
+  @apply flex flex-col gap-3 border-t border-slate-100 bg-slate-50/50 p-4 sm:flex-row sm:items-center sm:justify-between;
+}
+
+.doctor-queue-pager p {
+  @apply text-sm text-slate-500;
+}
+
+.doctor-queue-pager span {
+  @apply rounded-lg bg-white px-3 py-2 text-sm font-bold text-slate-700 ring-1 ring-slate-200;
 }
 
 .schedule-page-header {

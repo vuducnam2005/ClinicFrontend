@@ -245,6 +245,75 @@
           </tbody>
         </table>
 
+        <!-- Queue board -->
+        <div v-else-if="resource === 'queue'" class="grid gap-3 p-4 xl:grid-cols-2 2xl:grid-cols-3">
+          <article
+            v-for="row in paginatedRows"
+            :key="String(row.visitId || row.id)"
+            class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md"
+          >
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="rounded-lg bg-blue-50 px-2.5 py-1 font-mono text-xs font-bold text-blue-700">
+                    VISIT #{{ row.visitId || row.id }}
+                  </span>
+                  <span :class="['rounded-full px-2.5 py-1 text-xs font-bold', queueVitalClass(row)]">
+                    {{ queueVitalLabel(row) }}
+                  </span>
+                </div>
+                <h3 class="mt-3 truncate text-base font-bold text-slate-950">{{ row.patientName }}</h3>
+                <p class="mt-1 text-xs font-semibold text-slate-500">Mã BN: {{ patientCodeFallback(row.patientId) }}</p>
+              </div>
+              <div class="shrink-0 text-right">
+                <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Chờ</p>
+                <p class="mt-1 text-sm font-bold text-slate-900">{{ queueWaitLabel(row) }}</p>
+              </div>
+            </div>
+
+            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+              <div class="rounded-xl bg-slate-50 px-3 py-2">
+                <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Bác sĩ</p>
+                <p class="mt-1 truncate text-sm font-semibold text-slate-800">{{ row.doctorName || 'Chưa phân bác sĩ' }}</p>
+              </div>
+              <div class="rounded-xl bg-slate-50 px-3 py-2">
+                <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Chuyên khoa</p>
+                <p class="mt-1 truncate text-sm font-semibold text-slate-800">{{ queueSpecialtyLabel(row) }}</p>
+              </div>
+              <div class="rounded-xl bg-slate-50 px-3 py-2">
+                <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Trạng thái khám</p>
+                <p class="mt-1 text-sm font-semibold text-slate-800">{{ statusText(row.status) }}</p>
+              </div>
+              <div class="rounded-xl bg-slate-50 px-3 py-2">
+                <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Tiếp nhận</p>
+                <p class="mt-1 text-sm font-semibold text-slate-800">{{ row.dateTime || 'Hôm nay' }}</p>
+              </div>
+            </div>
+
+            <p class="mt-3 line-clamp-2 text-sm leading-6 text-slate-600" :title="row.reason">
+              {{ row.reason || 'Chưa ghi nhận lý do khám' }}
+            </p>
+
+            <div class="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
+              <button
+                v-if="Number(row.visitId) > 0"
+                type="button"
+                :disabled="actingId === row.id || !canUpdateVitals(row)"
+                :class="[
+                  'inline-flex h-10 items-center rounded-xl px-4 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60',
+                  canUpdateVitals(row) ? 'bg-blue-700 text-white hover:bg-blue-800' : 'bg-emerald-50 text-emerald-700',
+                ]"
+                @click="runAction('vitals', row)"
+              >
+                {{ canUpdateVitals(row) ? 'Đo sinh hiệu' : 'Đã đo sinh hiệu' }}
+              </button>
+              <span v-else class="inline-flex h-10 items-center rounded-xl bg-amber-50 px-4 text-sm font-bold text-amber-700">
+                Chưa tạo lượt khám
+              </span>
+            </div>
+          </article>
+        </div>
+
         <!-- Table for bills -->
         <table v-else-if="resource === 'bills'" class="min-w-full divide-y divide-slate-100 text-sm">
           <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -407,6 +476,14 @@
             <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">Chỉ số sinh hiệu</p>
             <h2 class="mt-1 text-2xl font-bold text-slate-950">Cập nhật chỉ số sức khỏe</h2>
             <p class="mt-2 text-sm text-slate-500">{{ activeRow?.patientName }} - Visit #{{ activeRow?.visitId || activeRow?.id }}</p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                {{ activeVitalSpecialtyLabel }}
+              </span>
+              <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                {{ activeVitalFields.length }} chỉ số cần theo dõi
+              </span>
+            </div>
           </div>
           <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" @click="closeVitals">
             <X class="h-5 w-5" />
@@ -415,25 +492,32 @@
         <div class="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
           <p class="font-bold">Hướng dẫn nhập chỉ số sức khỏe</p>
           <ul class="mt-2 grid gap-1 sm:grid-cols-2">
-            <li>Nhiệt độ: 30-45°C, ví dụ 36.8.</li>
-            <li>Huyết áp: dạng 120/80, tối đa 30 ký tự.</li>
-            <li>Mạch: 1-250 lần/phút.</li>
-            <li>Nhịp thở: 1-100 lần/phút.</li>
-            <li>SpO2: 1-100%.</li>
-            <li>Chiều cao: 1-300 cm.</li>
-            <li>Cân nặng: 1-500 kg.</li>
+            <li v-for="field in activeVitalFields" :key="`hint-${field.key}`">
+              {{ field.label }}{{ field.unit ? ` (${field.unit})` : '' }}:
+              <span v-if="field.min !== undefined || field.max !== undefined">
+                {{ field.min ?? '...' }}-{{ field.max ?? '...' }}{{ field.unit ? ` ${field.unit}` : '' }}.
+              </span>
+              <span v-else>{{ field.placeholder || 'Nhập theo thực tế đo được.' }}</span>
+            </li>
             <li class="font-bold text-rose-700">Các trường có dấu * là bắt buộc.</li>
           </ul>
         </div>
         <form class="mt-5 space-y-4" @submit.prevent="submitVitals">
-          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <BaseInput v-model.number="vitalsForm.temperature" label="Nhiệt độ (°C)" type="number" min="30" max="45" step="0.1" required />
-            <BaseInput v-model="vitalsForm.bloodPressure" label="Huyết áp" placeholder="120/80" maxlength="30" required />
-            <BaseInput v-model.number="vitalsForm.heartRate" label="Mạch (lần/phút)" type="number" min="1" max="250" required />
-            <BaseInput v-model.number="vitalsForm.respiratoryRate" label="Nhịp thở (lần/phút)" type="number" min="1" max="100" required />
-            <BaseInput v-model.number="vitalsForm.spo2" label="SpO2 (%)" type="number" min="1" max="100" required />
-            <BaseInput v-model.number="vitalsForm.height" label="Chiều cao (cm)" type="number" min="1" max="300" required />
-            <BaseInput v-model.number="vitalsForm.weight" label="Cân nặng (kg)" type="number" min="1" max="500" required />
+          <div class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(210px,1fr))]">
+            <BaseInput
+              v-for="field in activeVitalFields"
+              :key="field.key"
+              :model-value="vitalsForm[field.key]"
+              :label="vitalFieldLabel(field)"
+              :type="field.type === 'number' ? 'number' : 'text'"
+              :min="field.min"
+              :max="field.max"
+              :step="field.step || (field.type === 'number' ? '0.1' : undefined)"
+              :placeholder="field.placeholder"
+              :maxlength="field.maxLength"
+              :required="field.required"
+              @update:model-value="updateVitalField(field, $event)"
+            />
           </div>
           <label class="block">
             <span class="mb-2 block text-sm font-medium text-slate-700">Ghi chú điều dưỡng</span>
@@ -1091,6 +1175,21 @@ type Resource = 'appointments' | 'patients' | 'queue' | 'bills' | 'prescriptions
 type ActionKey = 'confirm' | 'checkin' | 'cancelAppointment' | 'pay' | 'vitals' | 'editPatient' | 'stockCheck'
 type Row = Record<string, any>
 interface Column { key: string; label: string; badge?: boolean; strong?: boolean }
+type VitalFieldType = 'number' | 'text'
+interface VitalFieldConfig {
+  key: string
+  label: string
+  unit?: string
+  type: VitalFieldType
+  required?: boolean
+  min?: number
+  max?: number
+  step?: string
+  maxLength?: number
+  placeholder?: string
+  pattern?: RegExp
+  patternMessage?: string
+}
 
 const route = useRoute()
 const loading = ref(false)
@@ -1115,7 +1214,7 @@ const activeRow = ref<Row | null>(null)
 const activePrescriptionRow = ref<Row | null>(null)
 const stockCheck = ref<PrescriptionStockCheck | null>(null)
 const editingPatientId = ref<string | number | null>(null)
-const vitalsForm = reactive({
+const vitalsForm = reactive<Record<string, string | number | undefined>>({
   temperature: undefined as number | undefined,
   bloodPressure: '',
   heartRate: undefined as number | undefined,
@@ -1133,6 +1232,83 @@ const billStatusOptions: Array<{ label: string; value: 'all' | 'unpaid' | 'paid'
   { label: 'Cần thu', value: 'unpaid' },
   { label: 'Đã thu', value: 'paid' },
 ]
+const baseVitalFields: VitalFieldConfig[] = [
+  { key: 'temperature', label: 'Nhiệt độ', unit: '°C', type: 'number', min: 30, max: 45, step: '0.1', placeholder: '36.8' },
+  { key: 'bloodPressure', label: 'Huyết áp', unit: 'mmHg', type: 'text', maxLength: 30, placeholder: '120/80', pattern: /^\d{2,3}\s*\/\s*\d{2,3}$/, patternMessage: 'Huyết áp phải có dạng tâm thu/tâm trương, ví dụ 120/80.' },
+  { key: 'heartRate', label: 'Mạch', unit: 'lần/phút', type: 'number', min: 1, max: 250, step: '1' },
+  { key: 'respiratoryRate', label: 'Nhịp thở', unit: 'lần/phút', type: 'number', min: 1, max: 100, step: '1' },
+  { key: 'spo2', label: 'SpO2', unit: '%', type: 'number', min: 1, max: 100, step: '1' },
+  { key: 'height', label: 'Chiều cao', unit: 'cm', type: 'number', min: 1, max: 300, step: '0.1' },
+  { key: 'weight', label: 'Cân nặng', unit: 'kg', type: 'number', min: 1, max: 500, step: '0.1' },
+]
+const specialtyExtraVitalFields: Record<string, VitalFieldConfig[]> = {
+  'tim mach': [
+    { key: 'chestPainScore', label: 'Mức đau ngực', unit: '/10', type: 'number', min: 0, max: 10, step: '1', placeholder: '0-10' },
+    { key: 'ecgNote', label: 'Ghi chú ECG nhanh', type: 'text', maxLength: 120, placeholder: 'Nhịp đều, chưa ghi nhận bất thường...' },
+  ],
+  'nhi khoa': [
+    { key: 'headCircumference', label: 'Vòng đầu', unit: 'cm', type: 'number', min: 20, max: 80, step: '0.1' },
+    { key: 'feedingNote', label: 'Ăn bú/ăn uống', type: 'text', maxLength: 120, placeholder: 'Bú tốt, ăn kém, nôn ói...' },
+  ],
+  'da lieu': [
+    { key: 'lesionArea', label: 'Vùng tổn thương da', type: 'text', maxLength: 120, placeholder: 'Mặt, tay, lưng...' },
+    { key: 'itchScore', label: 'Mức ngứa', unit: '/10', type: 'number', min: 0, max: 10, step: '1' },
+  ],
+  'tai mui hong': [
+    { key: 'painScore', label: 'Mức đau họng/tai', unit: '/10', type: 'number', min: 0, max: 10, step: '1' },
+    { key: 'hearingNote', label: 'Ghi nhận nghe/nói', type: 'text', maxLength: 120, placeholder: 'Nghe rõ, ù tai, khàn tiếng...' },
+  ],
+  'co xuong khop': [
+    { key: 'painScore', label: 'Mức đau', unit: '/10', type: 'number', min: 0, max: 10, step: '1' },
+    { key: 'mobilityNote', label: 'Vận động', type: 'text', maxLength: 120, placeholder: 'Đi lại bình thường, hạn chế gập duỗi...' },
+  ],
+  'mat': [
+    { key: 'visualAcuityLeft', label: 'Thị lực mắt trái', type: 'text', maxLength: 30, placeholder: '10/10, 8/10...' },
+    { key: 'visualAcuityRight', label: 'Thị lực mắt phải', type: 'text', maxLength: 30, placeholder: '10/10, 8/10...' },
+  ],
+  'san phu khoa': [
+    { key: 'lastMenstrualPeriod', label: 'Kỳ kinh cuối', type: 'text', maxLength: 60, placeholder: 'dd/mm/yyyy hoặc chưa rõ' },
+    { key: 'pregnancyWeek', label: 'Tuần thai', unit: 'tuần', type: 'number', min: 1, max: 42, step: '1' },
+  ],
+}
+interface VitalSpecialtyProfile {
+  baseKeys: string[]
+  requiredKeys: string[]
+}
+const defaultVitalProfile: VitalSpecialtyProfile = {
+  baseKeys: ['temperature', 'bloodPressure', 'heartRate', 'spo2'],
+  requiredKeys: ['temperature', 'bloodPressure', 'heartRate', 'spo2'],
+}
+const specialtyVitalProfiles: Record<string, VitalSpecialtyProfile> = {
+  'tim mach': {
+    baseKeys: ['bloodPressure', 'heartRate', 'spo2', 'temperature', 'respiratoryRate'],
+    requiredKeys: ['bloodPressure', 'heartRate', 'spo2'],
+  },
+  'nhi khoa': {
+    baseKeys: ['temperature', 'heartRate', 'respiratoryRate', 'spo2', 'height', 'weight'],
+    requiredKeys: ['temperature', 'heartRate', 'spo2', 'weight'],
+  },
+  'da lieu': {
+    baseKeys: ['temperature', 'bloodPressure', 'heartRate'],
+    requiredKeys: ['lesionArea'],
+  },
+  'tai mui hong': {
+    baseKeys: ['temperature', 'heartRate', 'spo2'],
+    requiredKeys: [],
+  },
+  'co xuong khop': {
+    baseKeys: ['bloodPressure', 'heartRate', 'temperature'],
+    requiredKeys: ['painScore'],
+  },
+  'mat': {
+    baseKeys: ['bloodPressure', 'heartRate'],
+    requiredKeys: ['visualAcuityLeft', 'visualAcuityRight'],
+  },
+  'san phu khoa': {
+    baseKeys: ['bloodPressure', 'heartRate', 'temperature', 'height', 'weight'],
+    requiredKeys: ['bloodPressure', 'heartRate'],
+  },
+}
 
 // Advanced filters for appointments
 const appointmentQuery = ref('')
@@ -1141,6 +1317,35 @@ const appointmentFromDate = ref('')
 const appointmentToDate = ref('')
 const appointmentStatus = ref('Cần xử lý')
 const appointmentDoctor = ref('')
+const activeVitalSpecialty = computed(() => normalizeKey(
+  getAny(activeRow.value, 'specialtyName', 'doctorSpecialty')
+  || getAny(activeRow.value?.raw, 'specialtyName', 'SpecialtyName', 'specialtyNameSnapshot', 'SpecialtyNameSnapshot')
+  || '',
+))
+const activeVitalSpecialtyLabel = computed(() => {
+  const value = meaningfulText(
+    getAny(activeRow.value, 'specialtyName', 'doctorSpecialty')
+    || getAny(activeRow.value?.raw, 'specialtyName', 'SpecialtyName', 'specialtyNameSnapshot', 'SpecialtyNameSnapshot'),
+  )
+  return value ? `Chuyên khoa: ${value}` : 'Chuyên khoa chung'
+})
+const activeVitalFields = computed(() => {
+  const profile = specialtyVitalProfiles[activeVitalSpecialty.value] || defaultVitalProfile
+  const extra = specialtyExtraVitalFields[activeVitalSpecialty.value] || []
+  const requiredKeys = new Set(profile.requiredKeys)
+  const seen = new Set<string>()
+  const baseFields = profile.baseKeys
+    .map((key) => baseVitalFields.find((field) => field.key === key))
+    .filter(Boolean) as VitalFieldConfig[]
+  return [...baseFields, ...extra].map((field) => ({
+    ...field,
+    required: requiredKeys.has(field.key),
+  })).filter((field) => {
+    if (seen.has(field.key)) return false
+    seen.add(field.key)
+    return true
+  })
+})
 
 // Dialogs and drawer states
 const checkInConfirmOpen = ref(false)
@@ -1166,7 +1371,7 @@ const invoicesList = ref<Invoice[]>([])
 const configs: Record<Resource, { title: string; service: string; description: string; endpoint: string; search: string[]; placeholder: string; emptyText: string; columns: Column[] }> = {
   appointments: cfg('Lịch hẹn tiếp nhận', 'Tiếp nhận bệnh nhân', 'Xác nhận lịch hẹn và tạo lượt khám lâm sàng.', 'POST /medical/api/v1/medical/events/patient-checked-in', ['patientName', 'doctorName', 'status', 'reason'], 'Tìm bệnh nhân, bác sĩ, lý do...', 'Chưa có lịch hẹn chờ tiếp nhận.', cols(['id', 'Mã'], ['patientName', 'Bệnh nhân', false, true], ['doctorName', 'Bác sĩ'], ['dateTime', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
   patients: cfg('Hồ sơ bệnh nhân', 'Hồ sơ bệnh nhân', 'Tạo và cập nhật thông tin hồ sơ bệnh nhân khi tiếp nhận.', 'GET/POST/PUT /medical/api/v1/medical/patients', ['id', 'name', 'phone', 'email', 'gender', 'dateOfBirth', 'address', 'citizenId', 'bloodType', 'allergyNote', 'history', 'status'], 'Tìm mã bệnh nhân, họ tên, số điện thoại, CCCD...', 'Chưa có hồ sơ bệnh nhân.', cols(['id', 'Mã BN'], ['name', 'Bệnh nhân', false, true], ['phone', 'Số điện thoại'], ['email', 'Email'], ['dateOfBirth', 'Ngày sinh'], ['gender', 'Giới tính'], ['citizenId', 'CCCD'], ['bloodType', 'Nhóm máu'], ['address', 'Địa chỉ'], ['allergyNote', 'Dị ứng'], ['history', 'Tiền sử bệnh'], ['status', 'Trạng thái', true], ['createdAt', 'Ngày tạo'], ['updatedAt', 'Cập nhật'])),
-  queue: cfg('Hàng chờ khám', 'Hàng chờ khám', 'Theo dõi lượt khám đã tiếp nhận và cập nhật chỉ số sinh hiệu trước khi khám.', 'GET /medical/api/v1/medical/visits/today', ['patientName', 'doctorName', 'status', 'reason'], 'Tìm bệnh nhân, bác sĩ, trạng thái...', 'Chưa có lượt khám hôm nay.', cols(['id', 'Visit'], ['patientName', 'Bệnh nhân', false, true], ['doctorName', 'Bác sĩ'], ['dateTime', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
+  queue: cfg('Hàng chờ khám', 'Hàng chờ khám', 'Theo dõi lượt khám đã tiếp nhận và cập nhật chỉ số sinh hiệu trước khi khám.', 'GET /medical/api/v1/medical/visits/today', ['patientName', 'doctorName', 'specialtyName', 'status', 'reason'], 'Tìm bệnh nhân, bác sĩ, chuyên khoa, trạng thái...', 'Chưa có lượt khám hôm nay.', cols(['id', 'Visit'], ['patientName', 'Bệnh nhân', false, true], ['doctorName', 'Bác sĩ'], ['dateTime', 'Ngày giờ'], ['reason', 'Lý do'], ['status', 'Trạng thái', true])),
   bills: cfg('Thu viện phí', 'Hóa đơn viện phí', 'Theo dõi hóa đơn và thu viện phí của bệnh nhân.', 'GET /pharmacy/api/invoices', ['id', 'invoiceNo', 'patientName', 'patientCode', 'appointmentLabel', 'amount', 'status', 'description'], 'Tìm mã hóa đơn, bệnh nhân, mã BN, lịch hẹn...', 'Chưa có hóa đơn.', cols(['id', 'Mã HĐ'], ['patientId', 'Bệnh nhân'], ['appointmentId', 'Lịch hẹn'], ['amount', 'Số tiền'], ['status', 'Trạng thái', true])),
   prescriptions: cfg('Xử lý đơn thuốc', 'Kho dược phẩm', 'Kiểm tồn kho, duyệt đơn và phát thuốc sau khi hóa đơn đã thanh toán.', 'GET /pharmacy/api/prescriptions/{id}/stock-check', ['id', 'patientName', 'patientCode', 'medicalRecordId', 'examDate', 'medicine', 'status'], 'Tìm đơn thuốc, bệnh nhân, mã BN, ngày khám, thuốc...', 'Chưa có đơn thuốc.', cols(['id', 'Mã đơn'], ['patientName', 'Bệnh nhân', false, true], ['patientCode', 'Mã BN'], ['medicalRecordId', 'Bệnh án'], ['examDate', 'Ngày khám'], ['medicine', 'Thuốc'], ['status', 'Trạng thái', true])),
 }
@@ -1323,6 +1528,17 @@ const metrics = computed(() => {
       { label: 'Đã thu', value: billPaidCount.value, note: billPaidTotal.value },
     ]
   }
+  if (resource.value === 'queue') {
+    const withVisit = rows.value.filter((row) => Number(row.visitId) > 0)
+    const measured = withVisit.filter((row) => hasVitalSigns(row.raw || {})).length
+    const needVitals = withVisit.filter((row) => canUpdateVitals(row)).length
+    const inProgress = rows.value.filter((row) => String(row.status || '').toLowerCase().includes('progress')).length
+    return [
+      { label: 'Đang trong hàng chờ', value: rows.value.length, note: 'Đã tiếp nhận/check-in' },
+      { label: 'Cần đo sinh hiệu', value: needVitals, note: 'Ưu tiên xử lý trước' },
+      { label: 'Đã đo / đang khám', value: `${measured} / ${inProgress}`, note: 'Sẵn sàng cho bác sĩ' },
+    ]
+  }
   return [
     { label: 'Tổng dữ liệu', value: rows.value.length, note: 'Theo service hiện tại' },
     { label: 'Đang xử lý', value: rows.value.filter((row) => isActiveStatus(row.status)).length, note: 'Chờ, xác nhận hoặc chưa thu' },
@@ -1439,7 +1655,10 @@ async function loadData() {
       })
     } else {
       if (resource.value === 'patients') rows.value = (await medicalRecordApi.getPatients({ pageSize: 100 })).map(mapPatient)
-      if (resource.value === 'queue') rows.value = await loadNurseQueue()
+      if (resource.value === 'queue') {
+        if (!doctorsList.value.length) doctorsList.value = await appointmentApi.getDoctors().catch(() => [])
+        rows.value = await loadNurseQueue()
+      }
       if (resource.value === 'bills') rows.value = (await billingApi.getInvoices()).map(mapInvoice)
       if (resource.value === 'prescriptions') rows.value = await loadReadonlyPrescriptions()
     }
@@ -1946,6 +2165,9 @@ function openVitals(row: Row) {
   vitalsOpen.value = true
   const raw = row.raw || {}
   const vitals = parseVitalSigns(raw.vitalSignsJson ?? raw.VitalSignsJson)
+  for (const field of [...baseVitalFields, ...Object.values(specialtyExtraVitalFields).flat()]) {
+    vitalsForm[field.key] = undefined
+  }
   vitalsForm.temperature = numberOrUndefined(raw.temperature ?? raw.Temperature)
     ?? numberOrUndefined(vitals.temperature ?? vitals.Temperature)
   vitalsForm.bloodPressure = String(raw.bloodPressure ?? raw.BloodPressure ?? vitals.bloodPressure ?? vitals.BloodPressure ?? '')
@@ -1960,11 +2182,44 @@ function openVitals(row: Row) {
   vitalsForm.weight = numberOrUndefined(raw.weight ?? raw.Weight)
     ?? numberOrUndefined(vitals.weight ?? vitals.Weight)
   vitalsForm.note = String(raw.note ?? raw.Note ?? vitals.note ?? vitals.Note ?? '')
+  for (const field of activeVitalFields.value) {
+    if (baseVitalFields.some((baseField) => baseField.key === field.key)) continue
+    const value = getAny(raw, field.key, pascalCase(field.key)) ?? getAny(vitals, field.key, pascalCase(field.key))
+    vitalsForm[field.key] = field.type === 'number' ? numberOrUndefined(value) : String(value ?? '')
+  }
 }
 
 function closeVitals() {
   vitalsOpen.value = false
   activeRow.value = null
+}
+
+function vitalFieldLabel(field: VitalFieldConfig) {
+  return `${field.label}${field.unit ? ` (${field.unit})` : ''}`
+}
+
+function updateVitalField(field: VitalFieldConfig, value: string) {
+  vitalsForm[field.key] = field.type === 'number'
+    ? (value === '' ? undefined : Number(value))
+    : value
+}
+
+function vitalText(key: string) {
+  return String(vitalsForm[key] ?? '').trim()
+}
+
+function buildVitalsNote() {
+  const manualNote = vitalText('note')
+  const extraLines = activeVitalFields.value
+    .filter((field) => !baseVitalFields.some((baseField) => baseField.key === field.key))
+    .map((field) => {
+      const textValue = vitalText(field.key)
+      return textValue ? `${field.label}${field.unit ? ` (${field.unit})` : ''}: ${textValue}` : ''
+    })
+    .filter(Boolean)
+  return [manualNote, extraLines.length ? `Chỉ số theo chuyên khoa ${activeVitalSpecialtyLabel.value.replace('Chuyên khoa: ', '')}:\n${extraLines.join('\n')}` : '']
+    .filter(Boolean)
+    .join('\n\n')
 }
 
 async function submitVitals() {
@@ -1981,13 +2236,13 @@ async function submitVitals() {
   try {
     const updatedVisit = await medicalRecordApi.updateVisitVitals(visitId, {
       temperature: emptyToNull(vitalsForm.temperature),
-      bloodPressure: vitalsForm.bloodPressure.trim() || null,
+      bloodPressure: vitalText('bloodPressure') || null,
       heartRate: emptyToNull(vitalsForm.heartRate),
       respiratoryRate: emptyToNull(vitalsForm.respiratoryRate),
       spo2: emptyToNull(vitalsForm.spo2),
       height: emptyToNull(vitalsForm.height),
       weight: emptyToNull(vitalsForm.weight),
-      note: vitalsForm.note.trim() || null,
+      note: buildVitalsNote() || null,
     })
     if (activeRow.value) {
       activeRow.value.raw = { ...(activeRow.value.raw || {}), ...updatedVisit }
@@ -2006,22 +2261,21 @@ async function submitVitals() {
 }
 
 function validateVitals() {
-  if (!isEnteredNumber(vitalsForm.temperature)) return 'Vui lòng nhập nhiệt độ.'
-  if (!vitalsForm.bloodPressure.trim()) return 'Vui lòng nhập huyết áp.'
-  if (!isEnteredNumber(vitalsForm.heartRate)) return 'Vui lòng nhập mạch.'
-  if (!isEnteredNumber(vitalsForm.respiratoryRate)) return 'Vui lòng nhập nhịp thở.'
-  if (!isEnteredNumber(vitalsForm.spo2)) return 'Vui lòng nhập SpO2.'
-  if (!isEnteredNumber(vitalsForm.height)) return 'Vui lòng nhập chiều cao.'
-  if (!isEnteredNumber(vitalsForm.weight)) return 'Vui lòng nhập cân nặng.'
-  if (Number(vitalsForm.temperature) < 30 || Number(vitalsForm.temperature) > 45) return 'Nhiệt độ phải nằm trong khoảng 30-45°C.'
-  if (!/^\d{2,3}\s*\/\s*\d{2,3}$/.test(vitalsForm.bloodPressure.trim())) return 'Huyết áp phải có dạng tâm thu/tâm trương, ví dụ 120/80.'
-  if (Number(vitalsForm.heartRate) < 1 || Number(vitalsForm.heartRate) > 250) return 'Mạch phải nằm trong khoảng 1-250.'
-  if (Number(vitalsForm.respiratoryRate) < 1 || Number(vitalsForm.respiratoryRate) > 100) return 'Nhịp thở phải nằm trong khoảng 1-100.'
-  if (Number(vitalsForm.spo2) < 1 || Number(vitalsForm.spo2) > 100) return 'SpO2 phải nằm trong khoảng 1-100%.'
-  if (Number(vitalsForm.height) < 1 || Number(vitalsForm.height) > 300) return 'Chiều cao phải nằm trong khoảng 1-300 cm.'
-  if (Number(vitalsForm.weight) < 1 || Number(vitalsForm.weight) > 500) return 'Cân nặng phải nằm trong khoảng 1-500 kg.'
-  if (vitalsForm.bloodPressure.length > 30) return 'Huyết áp tối đa 30 ký tự.'
-  if (vitalsForm.note.length > 500) return 'Ghi chú tối đa 500 ký tự.'
+  for (const field of activeVitalFields.value) {
+    const value = vitalsForm[field.key]
+    const textValue = String(value ?? '').trim()
+    if (field.required && !textValue) return `Vui lòng nhập ${field.label.toLowerCase()}.`
+    if (!textValue) continue
+    if (field.type === 'number') {
+      const numberValue = Number(value)
+      if (!Number.isFinite(numberValue)) return `${field.label} phải là số hợp lệ.`
+      if (field.min !== undefined && numberValue < field.min) return `${field.label} phải nằm trong khoảng ${field.min}-${field.max ?? '...'}.`
+      if (field.max !== undefined && numberValue > field.max) return `${field.label} phải nằm trong khoảng ${field.min ?? '...'}-${field.max}.`
+    }
+    if (field.maxLength && textValue.length > field.maxLength) return `${field.label} tối đa ${field.maxLength} ký tự.`
+    if (field.pattern && !field.pattern.test(textValue)) return field.patternMessage || `${field.label} chưa đúng định dạng.`
+  }
+  if (String(vitalsForm.note || '').length > 500) return 'Ghi chú tối đa 500 ký tự.'
   return ''
 }
 
@@ -2158,10 +2412,17 @@ function patientCodeFallback(patientId?: number | string) {
 }
 
 function mapVisit(item: MedicalVisit): Row {
+  const doctor = doctorsList.value.find((entry) => Number(entry.doctorId) === Number(item.doctorId))
+  const specialtyName = getAny(item, 'specialtyName', 'SpecialtyName', 'specialtyNameSnapshot', 'SpecialtyNameSnapshot')
+    || getAny(item.appointment, 'specialtyName', 'SpecialtyName', 'specialtyNameSnapshot', 'SpecialtyNameSnapshot')
+    || doctor?.specialtyName
   return {
     id: item.visitId || item.id,
     visitId: item.visitId || item.id,
     appointmentId: item.appointmentId,
+    patientId: item.patientId,
+    doctorId: item.doctorId,
+    specialtyName,
     patientName: displayText(item.patientName || item.patient?.fullName || item.Patient?.FullName || ''),
     doctorName: getDoctorNameFallback(item.doctorId, item.doctorName || item.doctor?.fullName || item.Doctor?.FullName || ''),
     dateTime: formatDate(item.visitDate || item.createdAt),
@@ -2178,6 +2439,7 @@ function mapQueue(item: WaitingQueueItem): Row {
     patientId: item.patientId,
     patientName: displayText(item.patientName || ''),
     doctorId: item.doctorId,
+    specialtyName: item.specialtyName,
     doctorName: getDoctorNameFallback(item.doctorId, item.doctorName || ''),
     dateTime: `${formatDate(item.appointmentDate)} - ${item.slotTime || '-'}`,
     reason: item.reason || item.specialtyName || 'Chưa ghi nhận',
@@ -2330,6 +2592,44 @@ function canUpdateVitals(row: Row) {
   return !hasVitalSigns(raw)
 }
 
+function queueVitalLabel(row: Row) {
+  if (hasVitalSigns(row.raw || {})) return 'Đã đo sinh hiệu'
+  if (!Number(row.visitId)) return 'Chưa tạo lượt khám'
+  if (!canUpdateVitals(row)) return 'Không thể cập nhật'
+  return 'Chưa đo sinh hiệu'
+}
+
+function queueVitalClass(row: Row) {
+  if (hasVitalSigns(row.raw || {})) return 'bg-emerald-100 text-emerald-800'
+  if (!Number(row.visitId)) return 'bg-amber-100 text-amber-800'
+  if (!canUpdateVitals(row)) return 'bg-slate-100 text-slate-700'
+  return 'bg-rose-100 text-rose-800'
+}
+
+function queueSpecialtyLabel(row: Row) {
+  return meaningfulText(
+    row.specialtyName
+    || row.doctorSpecialty
+    || row.raw?.specialtyName
+    || row.raw?.SpecialtyName
+    || row.raw?.specialtyNameSnapshot
+    || row.raw?.SpecialtyNameSnapshot,
+  ) || 'Chưa cập nhật'
+}
+
+function queueWaitLabel(row: Row) {
+  const raw = row.raw || {}
+  const value = raw.checkedInAt || raw.CheckedInAt || raw.visitDate || raw.VisitDate || raw.createdAt || raw.CreatedAt
+  const timestamp = dateTimestamp(value)
+  if (!timestamp) return 'Mới'
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000))
+  if (minutes < 1) return 'Mới'
+  if (minutes < 60) return `${minutes} phút`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest ? `${hours}g ${rest}p` : `${hours} giờ`
+}
+
 function hasVitalSigns(raw: Record<string, any>) {
   const vitals = parseVitalSigns(raw.vitalSignsJson ?? raw.VitalSignsJson)
   return [raw.temperature, raw.Temperature, vitals.temperature, vitals.Temperature,
@@ -2371,6 +2671,20 @@ function getAny(source: unknown, ...keys: string[]) {
     if (data[key] !== undefined && data[key] !== null) return data[key]
   }
   return undefined
+}
+
+function normalizeKey(value: unknown) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function pascalCase(value: string) {
+  return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value
 }
 
 function booleanValue(value: unknown, fallback: boolean) {

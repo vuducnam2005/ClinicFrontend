@@ -15,17 +15,17 @@
             Xin chào, {{ doctorName }}
           </h1>
           <p class="mt-4 max-w-3xl text-base leading-7 text-slate-600">
-            Theo dõi lịch khám, hàng chờ và bệnh án cần xử lý trong ngày của bác sĩ.
+            Theo dõi hàng chờ khám, lịch hẹn sắp tới và bệnh án cần xử lý trong ngày của bác sĩ.
           </p>
 
           <div class="mt-7 flex flex-wrap gap-3">
-            <RouterLink to="/doctor/appointments" class="inline-flex h-12 items-center gap-2 rounded-xl bg-[#0F52BA] px-5 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition hover:bg-[#0B4296] focus:outline-none focus:ring-4 focus:ring-blue-100">
+            <RouterLink to="/doctor/queue" class="inline-flex h-12 items-center gap-2 rounded-xl bg-[#0F52BA] px-5 text-sm font-bold text-white shadow-lg shadow-blue-900/20 transition hover:bg-[#0B4296] focus:outline-none focus:ring-4 focus:ring-blue-100">
+              <Users class="h-4 w-4" />
+              Hàng chờ khám
+            </RouterLink>
+            <RouterLink to="/doctor/appointments" class="inline-flex h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 focus:outline-none focus:ring-4 focus:ring-blue-100">
               <CalendarClock class="h-4 w-4" />
               Xem lịch hẹn
-            </RouterLink>
-            <RouterLink to="/doctor/examine" class="inline-flex h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-800 transition hover:border-blue-200 hover:bg-blue-50 focus:outline-none focus:ring-4 focus:ring-blue-100">
-              <Stethoscope class="h-4 w-4" />
-              Khám bệnh
             </RouterLink>
           </div>
         </div>
@@ -69,7 +69,7 @@
     </div>
 
     <div class="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-      <PanelCard title="Bệnh nhân tiếp theo" subtitle="Ưu tiên lịch hôm nay, sau đó đến lịch sắp tới gần nhất">
+      <PanelCard title="Bệnh nhân tiếp theo" subtitle="Ưu tiên hàng chờ đã tiếp nhận, sau đó đến lịch hẹn gần nhất">
         <div v-if="nextPatient" class="p-5">
           <div class="flex flex-col gap-4 rounded-2xl border border-blue-100 bg-blue-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div class="min-w-0">
@@ -91,8 +91,8 @@
 
       <PanelCard title="Quick actions" subtitle="Các thao tác bác sĩ dùng thường xuyên">
         <div class="grid gap-3 p-5 sm:grid-cols-2">
-          <QuickAction to="/doctor/appointments" label="Xem lịch hẹn" text="Lọc theo ngày và trạng thái" :icon="CalendarClock" />
           <QuickAction to="/doctor/queue" label="Hàng chờ khám" text="Theo dõi bệnh nhân đã check-in" :icon="Users" />
+          <QuickAction to="/doctor/appointments" label="Lịch hẹn readonly" text="Xem trước lịch hôm nay và sắp tới" :icon="CalendarClock" />
           <QuickAction to="/doctor/examine" label="Khám & kê đơn" text="Ghi bệnh án, kê thuốc" :icon="Stethoscope" />
           <QuickAction to="/doctor/records" label="Lịch sử bệnh án" text="Tra cứu hồ sơ đã lưu" :icon="FileHeart" />
         </div>
@@ -107,11 +107,11 @@
         <EmptyState v-else title="Không có bệnh nhân trong hàng chờ" text="Hàng chờ hôm nay chưa có dữ liệu phù hợp." />
       </PanelCard>
 
-      <PanelCard title="Lịch hẹn hôm nay" subtitle="Sắp xếp theo giờ khám tăng dần">
-        <div v-if="appointmentRows.length" class="divide-y divide-slate-100">
-          <AppointmentRow v-for="item in appointmentRows.slice(0, 6)" :key="item.key" :item="item" />
+      <PanelCard title="Lịch hẹn sắp tới" subtitle="Readonly, sắp xếp theo thời gian gần nhất">
+        <div v-if="upcomingRows.length" class="divide-y divide-slate-100">
+          <AppointmentRow v-for="item in upcomingRows.slice(0, 6)" :key="item.key" :item="item" />
         </div>
-        <EmptyState v-else title="Không có lịch hẹn trong ngày" text="Không có lịch hẹn hôm nay cho bác sĩ đang đăng nhập." />
+        <EmptyState v-else title="Không có lịch hẹn sắp tới" text="Không có lịch hẹn tương lai cho bác sĩ đang đăng nhập." />
       </PanelCard>
     </div>
   </section>
@@ -174,7 +174,7 @@ const completedVisits = computed(() => visits.value.filter((item) => isCompleted
 const prescriptionsCount = computed(() => records.value.filter((item: any) => Number(item.prescriptionId || item.prescriptions?.length || 0) > 0).length)
 
 const stats = computed(() => [
-  { label: 'Lịch hẹn hôm nay', value: todayAppointments.value.length, note: 'Theo ngày hiện tại', to: '/doctor/appointments', icon: CalendarClock, iconClass: 'bg-blue-50 text-blue-700' },
+  { label: 'Lịch hẹn sắp tới', value: upcomingAppointments.value.length, note: 'Readonly từ hôm nay trở đi', to: '/doctor/appointments', icon: CalendarClock, iconClass: 'bg-blue-50 text-blue-700' },
   { label: 'Đang chờ khám', value: activeQueue.value.filter((item) => isWaiting(item.status)).length, note: 'Hàng chờ khám bệnh', to: '/doctor/queue', icon: Users, iconClass: 'bg-amber-50 text-amber-700' },
   { label: 'Đang khám', value: inProgressVisits.value.length, note: 'Lượt khám trong ngày', to: '/doctor/examine', icon: Stethoscope, iconClass: 'bg-cyan-50 text-cyan-700' },
   { label: 'Đã hoàn tất', value: completedVisits.value.length, note: 'Lượt khám đã hoàn tất', to: '/doctor/records', icon: CheckCircle2, iconClass: 'bg-emerald-50 text-emerald-700' },
@@ -209,7 +209,7 @@ const queueRows = computed<SummaryRow[]>(() => activeQueue.value.map((item) => (
   tone: statusTone(item.status),
 })))
 
-const nextPatient = computed(() => appointmentRows.value.find((item) => !['Đã hoàn tất', 'Đã hủy'].includes(item.status)) || upcomingRows.value[0] || queueRows.value[0])
+const nextPatient = computed(() => queueRows.value[0] || appointmentRows.value.find((item) => !['Đã hoàn tất', 'Đã hủy'].includes(item.status)) || upcomingRows.value[0])
 
 const InfoRow = defineComponent({
   props: { label: { type: String, required: true }, value: { type: String, required: true } },
