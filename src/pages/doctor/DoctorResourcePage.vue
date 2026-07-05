@@ -2,25 +2,6 @@
   <section class="space-y-6">
     <FullscreenLoader :show="loading" />
 
-    <div v-if="isExamDetailMode" class="sticky top-0 z-20 -mx-2 border-b border-slate-200 bg-white/95 px-2 py-3 backdrop-blur">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-3">
-          <button
-            type="button"
-            class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
-            @click="backToAppointments"
-          >
-            <X class="h-5 w-5 rotate-45" />
-          </button>
-          <div>
-            <h1 class="text-2xl font-bold text-slate-950">Chi tiết lượt khám</h1>
-            <p class="mt-1 text-sm text-slate-500">Dữ liệu hồ sơ lịch hẹn, lượt khám và thông tin bệnh án của bệnh nhân.</p>
-          </div>
-        </div>
-        <StatusChip :status="activeVisit?.status || selectedRow?.status" />
-      </div>
-    </div>
-
     <div v-if="!isExamDetailMode && resource === 'schedule'" class="doctor-schedule-page">
       <header class="schedule-page-header">
         <div class="schedule-title-row">
@@ -1068,6 +1049,7 @@ import {
   FileText,
   FlaskConical,
   HeartPulse,
+  Phone,
   Plus,
   Printer,
   RefreshCw,
@@ -1108,6 +1090,7 @@ import { displayText } from '@/utils/displayText'
 type Resource = 'appointments' | 'queue' | 'examine' | 'records' | 'schedule'
 type ActionKey = 'view' | 'start' | 'checkin' | 'complete' | 'cancel' | 'record'
 type ToastType = 'success' | 'error'
+type ExamWorkspaceTab = 'overview' | 'record' | 'orders' | 'prescription' | 'complete'
 
 interface Row {
   key: string | number
@@ -1264,6 +1247,7 @@ const clinicalChecklist = reactive({
 })
 
 const prescriptionMedicineType = ref('')
+const examWorkspaceTab = ref<ExamWorkspaceTab>('overview')
 
 const formInputClass = 'h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500'
 const formTextareaClass = 'w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100'
@@ -2422,6 +2406,7 @@ async function openRequestedExam() {
 
 async function selectVisit(row: Row) {
   selectedRow.value = row
+  examWorkspaceTab.value = 'overview'
   clearExamOnly()
   examForm.chiefComplaint = meaningful(row.reason)
   try {
@@ -4248,27 +4233,14 @@ const ExaminationWorkspace = defineComponent({
   },
   emits: ['start', 'save-draft', 'save-vitals', 'save-record', 'add-order', 'save-order-result', 'add-prescription-row', 'select-prescription-medicine', 'toggle-medicine', 'remove-medicine', 'submit'],
   setup(props, { emit }) {
-    return () => h('div', { class: 'min-w-0' }, [
+    return () => h('div', { class: 'exam-workspace' }, [
       props.row
         ? [
-            renderProgressSteps(props),
-            h('div', { class: 'grid gap-6 pb-28 xl:grid-cols-[minmax(0,1fr)_360px]' }, [
-              h('div', { class: 'space-y-6' }, [
-                renderPatientCard(props, emit),
-                renderVitalsCard(props, emit),
-                h('div', { class: 'grid gap-6 2xl:grid-cols-2' }, [
-                  renderHistoryCard(props),
-                  renderAllergyCard(props),
-                ]),
-                renderMedicalRecordCard(props),
-                renderPrescriptionCard(props, emit),
-              ]),
-              h('aside', { class: 'space-y-6 xl:sticky xl:top-28 xl:self-start' }, [
-                renderVisitInfoCard(props),
-                renderReasonCard(props),
-                renderClinicalOrdersCard(props, emit),
-                renderConclusionCard(props),
-              ]),
+            renderExamWorkspaceHeader(props, emit),
+            renderExamWorkspaceTabs(props),
+            h('div', { class: 'exam-workspace-grid' }, [
+              h('main', { class: 'exam-main-column' }, renderExamWorkspaceContent(props, emit)),
+              renderExamWorkspaceSidebar(props, emit),
             ]),
             renderFooterActionBar(props, emit),
           ]
@@ -4278,6 +4250,151 @@ const ExaminationWorkspace = defineComponent({
     ])
   },
 })
+
+const examWorkspaceTabs: Array<{ key: ExamWorkspaceTab; label: string; icon: any }> = [
+  { key: 'overview', label: 'Tổng quan', icon: UserRound },
+  { key: 'record', label: 'Bệnh án', icon: ClipboardList },
+  { key: 'orders', label: 'Cận lâm sàng', icon: FlaskConical },
+  { key: 'prescription', label: 'Kê đơn', icon: ClipboardCheck },
+  { key: 'complete', label: 'Kết luận', icon: CheckCircle2 },
+]
+
+function renderExamWorkspaceHeader(props: any, emit: any) {
+  const patient = props.activePatient as (Patient & Record<string, any>) | null
+  const visit = props.activeVisit as MedicalVisit | null
+  const row = props.row as Row | null
+  const visitStatus = statusBucket(visit?.status || row?.status)
+  const patientName = displayOrEmpty(patient?.fullName || row?.patientName)
+  const meta = [
+    displayOrEmpty(patient?.gender),
+    patientAge(patient) || 'Chưa có tuổi',
+    patient?.patientCode || patient?.patientIdCode || visit?.patientCode || row?.patientId ? `BN ${patient?.patientCode || patient?.patientIdCode || visit?.patientCode || row?.patientId}` : '',
+    row?.timeLabel || formatDate(visit?.visitDate || visit?.createdAt),
+  ].filter(Boolean)
+
+  return h('header', { class: 'exam-patient-bar' }, [
+    h('div', { class: 'exam-patient-main' }, [
+      h('div', { class: 'exam-patient-identity' }, [
+        h('button', {
+          type: 'button',
+          class: 'exam-back-button',
+          title: 'Quay lại danh sách lượt khám',
+          onClick: () => backToAppointments(),
+        }, [h(ChevronLeft, { class: 'h-4 w-4' })]),
+        h('span', { class: 'exam-patient-avatar' }, [h(UserRound, { class: 'h-5 w-5' })]),
+        h('div', { class: 'min-w-0' }, [
+          h('div', { class: 'exam-patient-title' }, [
+            h('h2', null, patientName),
+            h(StatusChip, { status: visit?.status || row?.status }),
+          ]),
+          h('div', { class: 'exam-patient-meta' }, meta.map((item) =>
+            h('span', { class: 'whitespace-nowrap' }, String(item)),
+          )),
+        ]),
+      ]),
+      h('div', { class: 'exam-patient-actions' }, [
+        h('span', { class: 'exam-room-chip' }, visitRoom(row) || 'Chưa có phòng'),
+        h(BaseButton, {
+          type: 'button',
+          variant: visitStatus === 'progress' ? 'outline' : 'primary',
+          loading: props.saving,
+          disabled: ['completed', 'progress'].includes(visitStatus),
+          onClick: () => emit('start'),
+        }, () => [h(Stethoscope, { class: 'h-4 w-4' }), visitStatus === 'progress' ? 'Đang khám' : 'Bắt đầu khám']),
+      ]),
+    ]),
+  ])
+}
+
+function renderExamWorkspaceTabs(props: any) {
+  const completed = statusBucket(props.activeVisit?.status || props.row?.status) === 'completed'
+  return h('nav', { class: 'exam-tabs-shell' }, [
+    h('div', { class: 'exam-tabs-track' }, examWorkspaceTabs.map((tab) => {
+      const active = examWorkspaceTab.value === tab.key
+      return h('button', {
+        type: 'button',
+        class: [
+          'exam-tab-button',
+          active ? 'is-active' : '',
+        ],
+        onClick: () => { examWorkspaceTab.value = tab.key },
+      }, [
+        h(tab.icon, { class: 'h-4 w-4' }),
+        h('span', null, tab.label),
+        completed && tab.key === 'complete'
+          ? h('span', { class: ['h-2 w-2 rounded-full', active ? 'bg-white' : 'bg-emerald-500'] })
+          : null,
+      ])
+    })),
+  ])
+}
+
+function renderExamWorkspaceContent(props: any, emit: any) {
+  if (examWorkspaceTab.value === 'record') {
+    return [
+      renderMedicalRecordCard(props),
+    ]
+  }
+  if (examWorkspaceTab.value === 'orders') return [renderClinicalOrdersCard(props, emit)]
+  if (examWorkspaceTab.value === 'prescription') return [renderPrescriptionCard(props, emit)]
+  if (examWorkspaceTab.value === 'complete') {
+    return [
+      renderConclusionCard(props),
+    ]
+  }
+  return [
+    renderPatientSummaryPanel(props),
+    renderVitalsCard(props, emit),
+    h('div', { class: 'grid gap-5 2xl:grid-cols-2' }, [
+      renderHistoryCard(props),
+      renderAllergyCard(props),
+    ]),
+  ]
+}
+
+function renderExamWorkspaceSidebar(props: any, emit: any) {
+  return h('aside', { class: 'exam-context-column' }, [
+    renderVisitInfoCard(props),
+    renderReasonCard(props),
+    renderClinicalOrdersSnapshot(props, emit),
+  ])
+}
+
+function renderPatientSummaryPanel(props: any) {
+  const patient = props.activePatient as (Patient & Record<string, any>) | null
+  const visit = props.activeVisit as MedicalVisit | null
+  return medicalCard('Hồ sơ nhanh', UserRound, [
+    h('div', { class: 'exam-info-grid' }, [
+      infoItem('Mã bệnh nhân', patient?.patientCode || patient?.patientIdCode || visit?.patientCode || props.row?.patientId, UserRound),
+      infoItem('Số điện thoại', patient?.phoneNumber || patient?.phone || props.row?.patientPhone || props.row?.raw?.patientPhone || props.row?.raw?.PatientPhone, Phone),
+      infoItem('CCCD', patientCitizenId(patient), FileText),
+      infoItem('Bệnh án', props.activeRecord?.medicalRecordCode || props.activeRecord?.medicalRecordIdCode || props.activeRecord?.medicalRecordId, FileHeart),
+    ]),
+  ])
+}
+
+function renderClinicalOrdersSnapshot(props: any, emit: any) {
+  return medicalCard('Tóm tắt cận lâm sàng', FlaskConical, [
+    props.clinicalOrders.length
+      ? h('div', { class: 'space-y-2' }, props.clinicalOrders.slice(0, 4).map((order: any) => {
+          const hasResult = Boolean(order.resultText || order.ResultText || order.conclusion || order.Conclusion)
+          return h('button', {
+            type: 'button',
+            class: 'exam-order-summary',
+            onClick: () => emit('save-order-result', order),
+          }, [
+            h('span', { class: 'block truncate text-sm font-bold text-slate-900' }, order.orderName || order.OrderName || 'Chưa có tên chỉ định'),
+            h('span', { class: ['mt-0.5 block text-xs font-semibold', hasResult ? 'text-emerald-600' : 'text-amber-600'] }, hasResult ? 'Đã có kết quả' : 'Chưa có kết quả'),
+          ])
+        }))
+      : h('p', { class: 'rounded-xl bg-slate-50 p-3 text-sm font-medium text-slate-500' }, 'Chưa có chỉ định.'),
+    h('button', {
+      type: 'button',
+      class: 'exam-link-button',
+      onClick: () => { examWorkspaceTab.value = 'orders' },
+    }, 'Mở cận lâm sàng'),
+  ])
+}
 
 function renderProgressSteps(props: any) {
   const steps = ['Bắt đầu khám', 'Bệnh án', 'Chỉ định', 'Kê đơn', 'Hoàn thành']
@@ -4342,21 +4459,48 @@ function renderPatientCard(props: any, emit: any) {
 function renderVisitInfoCard(props: any) {
   const visit = props.activeVisit as MedicalVisit | null
   const row = props.row as Row | null
+  const appointmentId = visit?.appointmentId || row?.appointmentId
+  const status = statusText(visit?.status || row?.status)
+  const room = visitRoom(row) || 'Chưa có'
+  const doctor = visit?.doctorName || row?.doctorName || doctorName.value
+  const specialty = row?.raw?.specialtyName || row?.specialtyName || 'Chưa có khoa'
+  const visitType = row?.raw?.type || row?.raw?.visitType || 'Khám thường'
+  const visitTime = row?.timeLabel || formatDate(visit?.visitDate || visit?.createdAt)
   return medicalCard('Thông tin lượt khám', ClipboardCheck, [
-    h('div', { class: 'space-y-3' }, [
-      sideInfoItem('Bác sĩ khám', visit?.doctorName || row?.doctorName || doctorName.value),
-      sideInfoItem('Khoa/Phòng', row?.raw?.specialtyName || row?.specialtyName || 'Chưa có'),
-      sideInfoItem('Phòng khám', visitRoom(row) || 'Chưa có'),
-      sideInfoItem('Loại khám', row?.raw?.type || row?.raw?.visitType || 'Khám thường'),
-      sideInfoItem('Mã lịch hẹn', visit?.appointmentId || row?.appointmentId),
+    h('div', { class: 'exam-visit-card' }, [
+      h('div', { class: 'exam-visit-hero' }, [
+        h('div', { class: 'exam-visit-room-badge' }, [
+          h('span', null, 'Phòng'),
+          h('strong', null, room),
+        ]),
+        h('div', { class: 'exam-visit-hero-text' }, [
+          h('p', null, doctor),
+          h('span', null, specialty),
+        ]),
+        h('span', { class: ['exam-visit-status-pill', doctorRecordStatusClass(visit?.status || row?.status)] }, status),
+      ]),
+      h('div', { class: 'exam-visit-details' }, [
+        visitDetailLine('Lịch hẹn', appointmentId ? `LH${appointmentId}` : 'Chưa có'),
+        visitDetailLine('Thời gian', visitTime),
+        visitDetailLine('Loại khám', visitType),
+      ]),
     ]),
   ])
 }
 
 function renderReasonCard(props: any) {
   return medicalCard('Lý do khám', ClipboardList, [
-    h('div', { class: 'space-y-4' }, [
-      inputField('Lý do khám *', props.examForm.chiefComplaint, (value: string) => { props.examForm.chiefComplaint = value }, 'Chưa có'),
+    h('div', { class: 'space-y-3' }, [
+      h('label', { class: 'block' }, [
+        h('span', { class: 'mb-2 block text-sm font-medium text-slate-600' }, 'Lý do khám *'),
+        h('textarea', {
+          value: props.examForm.chiefComplaint,
+          rows: 3,
+          class: 'exam-reason-note',
+          placeholder: 'Chưa có',
+          onInput: (event: Event) => { props.examForm.chiefComplaint = (event.target as HTMLTextAreaElement).value },
+        }),
+      ]),
       inputField('Ngày bắt đầu', String(props.activeVisit?.startedAt || props.activeVisit?.visitDate || props.row?.date || '').slice(0, 10), () => undefined, '', 'date'),
     ]),
   ])
@@ -4366,18 +4510,24 @@ function renderVitalsCard(props: any, _emit: any) {
   const bmi = bmiValue(props.vitalsForm.height, props.vitalsForm.weight)
   const fields = doctorVitalFields(props.row, props.activeVisit)
   const specialtyLabel = doctorVitalSpecialtyLabel(props.row, props.activeVisit)
-  return medicalCard('Sinh hiệu', HeartPulse, [
-    h('div', { class: 'mb-4 flex flex-wrap gap-2' }, [
-      h('span', { class: 'rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700' }, specialtyLabel ? `Chuyên khoa: ${specialtyLabel}` : 'Chuyên khoa chung'),
-      h('span', { class: 'rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600' }, `${fields.length} chỉ số theo dõi`),
+  return h('section', { class: 'exam-panel exam-vitals-panel' }, [
+    h('div', { class: 'exam-panel-header' }, [
+      h('div', { class: 'exam-panel-title' }, [
+        h('span', { class: 'exam-panel-icon' }, [h(HeartPulse, { class: 'h-4 w-4' })]),
+        h('h3', null, 'Sinh hiệu'),
+      ]),
+      h('div', { class: 'exam-panel-tags' }, [
+        h('span', null, specialtyLabel ? `Chuyên khoa: ${specialtyLabel}` : 'Chuyên khoa chung'),
+        h('span', null, `${fields.length} chỉ số`),
+      ]),
     ]),
-    h('div', { class: 'grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(128px,1fr))]' }, [
+    h('div', { class: 'exam-vitals-strip' }, [
       ...fields.map((field) => vitalField(field.label, props.vitalsForm[field.key], field.unit || '', vitalFieldIcon(field.key))),
       bmi
-        ? h('div', { class: 'rounded-xl border border-blue-100 bg-blue-50 p-3' }, [
-        h('p', { class: 'text-xs font-bold text-blue-700' }, 'BMI'),
-        h('p', { class: 'mt-2 text-xl font-bold text-slate-950' }, bmi || 'Chưa có'),
-        h('p', { class: 'text-xs text-slate-500' }, bmi ? 'kg/m²' : 'Nhập chiều cao/cân nặng'),
+        ? h('div', { class: 'exam-vital-cell is-accent' }, [
+        h('span', { class: 'exam-vital-label' }, 'BMI'),
+        h('strong', null, bmi || 'Chưa có'),
+        h('em', null, bmi ? 'kg/m²' : 'Nhập chiều cao/cân nặng'),
         ])
         : null,
     ]),
@@ -4406,11 +4556,11 @@ function renderAllergyCard(props: any) {
 
 function renderMedicalRecordCard(props: any) {
   return medicalCard('Bệnh án khám', ClipboardList, [
-    h('div', { class: 'grid gap-4 xl:grid-cols-2' }, [
+    h('div', { class: 'exam-record-grid' }, [
       textareaField('Triệu chứng', props.examForm.symptoms, (value: string) => { props.examForm.symptoms = value }, 'Chưa có'),
       textareaField('Khám lâm sàng', props.examForm.clinicalExam, (value: string) => { props.examForm.clinicalExam = value }, 'Chưa có'),
-      textareaField('Chẩn đoán *', props.examForm.diagnosis, (value: string) => { props.examForm.diagnosis = value }, 'VD: Cảm lạnh thông thường', 'xl:col-span-2'),
-      h('div', { class: 'xl:col-span-2 grid gap-3 lg:grid-cols-[260px_minmax(0,1fr)]' }, [
+      textareaField('Chẩn đoán *', props.examForm.diagnosis, (value: string) => { props.examForm.diagnosis = value }, 'VD: Cảm lạnh thông thường', 'exam-record-full'),
+      h('div', { class: 'exam-record-full grid gap-3 lg:grid-cols-[260px_minmax(0,1fr)]' }, [
         h('label', { class: 'block' }, [
           h('span', { class: 'mb-2 block text-sm font-semibold text-slate-700' }, 'Chuyên khoa ICD'),
           h('select', {
@@ -4445,37 +4595,57 @@ function renderMedicalRecordCard(props: any) {
 
 function renderClinicalOrdersCard(props: any, emit: any) {
   return medicalCard('Chỉ định cận lâm sàng', FlaskConical, [
-    h('div', { class: 'grid gap-2 sm:grid-cols-2' }, [
-      checkboxField('Xét nghiệm máu', props.clinicalChecklist.bloodTest, (value: boolean) => { props.clinicalChecklist.bloodTest = value }),
-      checkboxField('Xét nghiệm nước tiểu', props.clinicalChecklist.urineTest, (value: boolean) => { props.clinicalChecklist.urineTest = value }),
-      checkboxField('Siêu âm', props.clinicalChecklist.ultrasound, (value: boolean) => { props.clinicalChecklist.ultrasound = value }),
-      checkboxField('X-Quang', props.clinicalChecklist.xray, (value: boolean) => { props.clinicalChecklist.xray = value }),
-      checkboxField('Điện tim', props.clinicalChecklist.ecg, (value: boolean) => { props.clinicalChecklist.ecg = value }),
+    h('div', { class: 'exam-clinical-layout' }, [
+      h('section', { class: 'exam-clinical-quick' }, [
+        h('div', { class: 'exam-clinical-section-head' }, [
+          h('div', null, [
+            h('h4', null, 'Chỉ định nhanh'),
+            h('p', null, 'Chọn một hoặc nhiều chỉ định thường dùng.'),
+          ]),
+          h('span', null, `${selectedClinicalOrderNames().length} đã chọn`),
+        ]),
+        h('div', { class: 'exam-clinical-option-grid' }, [
+          clinicalOrderOption('Xét nghiệm máu', 'Tổng phân tích, sinh hóa', FlaskConical, props.clinicalChecklist.bloodTest, (value: boolean) => { props.clinicalChecklist.bloodTest = value }),
+          clinicalOrderOption('Xét nghiệm nước tiểu', 'Tổng phân tích nước tiểu', FlaskConical, props.clinicalChecklist.urineTest, (value: boolean) => { props.clinicalChecklist.urineTest = value }),
+          clinicalOrderOption('Siêu âm', 'Khảo sát hình ảnh', Activity, props.clinicalChecklist.ultrasound, (value: boolean) => { props.clinicalChecklist.ultrasound = value }),
+          clinicalOrderOption('X-Quang', 'Chụp X-Quang', FileText, props.clinicalChecklist.xray, (value: boolean) => { props.clinicalChecklist.xray = value }),
+          clinicalOrderOption('Điện tim', 'ECG', HeartPulse, props.clinicalChecklist.ecg, (value: boolean) => { props.clinicalChecklist.ecg = value }),
+        ]),
+      ]),
+      h('aside', { class: 'exam-clinical-manual' }, [
+        h('div', { class: 'exam-clinical-section-head' }, [
+          h('div', null, [
+            h('h4', null, 'Chỉ định khác'),
+            h('p', null, 'Thêm thủ thuật hoặc xét nghiệm ngoài mẫu.'),
+          ]),
+        ]),
+        h('div', { class: 'exam-clinical-form' }, [
+          selectField('Loại', props.orderForm.orderType, (value: string) => { props.orderForm.orderType = value }, ['Xét nghiệm', 'Siêu âm', 'X-Quang', 'Điện tim', 'Khác']),
+          inputField('Tên chỉ định', props.orderForm.orderName, (value: string) => { props.orderForm.orderName = value }, 'VD: Nội soi tai mũi họng'),
+          inputField('Lý do', props.orderForm.reason, (value: string) => { props.orderForm.reason = value }, 'Chưa có'),
+        ]),
+      ]),
     ]),
-    h('div', { class: 'mt-4 grid gap-3' }, [
-      selectField('Loại', props.orderForm.orderType, (value: string) => { props.orderForm.orderType = value }, ['Xét nghiệm', 'Siêu âm', 'X-Quang', 'Điện tim', 'Khác']),
-      inputField('Tên chỉ định khác', props.orderForm.orderName, (value: string) => { props.orderForm.orderName = value }, 'VD: Nội soi tai mũi họng'),
-      inputField('Lý do', props.orderForm.reason, (value: string) => { props.orderForm.reason = value }, 'Chưa có'),
+    h('div', { class: 'exam-clinical-actions' }, [
       h(BaseButton, { type: 'button', variant: 'outline', loading: props.saving, onClick: () => emit('add-order') }, () => [h(Plus, { class: 'h-4 w-4' }), 'Thêm chỉ định']),
     ]),
     props.clinicalOrders.length
-      ? h('div', { class: 'mt-4 space-y-2' }, props.clinicalOrders.map((order: any) => {
+      ? h('div', { class: 'exam-clinical-orders' }, props.clinicalOrders.map((order: any) => {
           const hasResult = Boolean(order.resultText || order.ResultText || order.conclusion || order.Conclusion)
-          return h('div', { class: 'rounded-xl border border-blue-100 bg-blue-50 p-3' }, [
-            h('div', { class: 'flex items-start justify-between gap-3' }, [
-              h('div', { class: 'min-w-0' }, [
-                h('p', { class: 'font-bold text-blue-800' }, `${order.orderType || order.OrderType || 'Chỉ định'} - ${order.orderName || order.OrderName || 'Chưa có'}`),
-                h('p', { class: 'mt-1 text-xs text-slate-600' }, hasResult ? `Kết quả: ${order.resultText || order.ResultText || order.conclusion || order.Conclusion}` : 'Chưa nhập kết quả'),
-              ]),
-              h('button', {
-                type: 'button',
-                class: 'shrink-0 rounded-lg bg-white px-3 py-2 text-xs font-bold text-blue-700 ring-1 ring-blue-100 hover:bg-blue-100',
-                onClick: () => emit('save-order-result', order),
-              }, hasResult ? 'Cập nhật' : 'Nhập kết quả'),
+          return h('div', { class: 'exam-clinical-order-row' }, [
+            h('span', { class: ['exam-clinical-order-icon', hasResult ? 'is-done' : ''] }, [h(FlaskConical, { class: 'h-4 w-4' })]),
+            h('div', { class: 'min-w-0' }, [
+              h('p', null, `${order.orderType || order.OrderType || 'Chỉ định'} - ${order.orderName || order.OrderName || 'Chưa có'}`),
+              h('span', { class: 'exam-clinical-order-result' }, hasResult ? `Kết quả: ${order.resultText || order.ResultText || order.conclusion || order.Conclusion}` : 'Chưa nhập kết quả'),
             ]),
+            h('button', {
+              type: 'button',
+              class: 'exam-clinical-result-button',
+              onClick: () => emit('save-order-result', order),
+            }, hasResult ? 'Cập nhật' : 'Nhập kết quả'),
           ])
         }))
-      : h('p', { class: 'mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-500' }, 'Chưa có chỉ định cận lâm sàng.'),
+      : h('p', { class: 'exam-clinical-empty' }, 'Chưa có chỉ định cận lâm sàng. Chọn mẫu nhanh hoặc thêm chỉ định khác rồi bấm Thêm chỉ định.'),
   ])
 }
 
@@ -4562,52 +4732,115 @@ function renderPrescriptionCard(props: any, emit: any) {
 
 function renderConclusionCard(props: any) {
   return medicalCard('Kết luận khám', FileText, [
-    h('div', { class: 'grid gap-4' }, [
-      textareaField('Kết luận', props.examForm.treatmentPlan, (value: string) => { props.examForm.treatmentPlan = value }, 'Chưa có'),
-      textareaField('Lời dặn bác sĩ', props.examForm.doctorNote, (value: string) => { props.examForm.doctorNote = value }, 'Chưa có'),
-      inputField('Ngày tái khám', props.examForm.followUpDate, (value: string) => { props.examForm.followUpDate = value }, '', 'date'),
-      h('div', null, [
-        h('p', { class: 'mb-2 text-sm font-semibold text-slate-700' }, 'Tình trạng'),
-        h('div', { class: 'grid gap-2' }, ['Hoàn thành', 'Theo dõi', 'Nhập viện', 'Chuyển viện'].map((option) =>
-          radioField(option, props.examForm.conclusionStatus === option, () => { props.examForm.conclusionStatus = option }),
-        )),
+    h('div', { class: 'exam-conclusion-grid' }, [
+      h('div', { class: 'exam-conclusion-main' }, [
+        textareaField('Kết luận', props.examForm.treatmentPlan, (value: string) => { props.examForm.treatmentPlan = value }, 'Ghi tóm tắt hướng xử trí, kết quả khám...', 'exam-conclusion-textarea'),
+        textareaField('Lời dặn bác sĩ', props.examForm.doctorNote, (value: string) => { props.examForm.doctorNote = value }, 'Dặn dò dùng thuốc, chăm sóc, dấu hiệu cần tái khám...', 'exam-conclusion-textarea'),
+      ]),
+      h('aside', { class: 'exam-conclusion-side' }, [
+        inputField('Ngày tái khám', props.examForm.followUpDate, (value: string) => { props.examForm.followUpDate = value }, '', 'date'),
+        h('div', { class: 'exam-conclusion-status' }, [
+          h('p', { class: 'mb-2 text-sm font-semibold text-slate-700' }, 'Tình trạng'),
+          h('div', { class: 'exam-status-grid' }, ['Hoàn thành', 'Theo dõi', 'Nhập viện', 'Chuyển viện'].map((option) =>
+            conclusionStatusField(option, props.examForm.conclusionStatus === option, () => { props.examForm.conclusionStatus = option }),
+          )),
+        ]),
+      ]),
+    ]),
+    renderConclusionChecklist(props),
+    h('div', { class: 'exam-conclusion-ready' }, [
+      h('span', { class: 'exam-conclusion-ready-icon' }, [h(ShieldCheck, { class: 'h-4 w-4' })]),
+      h('div', { class: 'min-w-0' }, [
+        h('p', null, 'Sẵn sàng hoàn tất lượt khám'),
+        h('span', { class: 'exam-conclusion-ready-text' }, 'Kiểm tra lại bệnh án, đơn thuốc và lịch tái khám trước khi bấm Hoàn thành khám.'),
       ]),
     ]),
   ])
 }
 
+function renderConclusionChecklist(props: any) {
+  return h('section', { class: 'exam-completion-checklist' }, [
+    h('div', { class: 'exam-completion-heading' }, [
+      h('div', null, [
+        h('h4', null, 'Checklist hoàn tất'),
+        h('p', null, 'Tóm tắt nhanh các phần cần kiểm tra trước khi chốt lượt khám.'),
+      ]),
+      h('span', null, `${completionChecklistItems(props).filter((item) => item.done).length}/5 mục ổn`),
+    ]),
+    h('div', { class: 'exam-completion-grid' }, completionChecklistItems(props).map(renderCompletionTile)),
+  ])
+}
+
+function completionChecklistItems(props: any) {
+  const diagnosisDone = Boolean(String(props.examForm.diagnosis || props.activeRecord?.diagnosisText || props.activeRecord?.diagnosis || '').trim())
+  const vitalsDone = queueHasVitals({ raw: props.activeVisit || props.row || {} } as Row)
+  const recordSaved = Boolean(props.activeRecord?.medicalRecordId || props.activeRecord?.id)
+  const prescriptionCount = props.prescriptionItems.length
+  const orderCount = props.clinicalOrders.length
+
+  return [
+    { label: 'Chẩn đoán', value: diagnosisDone ? 'Đã nhập' : 'Còn thiếu', done: diagnosisDone, tone: diagnosisDone ? 'done' : 'warn', icon: FileHeart },
+    { label: 'Sinh hiệu', value: vitalsDone ? 'Đã đo' : 'Chưa đo', done: vitalsDone, tone: vitalsDone ? 'done' : 'warn', icon: HeartPulse },
+    { label: 'Bệnh án', value: recordSaved ? 'Đã lưu' : 'Chưa lưu', done: recordSaved, tone: recordSaved ? 'done' : 'warn', icon: FileText },
+    { label: 'Đơn thuốc', value: prescriptionCount ? `${prescriptionCount} thuốc` : 'Không có', done: true, tone: prescriptionCount ? 'info' : 'muted', icon: ClipboardCheck },
+    { label: 'Cận lâm sàng', value: orderCount ? `${orderCount} chỉ định` : 'Không có', done: true, tone: orderCount ? 'info' : 'muted', icon: FlaskConical },
+  ]
+}
+
+function renderCompletionTile(item: { label: string; value: string; tone: string; icon: any }) {
+  return h('div', { class: 'exam-completion-tile' }, [
+    h('span', { class: ['exam-completion-icon', `is-${item.tone}`] }, [h(item.icon, { class: 'h-4 w-4' })]),
+    h('div', { class: 'min-w-0' }, [
+      h('p', null, item.label),
+      h('strong', { class: `is-${item.tone}` }, item.value),
+    ]),
+  ])
+}
+
 function renderFooterActionBar(props: any, emit: any) {
-  return h('div', { class: 'sticky bottom-0 z-20 mt-6 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-soft backdrop-blur' }, [
-    h('div', { class: 'grid gap-3 sm:grid-cols-2 xl:grid-cols-4' }, [
+  return h('div', { class: 'exam-action-bar' }, [
+    h('div', { class: 'exam-action-grid' }, [
       h(BaseButton, { type: 'button', variant: 'outline', loading: props.saving, onClick: () => emit('save-draft') }, () => [h(Save, { class: 'h-4 w-4' }), 'Lưu nháp']),
       h(BaseButton, { type: 'button', variant: 'outline', loading: props.saving, onClick: () => emit('save-record') }, () => [h(FileText, { class: 'h-4 w-4' }), 'Lưu bệnh án']),
-      h(BaseButton, { type: 'button', variant: 'outline', loading: props.saving, onClick: () => emit('submit') }, () => [h(ClipboardCheck, { class: 'h-4 w-4' }), 'Kê đơn']),
+      h(BaseButton, { type: 'button', variant: 'outline', disabled: props.saving, onClick: () => { examWorkspaceTab.value = 'prescription' } }, () => [h(ClipboardCheck, { class: 'h-4 w-4' }), 'Kê đơn']),
       h(BaseButton, { type: 'button', variant: 'primary', loading: props.saving, onClick: () => emit('submit') }, () => [h(CheckCircle2, { class: 'h-4 w-4' }), 'Hoàn thành khám']),
     ]),
   ])
 }
 
 function medicalCard(title: string, icon: any, children: any[]) {
-  return h('section', { class: 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm' }, [
-    h('div', { class: 'mb-5 flex items-center gap-3' }, [
-      h('span', { class: 'flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[#0F52BA]' }, [h(icon, { class: 'h-5 w-5' })]),
-      h('h3', { class: 'text-lg font-bold text-slate-950' }, title),
+  return h('section', { class: 'exam-panel' }, [
+    h('div', { class: 'exam-panel-header' }, [
+      h('div', { class: 'exam-panel-title' }, [
+        h('span', { class: 'exam-panel-icon' }, [h(icon, { class: 'h-4 w-4' })]),
+        h('h3', null, title),
+      ]),
     ]),
     ...children,
   ])
 }
 
-function infoItem(label: string, value: unknown) {
-  return h('div', { class: 'rounded-xl border border-slate-100 bg-slate-50 px-4 py-3' }, [
-    h('p', { class: 'text-xs font-bold uppercase tracking-wide text-slate-400' }, label),
-    h('p', { class: 'mt-1 min-h-[20px] break-words text-sm font-bold text-slate-800' }, displayOrEmpty(value)),
+function infoItem(label: string, value: unknown, icon?: any) {
+  return h('div', { class: 'exam-info-item' }, [
+    icon ? h('span', { class: 'exam-info-icon' }, [h(icon, { class: 'h-4 w-4' })]) : null,
+    h('div', { class: 'min-w-0' }, [
+      h('p', null, label),
+      h('strong', null, displayOrEmpty(value)),
+    ]),
   ])
 }
 
 function sideInfoItem(label: string, value: unknown) {
-  return h('div', { class: 'flex items-center justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3' }, [
-    h('span', { class: 'text-sm font-semibold text-slate-500' }, label),
-    h('span', { class: 'min-w-0 truncate text-right text-sm font-bold text-slate-950' }, displayOrEmpty(value)),
+  return h('div', { class: 'exam-side-info' }, [
+    h('span', null, label),
+    h('strong', null, displayOrEmpty(value)),
+  ])
+}
+
+function visitDetailLine(label: string, value: unknown) {
+  return h('div', { class: 'exam-visit-detail-line' }, [
+    h('span', null, label),
+    h('strong', null, displayOrEmpty(value)),
   ])
 }
 
@@ -4625,15 +4858,13 @@ function vitalFieldIcon(key: string) {
 
 function vitalField(label: string, value: any, unit: string, icon: any) {
   const textValue = String(value ?? '').trim()
-  return h('div', { class: 'block rounded-xl border border-slate-200 bg-white p-3' }, [
-    h('span', { class: 'flex items-center gap-2 text-xs font-bold text-slate-600' }, [
+  return h('div', { class: 'exam-vital-cell' }, [
+    h('span', { class: 'exam-vital-label' }, [
       h(icon, { class: 'h-4 w-4 text-[#0F52BA]' }),
       label,
     ]),
-    h('span', { class: 'mt-2 flex h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3' }, [
-      h('span', { class: ['min-w-0 flex-1 truncate text-sm font-semibold', textValue ? 'text-slate-900' : 'text-slate-400'] }, textValue || 'Chưa có'),
-      h('span', { class: 'shrink-0 text-xs font-semibold text-slate-400' }, unit),
-    ]),
+    h('strong', { class: textValue ? '' : 'is-empty' }, textValue || 'Chưa có'),
+    h('em', null, unit),
   ])
 }
 
@@ -4659,6 +4890,34 @@ function radioField(label: string, checked: boolean, update: () => void) {
       onChange: update,
     }),
     h('span', { class: 'min-w-0 break-words' }, label),
+  ])
+}
+
+function clinicalOrderOption(label: string, description: string, icon: any, checked: boolean, update: (value: boolean) => void) {
+  return h('label', { class: ['exam-clinical-option', checked ? 'is-selected' : ''] }, [
+    h('input', {
+      checked,
+      type: 'checkbox',
+      onChange: (event: Event) => update((event.target as HTMLInputElement).checked),
+    }),
+    h('span', { class: 'exam-clinical-option-icon' }, [h(icon, { class: 'h-4 w-4' })]),
+    h('span', { class: 'exam-clinical-option-copy' }, [
+      h('strong', null, label),
+      h('em', null, description),
+    ]),
+  ])
+}
+
+function conclusionStatusField(label: string, checked: boolean, update: () => void) {
+  return h('label', { class: ['exam-status-option', checked ? 'is-active' : ''] }, [
+    h('input', {
+      checked,
+      type: 'radio',
+      name: 'conclusionStatus',
+      class: 'h-4 w-4 shrink-0 border-slate-300 text-[#0F52BA] focus:ring-blue-500',
+      onChange: update,
+    }),
+    h('span', null, label),
   ])
 }
 
@@ -5039,6 +5298,190 @@ function sectionBlock(title: string, rows: [string, any][]) {
 
 .doctor-record-table-shell :deep(.ant-pagination-options .ant-select-selection-item) {
   line-height: 28px;
+}
+
+.exam-workspace {
+  @apply min-w-0 space-y-4;
+}
+
+.exam-patient-bar {
+  @apply sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur;
+}
+
+.exam-patient-main {
+  @apply flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between;
+}
+
+.exam-patient-identity {
+  @apply flex min-w-0 items-center gap-3;
+}
+
+.exam-back-button {
+  @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-slate-800;
+}
+
+.exam-patient-avatar {
+  @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#0F52BA];
+}
+
+.exam-patient-title {
+  @apply flex min-w-0 flex-wrap items-center gap-2;
+}
+
+.exam-patient-title h2 {
+  @apply truncate text-xl font-bold tracking-normal text-slate-950;
+}
+
+.exam-patient-meta {
+  @apply mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-slate-500;
+}
+
+.exam-patient-actions {
+  @apply grid gap-2 sm:grid-cols-2 lg:flex lg:shrink-0 lg:items-center;
+}
+
+.exam-room-chip {
+  @apply inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-600;
+}
+
+.exam-tabs-shell {
+  @apply overflow-x-auto rounded-lg border border-slate-200 bg-white p-1 shadow-sm;
+}
+
+.exam-tabs-track {
+  @apply grid min-w-[760px] grid-cols-5 gap-1;
+}
+
+.exam-tab-button {
+  @apply inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900;
+}
+
+.exam-tab-button.is-active {
+  @apply bg-[#0F52BA] text-white shadow-sm hover:bg-[#0F52BA] hover:text-white;
+}
+
+.exam-workspace-grid {
+  @apply mt-4 grid gap-4 pb-28 xl:grid-cols-[minmax(0,1fr)_320px];
+}
+
+.exam-main-column {
+  @apply min-w-0 space-y-4;
+}
+
+.exam-context-column {
+  @apply space-y-4 xl:sticky xl:top-32 xl:self-start;
+}
+
+.exam-panel {
+  @apply rounded-lg border border-slate-200 bg-white p-4 shadow-sm;
+}
+
+.exam-panel-header {
+  @apply mb-4 flex flex-col gap-2 border-b border-slate-100 pb-3 sm:flex-row sm:items-center sm:justify-between;
+}
+
+.exam-panel-title {
+  @apply flex min-w-0 items-center gap-2;
+}
+
+.exam-panel-title h3 {
+  @apply truncate text-base font-bold text-slate-950;
+}
+
+.exam-panel-icon {
+  @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#0F52BA];
+}
+
+.exam-panel-tags {
+  @apply flex flex-wrap gap-2;
+}
+
+.exam-panel-tags span {
+  @apply rounded-md bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500;
+}
+
+.exam-info-grid {
+  @apply grid gap-2 md:grid-cols-2 xl:grid-cols-4;
+}
+
+.exam-info-item {
+  @apply rounded-md border border-slate-100 bg-slate-50 px-3 py-2;
+}
+
+.exam-info-item p {
+  @apply text-[11px] font-bold uppercase tracking-wide text-slate-400;
+}
+
+.exam-info-item strong {
+  @apply mt-1 block min-h-[18px] break-words text-sm font-semibold text-slate-800;
+}
+
+.exam-vitals-panel {
+  @apply p-4;
+}
+
+.exam-vitals-strip {
+  @apply grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(136px,1fr))];
+}
+
+.exam-vital-cell {
+  @apply min-h-[82px] rounded-md border border-slate-200 bg-white px-3 py-2.5;
+}
+
+.exam-vital-cell.is-accent {
+  @apply border-blue-100 bg-blue-50;
+}
+
+.exam-vital-label {
+  @apply flex items-center gap-1.5 text-[11px] font-bold text-slate-500;
+}
+
+.exam-vital-cell strong {
+  @apply mt-2 block truncate text-lg font-bold text-slate-950;
+}
+
+.exam-vital-cell strong.is-empty {
+  @apply text-sm font-semibold text-slate-400;
+}
+
+.exam-vital-cell em {
+  @apply mt-0.5 block truncate text-[11px] not-italic text-slate-400;
+}
+
+.exam-record-grid {
+  @apply grid gap-3 xl:grid-cols-2;
+}
+
+.exam-record-full {
+  @apply xl:col-span-2;
+}
+
+.exam-side-info {
+  @apply flex items-center justify-between gap-3 border-b border-slate-100 py-2.5 last:border-b-0;
+}
+
+.exam-side-info span {
+  @apply min-w-0 text-sm font-medium text-slate-500;
+}
+
+.exam-side-info strong {
+  @apply min-w-0 truncate text-right text-sm font-semibold text-slate-900;
+}
+
+.exam-order-summary {
+  @apply block w-full rounded-md border border-slate-100 bg-slate-50 px-3 py-2 text-left transition hover:border-blue-200 hover:bg-blue-50;
+}
+
+.exam-link-button {
+  @apply mt-3 inline-flex h-10 w-full items-center justify-center rounded-md border border-blue-100 bg-blue-50 text-sm font-semibold text-blue-700 transition hover:bg-blue-100;
+}
+
+.exam-action-bar {
+  @apply sticky bottom-0 z-20 mt-4 border border-slate-200 bg-white/95 p-2 shadow-soft backdrop-blur;
+}
+
+.exam-action-grid {
+  @apply grid gap-2 sm:grid-cols-2 xl:grid-cols-4;
 }
 
 .doctor-queue-page {
@@ -5426,6 +5869,1140 @@ function sectionBlock(title: string, rows: [string, any][]) {
 </style>
 
 <style>
+.exam-workspace {
+  min-width: 0;
+}
+
+.exam-patient-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.98);
+  padding: 16px 20px;
+  box-shadow: 0 4px 16px rgb(15 23 42 / 0.05);
+  backdrop-filter: blur(12px);
+}
+
+.exam-patient-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.exam-patient-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.exam-back-button {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #64748b;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.08);
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.exam-back-button:hover {
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+.exam-patient-avatar {
+  display: flex;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: #eff6ff;
+  color: #0f52ba;
+}
+
+.exam-patient-title {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.exam-patient-title h2 {
+  overflow: hidden;
+  margin: 0;
+  color: #020617;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 32px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-patient-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.exam-patient-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.exam-room-chip {
+  display: inline-flex;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 12px;
+}
+
+.exam-tabs-shell {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  margin-top: 16px;
+  padding: 0;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.06);
+}
+
+.exam-tabs-track {
+  display: grid;
+  min-width: 760px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+}
+
+.exam-tab-button {
+  position: relative;
+  display: inline-flex;
+  height: 60px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #334155;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 0 12px;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.exam-tab-button::after {
+  position: absolute;
+  right: 16px;
+  bottom: 0;
+  left: 16px;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+  background: transparent;
+  content: "";
+}
+
+.exam-tab-button:hover {
+  background: #f8fafc;
+  color: #0f52ba;
+}
+
+.exam-tab-button.is-active {
+  background: #ffffff;
+  color: #0f52ba;
+  box-shadow: none;
+}
+
+.exam-tab-button.is-active::after {
+  background: #0f52ba;
+}
+
+.exam-workspace-grid {
+  display: grid;
+  align-items: start;
+  gap: 20px;
+  margin-top: 16px;
+  padding-bottom: 112px;
+}
+
+.exam-main-column,
+.exam-context-column {
+  min-width: 0;
+}
+
+.exam-main-column {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.exam-context-column {
+  display: grid;
+  align-self: start;
+  gap: 16px;
+}
+
+.exam-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 8px 22px rgb(15 23 42 / 0.04);
+  padding: 20px;
+}
+
+.exam-panel-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+}
+
+.exam-panel-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.exam-panel-title h3 {
+  overflow: hidden;
+  margin: 0;
+  color: #020617;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-panel-icon {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #0f52ba;
+}
+
+.exam-panel-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.exam-panel-tags span {
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+}
+
+.exam-info-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.exam-info-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+  min-height: 106px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.exam-info-icon {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #0f52ba;
+}
+
+.exam-info-item p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.exam-info-item strong {
+  display: block;
+  overflow: hidden;
+  min-height: 18px;
+  margin-top: 6px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+}
+
+.exam-vitals-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.exam-vital-cell {
+  min-height: 142px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  padding: 18px;
+}
+
+.exam-vital-cell.is-accent {
+  border-color: #dbeafe;
+  background: linear-gradient(180deg, #eff6ff 0%, #eaf2ff 100%);
+}
+
+.exam-vital-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.exam-vital-cell strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 18px;
+  color: #020617;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 36px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-vital-cell strong.is-empty {
+  color: #94a3b8;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.exam-vital-cell em {
+  display: block;
+  overflow: hidden;
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-record-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.exam-visit-card {
+  display: grid;
+  gap: 12px;
+}
+
+.exam-visit-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 100%);
+  padding: 12px;
+}
+
+.exam-visit-room-badge {
+  display: grid;
+  width: 62px;
+  height: 58px;
+  place-items: center;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f52ba;
+  box-shadow: inset 0 0 0 1px rgb(191 219 254 / 0.8);
+}
+
+.exam-visit-room-badge span {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 12px;
+  text-transform: uppercase;
+}
+
+.exam-visit-room-badge strong {
+  margin-top: -6px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.exam-visit-hero-text {
+  min-width: 0;
+}
+
+.exam-visit-hero-text p {
+  overflow: hidden;
+  margin: 0;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-visit-hero-text span {
+  display: block;
+  overflow: hidden;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-visit-status-pill {
+  grid-column: 2;
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  padding: 4px 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-visit-details {
+  display: grid;
+  gap: 2px;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 8px;
+}
+
+.exam-visit-detail-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 30px;
+}
+
+.exam-visit-detail-line span {
+  flex-shrink: 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.exam-visit-detail-line strong {
+  overflow: hidden;
+  min-width: 0;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-side-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 10px 0;
+}
+
+.exam-side-info:last-child {
+  border-bottom: 0;
+}
+
+.exam-side-info span {
+  min-width: 0;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.exam-side-info strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-order-summary {
+  display: block;
+  width: 100%;
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 8px 12px;
+  text-align: left;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.exam-clinical-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.exam-clinical-quick,
+.exam-clinical-manual {
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.exam-clinical-manual {
+  background: #f8fbff;
+}
+
+.exam-clinical-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.exam-clinical-section-head h4 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.exam-clinical-section-head p {
+  margin: 2px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.exam-clinical-section-head > span {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #0f52ba;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  padding: 4px 9px;
+}
+
+.exam-clinical-option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.exam-clinical-option {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 66px;
+  cursor: pointer;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 10px 12px;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.exam-clinical-option:hover {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
+.exam-clinical-option.is-selected {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  box-shadow: inset 0 0 0 1px rgb(147 197 253 / 0.35);
+}
+
+.exam-clinical-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.exam-clinical-option-icon {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.exam-clinical-option.is-selected .exam-clinical-option-icon {
+  background: #dbeafe;
+  color: #0f52ba;
+}
+
+.exam-clinical-option-copy {
+  display: block;
+  min-width: 0;
+}
+
+.exam-clinical-option-copy strong {
+  display: block;
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 19px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-clinical-option-copy em {
+  display: block;
+  overflow: hidden;
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+  font-style: normal;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-clinical-form {
+  display: grid;
+  gap: 12px;
+}
+
+.exam-clinical-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 14px;
+}
+
+.exam-clinical-orders {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.exam-clinical-order-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 12px;
+}
+
+.exam-clinical-order-icon {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: #eff6ff;
+  color: #0f52ba;
+}
+
+.exam-clinical-order-icon.is-done {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.exam-clinical-order-row p {
+  overflow: hidden;
+  margin: 0;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-clinical-order-result {
+  display: block;
+  overflow: hidden;
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-clinical-result-button {
+  min-height: 34px;
+  flex-shrink: 0;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f52ba;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+  transition: background 160ms ease;
+}
+
+.exam-clinical-result-button:hover {
+  background: #eff6ff;
+}
+
+.exam-clinical-empty {
+  margin: 16px 0 0;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  padding: 14px;
+}
+
+.exam-reason-note {
+  min-height: 78px;
+  width: 100%;
+  resize: vertical;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.6;
+  outline: none;
+  padding: 12px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.exam-reason-note:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 4px rgb(59 130 246 / 0.12);
+}
+
+.exam-conclusion-grid {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+
+.exam-conclusion-main,
+.exam-conclusion-side {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.exam-conclusion-textarea textarea {
+  min-height: 104px;
+}
+
+.exam-conclusion-status {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.exam-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.exam-status-option {
+  display: flex;
+  min-height: 42px;
+  cursor: pointer;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  padding: 9px 10px;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.exam-status-option:hover {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.exam-status-option.is-active {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #0f52ba;
+  box-shadow: inset 0 0 0 1px rgb(147 197 253 / 0.35);
+}
+
+.exam-status-option input {
+  margin: 0;
+  transform: translateY(0);
+}
+
+.exam-completion-checklist {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  padding: 14px;
+}
+
+.exam-completion-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.exam-completion-heading h4 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.exam-completion-heading p {
+  margin: 3px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.exam-completion-heading > span {
+  width: fit-content;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #0f52ba;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 10px;
+}
+
+.exam-completion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.exam-completion-tile {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  min-height: 70px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.exam-completion-icon {
+  display: flex;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.exam-completion-icon svg,
+.exam-conclusion-ready-icon svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+.exam-completion-icon.is-done {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.exam-completion-icon.is-warn {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.exam-completion-icon.is-info {
+  background: #eff6ff;
+  color: #0f52ba;
+}
+
+.exam-completion-tile p {
+  overflow: hidden;
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-completion-tile strong {
+  display: inline-flex;
+  max-width: 100%;
+  overflow: hidden;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  padding: 3px 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exam-completion-tile strong.is-done {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.exam-completion-tile strong.is-warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.exam-completion-tile strong.is-info {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.exam-conclusion-ready {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 12px 14px;
+}
+
+.exam-conclusion-ready-icon {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f52ba;
+}
+
+.exam-conclusion-ready p {
+  margin: 0;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.exam-conclusion-ready-text {
+  display: block;
+  margin-top: 2px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.exam-order-summary:hover {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.exam-link-button {
+  display: inline-flex;
+  width: 100%;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 12px;
+  transition: background 160ms ease;
+}
+
+.exam-link-button:hover {
+  background: #dbeafe;
+}
+
+.exam-action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  border: 1px solid #e2e8f0;
+  background: rgb(255 255 255 / 0.95);
+  box-shadow: 0 -12px 30px rgb(15 23 42 / 0.08);
+  margin-top: 16px;
+  padding: 8px;
+  backdrop-filter: blur(12px);
+}
+
+.exam-action-grid {
+  display: grid;
+  gap: 8px;
+}
+
+@media (min-width: 640px) {
+  .exam-patient-actions,
+  .exam-action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .exam-panel-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .exam-info-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .exam-patient-main {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .exam-patient-actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+  }
+
+  .exam-clinical-layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    align-items: start;
+  }
+}
+
+@media (min-width: 1280px) {
+  .exam-workspace-grid {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+
+  .exam-context-column {
+    position: sticky;
+    top: 128px;
+  }
+
+  .exam-info-grid,
+  .exam-action-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .exam-record-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .exam-conclusion-grid {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
+  .exam-record-full {
+    grid-column: span 2 / span 2;
+  }
+}
+
 .print-area {
   display: none !important;
 }
