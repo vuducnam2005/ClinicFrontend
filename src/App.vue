@@ -25,5 +25,5 @@ import { useAuthStore } from '@/stores/authStore'
 const route = useRoute()
 const authStore = useAuthStore()
 const isWorkspaceRoute = computed(() => /^\/(admin|doctor|nurse|patient)(\/|$)/.test(route.path))
-const isAuthRoute = computed(() => /^\/(login|register)(\/|$)/.test(route.path))
+const isAuthRoute = computed(() => /^\/(login|register|forgot-password)(\/|$)/.test(route.path))
 </script>
