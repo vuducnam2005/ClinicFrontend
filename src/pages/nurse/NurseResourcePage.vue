@@ -1,24 +1,28 @@
 <template>
-  <section class="space-y-6">
-    <div class="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
+  <section :class="['space-y-6', modernResources.includes(resource) ? 'nurse-appointments-page' : '']">
+    <FullscreenLoader :show="loading" />
+
+    <div :class="modernResources.includes(resource) ? 'nurse-appointments-title' : 'rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm'">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">{{ config.service }}</p>
-          <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-950">{{ config.title }}</h1>
-          <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{{ config.description }}</p>
-          <div class="mt-4 flex flex-wrap gap-2">
+          <p v-if="!modernResources.includes(resource)" class="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">{{ config.service }}</p>
+          <h1 :class="[
+            'font-bold tracking-tight text-slate-950',
+            modernResources.includes(resource) ? 'text-3xl' : 'mt-2 text-3xl',
+          ]">{{ config.title }}</h1>
+          <p :class="[
+            'max-w-3xl text-sm leading-6 text-slate-600',
+            modernResources.includes(resource) ? 'mt-2' : 'mt-3',
+          ]">{{ config.description }}</p>
+          <div v-if="!modernResources.includes(resource)" class="mt-4 flex flex-wrap gap-2">
             <span v-if="false" class="rounded-full bg-slate-100 px-3 py-1 font-mono text-xs font-semibold text-slate-600">{{ config.endpoint }}</span>
             <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">Không kê đơn / không hoàn tất bệnh án</span>
           </div>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div v-if="resource !== 'appointments'" class="flex flex-wrap gap-2">
           <BaseButton v-if="resource === 'patients'" @click="openPatientModal()">
             <template #icon><UserPlus class="h-4 w-4" /></template>
             Thêm bệnh nhân
-          </BaseButton>
-          <BaseButton v-if="resource === 'appointments'" variant="outline" :disabled="loading" @click="loadData">
-            <template #icon><RefreshCw class="h-4 w-4" /></template>
-            Làm mới dữ liệu
           </BaseButton>
           <BaseButton variant="outline" :disabled="loading" @click="loadData">
             <template #icon><RefreshCw class="h-4 w-4" /></template>
@@ -29,7 +33,7 @@
     </div>
 
     <!-- Stats Cards for Non-Appointments -->
-    <div v-if="resource !== 'appointments'" class="grid gap-4 md:grid-cols-3">
+    <div v-if="!modernResources.includes(resource) || resource === 'prescriptions'" class="grid gap-4 md:grid-cols-3">
       <div v-for="metric in metrics" :key="metric.label" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <p class="text-sm font-medium text-slate-500">{{ metric.label }}</p>
         <p class="mt-3 text-3xl font-bold text-slate-950">{{ metric.value }}</p>
@@ -38,97 +42,33 @@
     </div>
 
     <!-- Stats Cards for Appointments -->
-    <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-      <div v-for="metric in appointmentMetrics" :key="metric.label" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-between">
-        <div>
-          <div class="flex items-center justify-between">
-            <p class="text-sm font-semibold text-slate-500">{{ metric.label }}</p>
-            <span :class="['p-2 rounded-xl border text-xs', metric.color]">
-              <component :is="metric.icon" class="h-4 w-4" />
-            </span>
+    <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div v-for="metric in appointmentMetrics" :key="metric.label" class="nurse-appointment-metric-card">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-sm font-medium text-slate-500">{{ metric.label }}</p>
+            <p class="mt-3 text-3xl font-bold text-slate-950">{{ metric.value }}</p>
+            <p class="mt-1 text-xs font-semibold text-slate-500">{{ metric.note }}</p>
           </div>
-          <p class="mt-3 text-3xl font-bold text-slate-950 tracking-tight">{{ metric.value }}</p>
-        </div>
-        <p class="mt-2 text-xs font-semibold text-slate-400">{{ metric.note }}</p>
-      </div>
-    </div>
-
-    <!-- Advanced Filter Card for Appointments -->
-    <div v-if="resource === 'appointments' && !loading" class="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-          <Search class="h-4 w-4" />
-          Bộ lọc nâng cao
-        </h3>
-        <button type="button" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition" @click="resetFilters">
-          Đặt lại bộ lọc
-        </button>
-      </div>
-      
-      <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-        <!-- Keyword -->
-        <div class="lg:col-span-2">
-          <BaseInput v-model="appointmentQuery" label="Từ khóa tìm kiếm" placeholder="Tìm bệnh nhân, bác sĩ, lý do..." />
-        </div>
-        
-        <!-- Date -->
-        <div>
-          <BaseInput v-model="appointmentDate" type="date" label="Ngày hẹn" />
-        </div>
-        
-        <!-- Date range: From -->
-        <div>
-          <BaseInput v-model="appointmentFromDate" type="date" label="Từ ngày" />
-        </div>
-        
-        <!-- Date range: To -->
-        <div>
-          <BaseInput v-model="appointmentToDate" type="date" label="Đến ngày" />
-        </div>
-        
-        <!-- Status -->
-        <div>
-          <BaseSelect 
-            v-model="appointmentStatus" 
-            label="Trạng thái" 
-            placeholder="Tất cả" 
-            :options="[
-              { label: 'Cần xử lý', value: 'Cần xử lý' },
-              { label: 'Đang chờ', value: 'Đang chờ' },
-              { label: 'Đã xác nhận', value: 'Đã xác nhận' },
-              { label: 'Đã tiếp nhận', value: 'Đã tiếp nhận' },
-              { label: 'Đã tạo hóa đơn', value: 'Đã tạo hóa đơn' },
-              { label: 'Hoàn tất', value: 'Hoàn tất' },
-              { label: 'Đã hủy', value: 'Đã hủy' }
-            ]" 
-          />
-        </div>
-        
-        <!-- Doctor -->
-        <div class="sm:col-span-2 lg:col-span-1">
-          <BaseSelect 
-            v-model="appointmentDoctor" 
-            label="Bác sĩ" 
-            placeholder="Tất cả bác sĩ" 
-            :options="doctorsList.map(doc => ({ label: doc.fullName || `Bác sĩ #${doc.doctorId}`, value: String(doc.doctorId) }))" 
-          />
+          <span :class="['flex h-11 w-11 items-center justify-center rounded-xl', metric.className]">
+            <component :is="metric.icon" class="h-5 w-5" />
+          </span>
         </div>
       </div>
     </div>
 
-    <div v-if="note" class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">{{ note }}</div>
+    <div v-if="note && note !== 'Đã đồng bộ dữ liệu từ API Gateway.'" class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">{{ note }}</div>
     <div v-if="error" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
       <span>{{ error }}</span>
       <button type="button" class="ml-3 font-bold text-amber-900 underline" @click="loadData">Thử lại</button>
     </div>
 
-    <div v-if="loading" class="grid gap-4 md:grid-cols-3">
-      <LoadingSkeleton v-for="item in 3" :key="item" />
-    </div>
-
-    <div v-else class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div :class="[
+      'overflow-hidden border border-slate-200 bg-white shadow-sm',
+      modernResources.includes(resource) ? 'nurse-appointment-table-card' : 'rounded-2xl',
+    ]">
       <!-- Simple search bar (non-appointments) -->
-      <div v-if="resource !== 'appointments'" class="space-y-4 border-b border-slate-100 p-4">
+      <div v-if="!modernResources.includes(resource)" class="space-y-4 border-b border-slate-100 p-4">
         <div class="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
           <label class="relative block">
             <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -171,204 +111,462 @@
           </div>
         </div>
       </div>
-      <!-- Summary header for appointments -->
-      <div v-else class="flex items-center justify-between border-b border-slate-100 p-4 bg-slate-50/50">
-        <span class="text-sm font-bold text-slate-700">Danh sách lịch hẹn tiếp nhận</span>
-        <span class="rounded-xl bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">{{ filteredRows.length }} kết quả</span>
-      </div>
-
-      <div v-if="filteredRows.length" class="overflow-x-auto">
+      <div v-if="filteredRows.length || modernResources.includes(resource)" :class="modernResources.includes(resource) ? 'nurse-record-table-shell' : 'overflow-x-auto'">
         <!-- Table for Appointments -->
-        <table v-if="resource === 'appointments'" class="min-w-full divide-y divide-slate-100 text-sm">
-          <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <tr>
-              <th class="px-5 py-3.5">Mã lịch</th>
-              <th class="px-5 py-3.5">Bệnh nhân</th>
-              <th class="px-5 py-3.5">Bác sĩ</th>
-              <th class="px-5 py-3.5">Ngày giờ</th>
-              <th class="px-5 py-3.5">Lý do khám</th>
-              <th class="px-5 py-3.5">Trạng thái</th>
-              <th class="px-5 py-3.5 text-right">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 bg-white">
-            <tr v-for="row in paginatedRows" :key="String(row.id)" class="transition hover:bg-slate-50">
-              <!-- Mã lịch -->
-              <td class="px-5 py-4 align-middle font-mono font-bold text-slate-500">
-                #{{ row.appointmentId || row.id }}
-              </td>
-              <!-- Bệnh nhân -->
-              <td class="px-5 py-4 align-middle">
-                <div class="font-bold text-slate-950">{{ row.patientName }}</div>
-                <div class="text-xs text-slate-500 font-medium">Mã BN: {{ patientCodeFallback(row.patientId) }}</div>
-              </td>
-              <!-- Bác sĩ -->
-              <td class="px-5 py-4 align-middle">
-                <div class="font-semibold text-slate-800">{{ row.doctorName }}</div>
-                <div v-if="row.doctorSpecialty" class="text-xs text-slate-500 font-medium">{{ row.doctorSpecialty }}</div>
-              </td>
-              <!-- Ngày giờ -->
-              <td class="px-5 py-4 align-middle text-slate-600 font-medium">
-                {{ formatDateTime(row.appointmentDate, row.slotTime) }}
-              </td>
-              <!-- Lý do khám -->
-              <td class="px-5 py-4 align-middle max-w-xs truncate" :title="row.reason">
-                {{ row.reason }}
-              </td>
-              <!-- Trạng thái -->
-              <td class="px-5 py-4 align-middle">
-                <span :class="['rounded-full px-2.5 py-1 text-xs font-bold border', appointmentStatusClass(row.resolvedStatus)]">
-                  {{ appointmentStatusText(row.resolvedStatus) }}
-                </span>
-              </td>
-              <!-- Thao tác -->
-              <td class="px-5 py-4 align-middle text-right">
-                <div class="flex flex-wrap justify-end gap-2">
-                  <!-- Actions based on resolved status -->
-                  <template v-if="row.resolvedStatus === 'Pending'">
-                    <button type="button" class="inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-bold transition bg-blue-600 hover:bg-blue-700 text-white shadow-sm focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:opacity-50" :disabled="actingId === row.id" @click="confirmAction('confirm', row)">Xác nhận</button>
-                    <button type="button" class="inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-bold transition bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 focus:outline-none focus:ring-4 focus:ring-rose-100 disabled:opacity-50" :disabled="actingId === row.id" @click="confirmAction('cancel', row)">Hủy</button>
-                  </template>
-                  <template v-else-if="row.resolvedStatus === 'Confirmed'">
-                    <button type="button" class="inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-bold transition bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-100 disabled:opacity-50" :disabled="actingId === row.id" @click="confirmAction('checkin', row)">Tiếp nhận</button>
-                    <button type="button" class="inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-bold transition bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 focus:outline-none focus:ring-4 focus:ring-rose-100 disabled:opacity-50" :disabled="actingId === row.id" @click="confirmAction('cancel', row)">Hủy</button>
-                  </template>
-                  <template v-else-if="row.resolvedStatus === 'CheckedIn'">
-                    <span class="inline-flex h-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-700">Đã tiếp nhận</span>
-                    <button type="button" class="inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-bold transition bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm focus:outline-none focus:ring-4 focus:ring-indigo-100 disabled:opacity-50" :disabled="actingId === row.id" @click="confirmAction('invoice', row)">Tạo hóa đơn</button>
-                  </template>
-                  <!-- Detail is always available -->
-                  <BaseButton size="sm" variant="outline" @click="openDetailDrawer(row)">Chi tiết</BaseButton>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <!-- Queue board -->
-        <div v-else-if="resource === 'queue'" class="grid gap-3 p-4 xl:grid-cols-2 2xl:grid-cols-3">
-          <article
-            v-for="row in paginatedRows"
-            :key="String(row.visitId || row.id)"
-            class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md"
-          >
-            <div class="flex items-start justify-between gap-4">
-              <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="rounded-lg bg-blue-50 px-2.5 py-1 font-mono text-xs font-bold text-blue-700">
-                    VISIT #{{ row.visitId || row.id }}
-                  </span>
-                  <span :class="['rounded-full px-2.5 py-1 text-xs font-bold', queueVitalClass(row)]">
-                    {{ queueVitalLabel(row) }}
-                  </span>
-                </div>
-                <h3 class="mt-3 truncate text-base font-bold text-slate-950">{{ row.patientName }}</h3>
-                <p class="mt-1 text-xs font-semibold text-slate-500">Mã BN: {{ patientCodeFallback(row.patientId) }}</p>
-              </div>
-              <div class="shrink-0 text-right">
-                <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Chờ</p>
-                <p class="mt-1 text-sm font-bold text-slate-900">{{ queueWaitLabel(row) }}</p>
-              </div>
-            </div>
-
-            <div class="mt-4 grid gap-3 sm:grid-cols-2">
-              <div class="rounded-xl bg-slate-50 px-3 py-2">
-                <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Bác sĩ</p>
-                <p class="mt-1 truncate text-sm font-semibold text-slate-800">{{ row.doctorName || 'Chưa phân bác sĩ' }}</p>
-              </div>
-              <div class="rounded-xl bg-slate-50 px-3 py-2">
-                <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Chuyên khoa</p>
-                <p class="mt-1 truncate text-sm font-semibold text-slate-800">{{ queueSpecialtyLabel(row) }}</p>
-              </div>
-              <div class="rounded-xl bg-slate-50 px-3 py-2">
-                <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Trạng thái khám</p>
-                <p class="mt-1 text-sm font-semibold text-slate-800">{{ statusText(row.status) }}</p>
-              </div>
-              <div class="rounded-xl bg-slate-50 px-3 py-2">
-                <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Tiếp nhận</p>
-                <p class="mt-1 text-sm font-semibold text-slate-800">{{ row.dateTime || 'Hôm nay' }}</p>
-              </div>
-            </div>
-
-            <p class="mt-3 line-clamp-2 text-sm leading-6 text-slate-600" :title="row.reason">
-              {{ row.reason || 'Chưa ghi nhận lý do khám' }}
-            </p>
-
-            <div class="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
-              <button
-                v-if="Number(row.visitId) > 0"
-                type="button"
-                :disabled="actingId === row.id || !canUpdateVitals(row)"
-                :class="[
-                  'inline-flex h-10 items-center rounded-xl px-4 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60',
-                  canUpdateVitals(row) ? 'bg-blue-700 text-white hover:bg-blue-800' : 'bg-emerald-50 text-emerald-700',
-                ]"
-                @click="runAction('vitals', row)"
+        <ATable
+          v-if="resource === 'appointments'"
+          :columns="nurseAppointmentTableColumns"
+          :data-source="filteredRows"
+          :pagination="nurseAppointmentPagination"
+          :row-key="nurseAppointmentIdentity"
+          size="middle"
+          table-layout="fixed"
+          @change="handleNurseAppointmentTableChange"
+        >
+          <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+            <div class="nurse-record-filter">
+              <p class="nurse-record-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+              <AInput
+                :value="selectedKeys[0]"
+                :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+                allow-clear
+                autofocus
+                @change="setSelectedKeys(getNurseAppointmentFilterKeys($event))"
+                @press-enter="confirm()"
               >
-                {{ canUpdateVitals(row) ? 'Đo sinh hiệu' : 'Đã đo sinh hiệu' }}
-              </button>
-              <span v-else class="inline-flex h-10 items-center rounded-xl bg-amber-50 px-4 text-sm font-bold text-amber-700">
-                Chưa tạo lượt khám
-              </span>
+                <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+              </AInput>
+              <div class="nurse-record-filter-actions">
+                <AButton size="small" class="nurse-record-filter-reset" @click="clearNurseAppointmentFilter(clearFilters, confirm)">Đặt lại</AButton>
+                <AButton type="primary" size="small" class="nurse-record-filter-submit" @click="confirm()">Áp dụng</AButton>
+              </div>
             </div>
-          </article>
-        </div>
+          </template>
+          <template #customFilterIcon="{ filtered, column }">
+            <CheckCircle2 v-if="column.key === 'resolvedStatus'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+            <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          </template>
+          <template #emptyText>
+            <div class="py-8 text-center">
+              <CalendarCheck class="mx-auto h-9 w-9 text-slate-300" />
+              <p class="mt-3 font-bold text-slate-800">
+                {{ isDefaultAppointmentFilter ? 'Không có lịch hẹn cần xử lý hôm nay' : 'Không có lịch hẹn phù hợp' }}
+              </p>
+              <p class="mt-1 text-sm text-slate-500">
+                {{ isDefaultAppointmentFilter ? 'Bạn có thể đổi bộ lọc để xem lịch hẹn cũ hoặc lịch đã hoàn tất.' : 'Thử đổi bộ lọc trong từng cột hoặc chọn ngày khác.' }}
+              </p>
+            </div>
+          </template>
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'appointmentNo'">
+              <span class="font-mono text-xs font-semibold text-[#0F52BA]">{{ nurseAppointmentCode(record) }}</span>
+            </template>
+            <template v-else-if="column.key === 'patientName'">
+              <div class="min-w-0">
+                <p class="truncate text-[13px] font-bold text-slate-900" :title="record.patientName">{{ record.patientName || patientNameFallback(record.patientId) }}</p>
+                <p class="mt-0.5 text-[11px] font-semibold text-slate-400">BN {{ patientCodeFallback(record.patientId) }}</p>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'doctorName'">
+              <div class="min-w-0">
+                <p class="truncate text-[13px] font-semibold text-slate-800" :title="record.doctorName">{{ record.doctorName || 'Chưa chỉ định' }}</p>
+                <p class="mt-0.5 text-[11px] font-semibold text-slate-400">{{ record.specialtyName || record.doctorSpecialty || 'Chưa cập nhật khoa' }}</p>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'timeLabel'">
+              <div class="flex items-center gap-2 whitespace-nowrap">
+                <Calendar class="h-3.5 w-3.5 text-slate-400" />
+                <span class="text-[13px] font-medium text-slate-600">{{ formatDateTime(record.appointmentDate, record.slotTime) }}</span>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'reason'">
+              <span class="line-clamp-2 text-[13px] font-medium text-slate-700" :title="appointmentTableReason(record)">{{ appointmentTableReason(record) }}</span>
+            </template>
+            <template v-else-if="column.key === 'resolvedStatus'">
+              <ATag :bordered="false" :class="['nurse-record-status-tag', nurseAppointmentStatusTagClass(record.resolvedStatus)]">{{ appointmentStatusText(record.resolvedStatus) }}</ATag>
+            </template>
+            <template v-else-if="column.key === 'actions'">
+              <div class="nurse-record-actions">
+                <button v-if="record.resolvedStatus === 'Pending'" type="button" class="nurse-record-action-button nurse-record-action-primary" title="Xác nhận lịch hẹn" :disabled="actingId === record.id" @click="confirmAction('confirm', record)">
+                  <Check class="h-4 w-4" />
+                </button>
+                <button v-if="record.resolvedStatus === 'Confirmed'" type="button" class="nurse-record-action-button nurse-record-action-success" title="Tiếp nhận bệnh nhân" :disabled="actingId === record.id" @click="confirmAction('checkin', record)">
+                  <UserCheck class="h-4 w-4" />
+                </button>
+                <button v-if="record.resolvedStatus === 'CheckedIn'" type="button" class="nurse-record-action-button nurse-record-action-indigo" title="Tạo hóa đơn" :disabled="actingId === record.id" @click="confirmAction('invoice', record)">
+                  <CreditCard class="h-4 w-4" />
+                </button>
+                <button v-if="['Pending', 'Confirmed'].includes(String(record.resolvedStatus || ''))" type="button" class="nurse-record-action-button nurse-record-action-danger" title="Hủy lịch hẹn" :disabled="actingId === record.id" @click="confirmAction('cancel', record)">
+                  <XCircle class="h-4 w-4" />
+                </button>
+                <button type="button" class="nurse-record-action-button nurse-record-action-muted" title="Xem chi tiết lịch hẹn" @click="openDetailDrawer(record)">
+                  <Eye class="h-4 w-4" />
+                </button>
+              </div>
+            </template>
+          </template>
+        </ATable>
+
+        <!-- Table for Patients -->
+        <ATable
+          v-else-if="resource === 'patients'"
+          :columns="nursePatientTableColumns"
+          :data-source="filteredRows"
+          :pagination="nursePatientPagination"
+          :row-key="nursePatientIdentity"
+          size="middle"
+          table-layout="fixed"
+          @change="handleNursePatientTableChange"
+        >
+          <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+            <div class="nurse-record-filter">
+              <p class="nurse-record-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+              <AInput
+                :value="selectedKeys[0]"
+                :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+                allow-clear
+                autofocus
+                @change="setSelectedKeys(getNursePatientFilterKeys($event))"
+                @press-enter="confirm()"
+              >
+                <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+              </AInput>
+              <div class="nurse-record-filter-actions">
+                <AButton size="small" class="nurse-record-filter-reset" @click="clearNursePatientFilter(clearFilters, confirm)">Đặt lại</AButton>
+                <AButton type="primary" size="small" class="nurse-record-filter-submit" @click="confirm()">Áp dụng</AButton>
+              </div>
+            </div>
+          </template>
+          <template #customFilterIcon="{ filtered, column }">
+            <CheckCircle2 v-if="column.key === 'status'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+            <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          </template>
+          <template #emptyText>
+            <div class="py-8 text-center">
+              <Users class="mx-auto h-9 w-9 text-slate-300" />
+              <p class="mt-3 font-bold text-slate-800">Không có hồ sơ bệnh nhân phù hợp</p>
+              <p class="mt-1 text-sm text-slate-500">Thử đổi bộ lọc trong từng cột hoặc thêm hồ sơ bệnh nhân mới.</p>
+            </div>
+          </template>
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'patientNo'">
+              <span class="font-mono text-xs font-semibold text-[#0F52BA]">{{ nursePatientCode(record) }}</span>
+            </template>
+            <template v-else-if="column.key === 'name'">
+              <div class="min-w-0">
+                <p class="truncate text-[13px] font-bold text-slate-900" :title="record.name">{{ record.name || 'Chưa cập nhật' }}</p>
+                <p class="mt-0.5 text-[11px] font-semibold text-slate-400">{{ record.bloodType || 'Chưa xác định nhóm máu' }}</p>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'contact'">
+              <div class="min-w-0">
+                <p class="truncate text-[13px] font-medium text-slate-700" :title="record.phone">{{ record.phone || 'Chưa cập nhật SĐT' }}</p>
+                <p class="mt-0.5 truncate text-[11px] font-medium text-slate-500" :title="record.email">{{ record.email || 'Chưa cập nhật email' }}</p>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'dateOfBirth'">
+              <span class="whitespace-nowrap text-[13px] font-medium text-slate-700">{{ record.dateOfBirth || 'Chưa cập nhật' }}</span>
+            </template>
+            <template v-else-if="column.key === 'gender'">
+              <span class="text-[13px] font-medium text-slate-700">{{ record.gender || 'Chưa cập nhật' }}</span>
+            </template>
+            <template v-else-if="column.key === 'citizenId'">
+              <span class="font-mono text-xs font-medium text-slate-600">{{ record.citizenId || 'Chưa cập nhật' }}</span>
+            </template>
+            <template v-else-if="column.key === 'status'">
+              <ATag :bordered="false" :class="['nurse-record-status-tag', nursePatientStatusTagClass(record.status)]">{{ patientStatusText(record.status) }}</ATag>
+            </template>
+            <template v-else-if="column.key === 'createdAt'">
+              <span class="whitespace-nowrap text-[13px] font-medium text-slate-600">{{ record.createdAt || 'Chưa cập nhật' }}</span>
+            </template>
+            <template v-else-if="column.key === 'actions'">
+              <div class="nurse-record-actions">
+                <button type="button" class="nurse-record-action-button nurse-record-action-primary" title="Cập nhật hồ sơ bệnh nhân" @click="openPatientModal(record)">
+                  <UserPlus class="h-4 w-4" />
+                </button>
+                <button type="button" class="nurse-record-action-button nurse-record-action-muted" title="Xem chi tiết bệnh nhân" @click="openDetailDrawer(record)">
+                  <Eye class="h-4 w-4" />
+                </button>
+              </div>
+            </template>
+          </template>
+        </ATable>
+
+        <!-- Table for Queue -->
+        <ATable
+          v-else-if="resource === 'queue'"
+          :columns="nurseQueueTableColumns"
+          :data-source="filteredRows"
+          :pagination="nurseQueuePagination"
+          :row-key="nurseQueueIdentity"
+          size="middle"
+          table-layout="fixed"
+          @change="handleNurseQueueTableChange"
+        >
+          <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+            <div class="nurse-record-filter">
+              <p class="nurse-record-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+              <AInput
+                :value="selectedKeys[0]"
+                :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+                allow-clear
+                autofocus
+                @change="setSelectedKeys(getNurseQueueFilterKeys($event))"
+                @press-enter="confirm()"
+              >
+                <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+              </AInput>
+              <div class="nurse-record-filter-actions">
+                <AButton size="small" class="nurse-record-filter-reset" @click="clearNurseQueueFilter(clearFilters, confirm)">Đặt lại</AButton>
+                <AButton type="primary" size="small" class="nurse-record-filter-submit" @click="confirm()">Áp dụng</AButton>
+              </div>
+            </div>
+          </template>
+          <template #customFilterIcon="{ filtered, column }">
+            <CheckCircle2 v-if="column.key === 'vitals' || column.key === 'status'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+            <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          </template>
+          <template #emptyText>
+            <div class="py-8 text-center">
+              <Users class="mx-auto h-9 w-9 text-slate-300" />
+              <p class="mt-3 font-bold text-slate-800">Không có lượt khám trong hàng chờ</p>
+              <p class="mt-1 text-sm text-slate-500">Bệnh nhân sẽ xuất hiện sau khi được tiếp nhận/check-in.</p>
+            </div>
+          </template>
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'visitNo'">
+              <span class="font-mono text-xs font-semibold text-[#0F52BA]">{{ nurseQueueCode(record) }}</span>
+            </template>
+            <template v-else-if="column.key === 'patientName'">
+              <div class="min-w-0">
+                <p class="truncate text-[13px] font-bold text-slate-900" :title="record.patientName">{{ record.patientName || 'Chưa cập nhật' }}</p>
+                <p class="mt-0.5 text-[11px] font-semibold text-slate-400">BN {{ patientCodeFallback(record.patientId) }}</p>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'doctorName'">
+              <div class="min-w-0">
+                <p class="truncate text-[13px] font-semibold text-slate-800" :title="record.doctorName">{{ record.doctorName || 'Chưa phân bác sĩ' }}</p>
+                <p class="mt-0.5 text-[11px] font-semibold text-slate-400">{{ queueSpecialtyLabel(record) }}</p>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'timeLabel'">
+              <div class="flex items-center gap-2 whitespace-nowrap">
+                <Clock class="h-3.5 w-3.5 text-slate-400" />
+                <span class="text-[13px] font-medium text-slate-600">{{ record.dateTime || 'Hôm nay' }}</span>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'reason'">
+              <span class="line-clamp-2 text-[13px] font-medium text-slate-700" :title="record.reason">{{ record.reason || 'Chưa ghi nhận lý do khám' }}</span>
+            </template>
+            <template v-else-if="column.key === 'vitals'">
+              <ATag :bordered="false" :class="['nurse-record-status-tag', nurseQueueVitalTagClass(record)]">{{ queueVitalLabel(record) }}</ATag>
+            </template>
+            <template v-else-if="column.key === 'status'">
+              <ATag :bordered="false" :class="['nurse-record-status-tag', nurseQueueStatusTagClass(record.status)]">{{ statusText(record.status) }}</ATag>
+            </template>
+            <template v-else-if="column.key === 'actions'">
+              <div class="nurse-record-actions">
+                <button
+                  v-if="Number(record.visitId) > 0"
+                  type="button"
+                  :disabled="actingId === record.id || !canUpdateVitals(record)"
+                  :class="['nurse-record-action-button', canUpdateVitals(record) ? 'nurse-record-action-primary' : 'nurse-record-action-success']"
+                  :title="canUpdateVitals(record) ? 'Đo sinh hiệu' : 'Đã đo sinh hiệu'"
+                  @click="runAction('vitals', record)"
+                >
+                  <UserCheck class="h-4 w-4" />
+                </button>
+                <span v-else class="nurse-record-status-tag is-waiting">Chưa tạo lượt khám</span>
+              </div>
+            </template>
+          </template>
+        </ATable>
 
         <!-- Table for bills -->
-        <table v-else-if="resource === 'bills'" class="min-w-full divide-y divide-slate-100 text-sm">
-          <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <tr>
-              <th class="px-5 py-3.5">Hóa đơn</th>
-              <th class="px-5 py-3.5">Bệnh nhân</th>
-              <th class="px-5 py-3.5">Nguồn thu</th>
-              <th class="px-5 py-3.5 text-right">Số tiền</th>
-              <th class="px-5 py-3.5">Trạng thái</th>
-              <th class="px-5 py-3.5">Thời điểm</th>
-              <th class="px-5 py-3.5 text-right">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 bg-white">
-            <tr v-for="row in paginatedRows" :key="String(row.id)" :class="['transition hover:bg-slate-50', isPaidStatus(row.status) ? 'text-slate-600' : 'bg-amber-50/20']">
-              <td class="px-5 py-4 align-middle">
-                <div class="font-mono text-sm font-bold text-slate-950">#{{ row.invoiceNo || row.id }}</div>
-                <div class="mt-1 text-xs font-semibold text-slate-500">{{ row.appointmentLabel }}</div>
-              </td>
-              <td class="px-5 py-4 align-middle">
-                <div class="font-bold text-slate-950">{{ row.patientName }}</div>
-                <div class="mt-1 text-xs font-semibold text-slate-500">{{ row.patientCode }}</div>
-              </td>
-              <td class="px-5 py-4 align-middle">
-                <div class="font-semibold text-slate-800">{{ row.sourceLabel }}</div>
-                <div class="mt-1 max-w-xs truncate text-xs font-medium text-slate-500" :title="row.description">{{ row.description }}</div>
-              </td>
-              <td class="px-5 py-4 align-middle text-right">
-                <div class="text-base font-bold text-slate-950">{{ row.amount }}</div>
-              </td>
-              <td class="px-5 py-4 align-middle">
-                <span :class="['inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold', billStatusClass(row.status)]">
-                  {{ statusText(row.status) }}
-                </span>
-              </td>
-              <td class="px-5 py-4 align-middle">
-                <div class="font-semibold text-slate-700">{{ row.createdAt }}</div>
-                <div v-if="row.paidAt" class="mt-1 text-xs font-semibold text-emerald-700">Thu lúc {{ row.paidAt }}</div>
-              </td>
-              <td class="px-5 py-4 align-middle text-right">
+        <ATable
+          v-else-if="resource === 'bills'"
+          :columns="nurseBillTableColumns"
+          :data-source="filteredRows"
+          :pagination="nurseBillPagination"
+          :row-key="nurseBillIdentity"
+          size="middle"
+          table-layout="fixed"
+          @change="handleNurseBillTableChange"
+        >
+          <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+            <div class="nurse-record-filter">
+              <p class="nurse-record-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+              <AInput
+                :value="selectedKeys[0]"
+                :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+                allow-clear
+                autofocus
+                @change="setSelectedKeys(getNurseBillFilterKeys($event))"
+                @press-enter="confirm()"
+              >
+                <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+              </AInput>
+              <div class="nurse-record-filter-actions">
+                <AButton size="small" class="nurse-record-filter-reset" @click="clearNurseBillFilter(clearFilters, confirm)">Đặt lại</AButton>
+                <AButton type="primary" size="small" class="nurse-record-filter-submit" @click="confirm()">Áp dụng</AButton>
+              </div>
+            </div>
+          </template>
+          <template #customFilterIcon="{ filtered, column }">
+            <CheckCircle2 v-if="column.key === 'status'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+            <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          </template>
+          <template #emptyText>
+            <div class="py-8 text-center">
+              <CreditCard class="mx-auto h-9 w-9 text-slate-300" />
+              <p class="mt-3 font-bold text-slate-800">Không có hóa đơn phù hợp</p>
+              <p class="mt-1 text-sm text-slate-500">Thử đổi bộ lọc trong từng cột hoặc kiểm tra hóa đơn mới phát sinh.</p>
+            </div>
+          </template>
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'invoiceNo'">
+              <div>
+                <span class="font-mono text-xs font-semibold text-[#0F52BA]">#{{ record.invoiceNo || record.id }}</span>
+                <p class="mt-0.5 text-[11px] font-semibold text-slate-400">{{ record.appointmentLabel }}</p>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'patientName'">
+              <div class="min-w-0">
+                <p class="truncate text-[13px] font-bold text-slate-900" :title="record.patientName">{{ record.patientName || 'Chưa cập nhật' }}</p>
+                <p class="mt-0.5 text-[11px] font-semibold text-slate-400">{{ record.patientCode || 'Chưa cập nhật mã BN' }}</p>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'sourceLabel'">
+              <div class="min-w-0">
+                <p class="truncate text-[13px] font-semibold text-slate-800" :title="record.sourceLabel">{{ record.sourceLabel || 'Thu viện phí' }}</p>
+                <p class="mt-0.5 truncate text-[11px] font-medium text-slate-500" :title="record.description">{{ record.description || 'Hóa đơn viện phí bệnh nhân' }}</p>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'amount'">
+              <span class="whitespace-nowrap text-[13px] font-bold text-slate-950">{{ record.amount }}</span>
+            </template>
+            <template v-else-if="column.key === 'status'">
+              <ATag :bordered="false" :class="['nurse-record-status-tag', nurseBillStatusTagClass(record.status)]">{{ statusText(record.status) }}</ATag>
+            </template>
+            <template v-else-if="column.key === 'createdAt'">
+              <div>
+                <p class="whitespace-nowrap text-[13px] font-medium text-slate-600">{{ record.createdAt }}</p>
+                <p v-if="record.paidAt" class="mt-0.5 whitespace-nowrap text-[11px] font-semibold text-emerald-700">Thu lúc {{ record.paidAt }}</p>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'actions'">
+              <div class="nurse-record-actions">
                 <button
-                  v-if="canCollectInvoice(row)"
+                  v-if="canCollectInvoice(record)"
                   type="button"
-                  :disabled="actingId === row.id"
-                  class="inline-flex h-10 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  @click="runAction('pay', row)"
+                  class="nurse-record-action-button nurse-record-action-success"
+                  title="Thu tiền"
+                  :disabled="actingId === record.id"
+                  @click="runAction('pay', record)"
                 >
                   <CreditCard class="h-4 w-4" />
-                  Thu tiền
                 </button>
-                <span v-else :class="['inline-flex h-10 items-center rounded-lg border px-4 text-xs font-bold', invoiceActionClass(row)]">{{ invoiceActionLabel(row) }}</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <span
+                  v-else
+                  :class="[
+                    'nurse-record-action-button',
+                    isPaidStatus(record.status) ? 'nurse-record-action-primary' : 'nurse-record-action-muted',
+                  ]"
+                  :title="invoiceActionLabel(record)"
+                >
+                  <CheckCircle2 v-if="isPaidStatus(record.status)" class="h-4 w-4" />
+                  <XCircle v-else class="h-4 w-4" />
+                </span>
+              </div>
+            </template>
+          </template>
+        </ATable>
+
+        <!-- Table for prescriptions -->
+        <ATable
+          v-else-if="resource === 'prescriptions'"
+          :columns="nursePrescriptionTableColumns"
+          :data-source="filteredRows"
+          :pagination="nursePrescriptionPagination"
+          :row-key="nursePrescriptionIdentity"
+          size="middle"
+          table-layout="fixed"
+          @change="handleNursePrescriptionTableChange"
+        >
+          <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+            <div class="nurse-record-filter">
+              <p class="nurse-record-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+              <AInput
+                :value="selectedKeys[0]"
+                :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+                allow-clear
+                autofocus
+                @change="setSelectedKeys(getNursePrescriptionFilterKeys($event))"
+                @press-enter="confirm()"
+              >
+                <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+              </AInput>
+              <div class="nurse-record-filter-actions">
+                <AButton size="small" class="nurse-record-filter-reset" @click="clearNursePrescriptionFilter(clearFilters, confirm)">Đặt lại</AButton>
+                <AButton type="primary" size="small" class="nurse-record-filter-submit" @click="confirm()">Áp dụng</AButton>
+              </div>
+            </div>
+          </template>
+          <template #customFilterIcon="{ filtered, column }">
+            <CheckCircle2 v-if="column.key === 'status'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+            <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          </template>
+          <template #emptyText>
+            <div class="py-8 text-center">
+              <FileText class="mx-auto h-9 w-9 text-slate-300" />
+              <p class="mt-3 font-bold text-slate-800">Không có đơn thuốc phù hợp</p>
+              <p class="mt-1 text-sm text-slate-500">Thử đổi bộ lọc trong từng cột hoặc kiểm tra đơn thuốc mới.</p>
+            </div>
+          </template>
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'prescriptionNo'">
+              <span class="font-mono text-xs font-semibold text-[#0F52BA]">{{ nursePrescriptionCode(record) }}</span>
+            </template>
+            <template v-else-if="column.key === 'patientName'">
+              <div class="min-w-0">
+                <p class="truncate text-[13px] font-bold text-slate-900" :title="record.patientName">{{ record.patientName || 'Chưa cập nhật' }}</p>
+                <p class="mt-0.5 text-[11px] font-semibold text-slate-400">{{ record.patientCode || 'Chưa cập nhật mã BN' }}</p>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'medicalRecordId'">
+              <span class="font-mono text-xs font-medium text-slate-600">{{ record.medicalRecordId || 'Chưa cập nhật' }}</span>
+            </template>
+            <template v-else-if="column.key === 'examDate'">
+              <div class="flex items-center gap-2 whitespace-nowrap">
+                <Calendar class="h-3.5 w-3.5 text-slate-400" />
+                <span class="text-[13px] font-medium text-slate-600">{{ record.examDate || 'Chưa cập nhật' }}</span>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'medicine'">
+              <span class="line-clamp-2 text-[13px] font-medium text-slate-700" :title="record.medicine">{{ record.medicine || 'Chưa có chi tiết thuốc' }}</span>
+            </template>
+            <template v-else-if="column.key === 'status'">
+              <ATag :bordered="false" :class="['nurse-record-status-tag', nursePrescriptionStatusTagClass(record.status)]">{{ prescriptionStatusText(record.status) }}</ATag>
+            </template>
+            <template v-else-if="column.key === 'actions'">
+              <div class="nurse-record-actions">
+                <button
+                  v-if="!['dispensed', 'cancelled'].includes(stockStatusBucket(record.status))"
+                  type="button"
+                  class="nurse-record-action-button nurse-record-action-primary"
+                  title="Xử lý đơn thuốc"
+                  :disabled="actingId === record.id"
+                  @click="runAction('stockCheck', record)"
+                >
+                  <Send class="h-4 w-4" />
+                </button>
+                <span v-else class="nurse-record-action-button nurse-record-action-success" title="Đã phát thuốc">
+                  <CheckCircle2 class="h-4 w-4" />
+                </span>
+              </div>
+            </template>
+          </template>
+        </ATable>
 
         <!-- Table for other resources -->
         <table v-else class="min-w-full divide-y divide-slate-100 text-sm">
@@ -396,7 +594,7 @@
         </table>
         
         <!-- Pagination Footer -->
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 p-4 bg-slate-50/50">
+        <div v-if="!modernResources.includes(resource)" class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-t border-slate-100 p-4 bg-slate-50/50">
           <div class="flex items-center gap-2 text-sm text-slate-500">
             <span>Hiển thị</span>
             <select
@@ -450,18 +648,6 @@
         </div>
       </div>
 
-      <div v-else-if="resource === 'appointments'" class="p-10 text-center">
-        <SearchX class="mx-auto h-10 w-10 text-slate-300" />
-        <h2 class="mt-4 text-lg font-bold text-slate-950">
-          {{ isDefaultAppointmentFilter ? 'Không có lịch hẹn cần xử lý hôm nay' : 'Không có lịch hẹn phù hợp' }}
-        </h2>
-        <p class="mt-2 text-sm text-slate-500">
-          {{ isDefaultAppointmentFilter 
-             ? 'Bạn có thể đổi bộ lọc để xem lịch hẹn cũ hoặc lịch đã hoàn tất.' 
-             : 'Thử đổi bộ lọc hoặc chọn ngày khác để xem thêm lịch hẹn.' }}
-        </p>
-      </div>
-
       <div v-else class="p-10 text-center">
         <SearchX class="mx-auto h-10 w-10 text-slate-300" />
         <h2 class="mt-4 text-lg font-bold text-slate-950">Chưa có dữ liệu</h2>
@@ -469,124 +655,214 @@
       </div>
     </div>
 
-    <div v-if="vitalsOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div class="w-full max-w-3xl rounded-[1.5rem] bg-white p-6 shadow-2xl">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">Chỉ số sinh hiệu</p>
-            <h2 class="mt-1 text-2xl font-bold text-slate-950">Cập nhật chỉ số sức khỏe</h2>
-            <p class="mt-2 text-sm text-slate-500">{{ activeRow?.patientName }} - Visit #{{ activeRow?.visitId || activeRow?.id }}</p>
-            <div class="mt-3 flex flex-wrap gap-2">
-              <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                {{ activeVitalSpecialtyLabel }}
+    <Teleport to="body">
+      <div v-if="vitalsOpen" class="fixed inset-0 z-[130] bg-slate-950/40 backdrop-blur-sm transition-opacity" @click="closeVitals"></div>
+      <transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="translate-x-full"
+        enter-to-class="translate-x-0"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="translate-x-0"
+        leave-to-class="translate-x-full"
+      >
+        <aside v-if="vitalsOpen" class="fixed right-0 top-0 z-[130] flex h-screen w-full max-w-2xl flex-col border-l border-slate-200 bg-white shadow-2xl">
+          <div class="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/50 p-5">
+            <div class="flex items-start gap-3">
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-[#0F52BA]">
+                <UserCheck class="h-5 w-5" />
               </span>
-              <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                {{ activeVitalFields.length }} chỉ số cần theo dõi
-              </span>
+              <div>
+                <p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">Chỉ số sinh hiệu</p>
+                <h2 class="mt-1 text-lg font-bold text-slate-900">Cập nhật chỉ số sức khỏe</h2>
+                <p class="mt-1 text-sm text-slate-500">{{ activeRow?.patientName }} - Visit #{{ activeRow?.visitId || activeRow?.id }}</p>
+              </div>
             </div>
+            <button type="button" class="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600" @click="closeVitals">
+              <X class="h-5 w-5" />
+            </button>
           </div>
-          <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" @click="closeVitals">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-        <div class="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
-          <p class="font-bold">Hướng dẫn nhập chỉ số sức khỏe</p>
-          <ul class="mt-2 grid gap-1 sm:grid-cols-2">
-            <li v-for="field in activeVitalFields" :key="`hint-${field.key}`">
-              {{ field.label }}{{ field.unit ? ` (${field.unit})` : '' }}:
-              <span v-if="field.min !== undefined || field.max !== undefined">
-                {{ field.min ?? '...' }}-{{ field.max ?? '...' }}{{ field.unit ? ` ${field.unit}` : '' }}.
+
+          <form class="flex min-h-0 flex-1 flex-col" @submit.prevent="submitVitals">
+            <div class="flex-1 space-y-5 overflow-y-auto p-6">
+              <div class="flex flex-wrap gap-2">
+                <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                  {{ activeVitalSpecialtyLabel }}
+                </span>
+                <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                  {{ activeVitalFields.length }} chỉ số cần theo dõi
+                </span>
+              </div>
+
+              <section class="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
+                <p class="font-bold">Hướng dẫn nhập chỉ số sức khỏe</p>
+                <ul class="mt-2 grid gap-1 sm:grid-cols-2">
+                  <li v-for="field in activeVitalFields" :key="`hint-${field.key}`">
+                    {{ field.label }}{{ field.unit ? ` (${field.unit})` : '' }}:
+                    <span v-if="field.min !== undefined || field.max !== undefined">
+                      {{ field.min ?? '...' }}-{{ field.max ?? '...' }}{{ field.unit ? ` ${field.unit}` : '' }}.
+                    </span>
+                    <span v-else>{{ field.placeholder || 'Nhập theo thực tế đo được.' }}</span>
+                  </li>
+                  <li class="font-bold text-rose-700">Các trường có dấu * là bắt buộc.</li>
+                </ul>
+              </section>
+
+              <section class="space-y-3">
+                <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <UserCheck class="h-4 w-4 text-[#0F52BA]" />
+                  Sinh hiệu
+                </h3>
+                <div class="grid gap-4 sm:grid-cols-2">
+                  <BaseInput
+                    v-for="field in activeVitalFields"
+                    :key="field.key"
+                    :model-value="vitalsForm[field.key]"
+                    :label="vitalFieldLabel(field)"
+                    :type="field.type === 'number' ? 'number' : 'text'"
+                    :min="field.min"
+                    :max="field.max"
+                    :step="field.step || (field.type === 'number' ? '0.1' : undefined)"
+                    :placeholder="field.placeholder"
+                    :maxlength="field.maxLength"
+                    :required="field.required"
+                    @update:model-value="updateVitalField(field, $event)"
+                  />
+                </div>
+              </section>
+
+              <section class="space-y-3">
+                <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <FileText class="h-4 w-4 text-[#0F52BA]" />
+                  Ghi chú
+                </h3>
+                <label class="block">
+                  <span class="mb-2 block text-sm font-medium text-slate-700">Ghi chú điều dưỡng</span>
+                  <textarea v-model="vitalsForm.note" rows="4" maxlength="500" class="form-textarea"></textarea>
+                </label>
+              </section>
+            </div>
+
+            <div class="flex justify-end gap-3 border-t border-slate-100 bg-white p-4">
+              <BaseButton type="button" variant="outline" @click="closeVitals">Đóng</BaseButton>
+              <BaseButton type="submit" :loading="saving">Lưu chỉ số sức khỏe</BaseButton>
+            </div>
+          </form>
+        </aside>
+      </transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="patientModalOpen" class="fixed inset-0 z-[130] bg-slate-950/40 backdrop-blur-sm transition-opacity" @click="closePatientModal"></div>
+      <transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="translate-x-full"
+        enter-to-class="translate-x-0"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="translate-x-0"
+        leave-to-class="translate-x-full"
+      >
+        <aside v-if="patientModalOpen" class="fixed right-0 top-0 z-[130] flex h-screen w-full max-w-2xl flex-col border-l border-slate-200 bg-white shadow-2xl">
+          <div class="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/50 p-5">
+            <div class="flex items-start gap-3">
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-[#0F52BA]">
+                <Users class="h-5 w-5" />
               </span>
-              <span v-else>{{ field.placeholder || 'Nhập theo thực tế đo được.' }}</span>
-            </li>
-            <li class="font-bold text-rose-700">Các trường có dấu * là bắt buộc.</li>
-          </ul>
-        </div>
-        <form class="mt-5 space-y-4" @submit.prevent="submitVitals">
-          <div class="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(210px,1fr))]">
-            <BaseInput
-              v-for="field in activeVitalFields"
-              :key="field.key"
-              :model-value="vitalsForm[field.key]"
-              :label="vitalFieldLabel(field)"
-              :type="field.type === 'number' ? 'number' : 'text'"
-              :min="field.min"
-              :max="field.max"
-              :step="field.step || (field.type === 'number' ? '0.1' : undefined)"
-              :placeholder="field.placeholder"
-              :maxlength="field.maxLength"
-              :required="field.required"
-              @update:model-value="updateVitalField(field, $event)"
-            />
+              <div>
+                <p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">Hồ sơ bệnh nhân</p>
+                <h2 class="mt-1 text-lg font-bold text-slate-900">{{ editingPatientId ? 'Cập nhật bệnh nhân' : 'Thêm bệnh nhân' }}</h2>
+              </div>
+            </div>
+            <button type="button" class="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600" @click="closePatientModal">
+              <X class="h-5 w-5" />
+            </button>
           </div>
-          <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Ghi chú điều dưỡng</span>
-            <textarea v-model="vitalsForm.note" rows="3" maxlength="500" class="form-textarea"></textarea>
-          </label>
-          <div class="flex justify-end gap-3">
-            <BaseButton type="button" variant="outline" @click="closeVitals">Đóng</BaseButton>
-            <BaseButton type="submit" :loading="saving">Lưu chỉ số sức khỏe</BaseButton>
-          </div>
-        </form>
-      </div>
-    </div>
 
-    <div v-if="patientModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div class="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-[1.5rem] bg-white p-6 shadow-2xl">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">Hồ sơ bệnh nhân</p>
-            <h2 class="mt-1 text-2xl font-bold text-slate-950">{{ editingPatientId ? 'Cập nhật bệnh nhân' : 'Thêm bệnh nhân' }}</h2>
-          </div>
-          <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" @click="closePatientModal">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-        <form class="mt-5 space-y-4" @submit.prevent="submitPatient">
-          <div class="grid gap-4 sm:grid-cols-2">
-            <BaseInput v-model="patientForm.fullName" label="Họ tên" required />
-            <BaseInput v-model="patientForm.phoneNumber" label="Số điện thoại" />
-            <BaseInput v-model="patientForm.email" label="Email" type="email" />
-            <BaseInput v-model="patientForm.dateOfBirth" label="Ngày sinh" type="date" />
-            <BaseSelect v-model="patientForm.gender" label="Giới tính" :options="genderOptions" placeholder="Chọn giới tính" />
-            <BaseInput v-model="patientForm.citizenId" label="CCCD / định danh" maxlength="20" />
-            <BaseInput v-model="patientForm.bloodType" label="Nhóm máu" />
-            <BaseSelect v-if="editingPatientId" v-model="patientForm.status" label="Trạng thái" :options="patientStatusOptions" placeholder="Chọn trạng thái" />
-          </div>
-          <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Địa chỉ</span>
-            <textarea v-model="patientForm.address" rows="2" maxlength="255" class="form-textarea"></textarea>
-          </label>
-          <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Dị ứng</span>
-            <textarea v-model="patientForm.allergyNote" rows="3" class="form-textarea"></textarea>
-          </label>
-          <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Tiền sử bệnh</span>
-            <textarea v-model="patientForm.medicalHistory" rows="3" class="form-textarea"></textarea>
-          </label>
-          <div class="flex justify-end gap-3">
-            <BaseButton type="button" variant="outline" @click="closePatientModal">Đóng</BaseButton>
-            <BaseButton type="submit" :loading="saving">Lưu hồ sơ</BaseButton>
-          </div>
-        </form>
-      </div>
-    </div>
+          <form class="flex min-h-0 flex-1 flex-col" @submit.prevent="submitPatient">
+            <div class="flex-1 space-y-5 overflow-y-auto p-6">
+              <section class="space-y-3">
+                <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <Users class="h-4 w-4 text-[#0F52BA]" />
+                  Thông tin cá nhân
+                </h3>
+                <div class="grid gap-4 sm:grid-cols-2">
+                  <BaseInput v-model="patientForm.fullName" label="Họ tên" required />
+                  <BaseInput v-model="patientForm.dateOfBirth" label="Ngày sinh" type="date" />
+                  <BaseSelect v-model="patientForm.gender" label="Giới tính" :options="genderOptions" placeholder="Chọn giới tính" />
+                  <BaseInput v-model="patientForm.citizenId" label="CCCD / định danh" maxlength="20" />
+                  <BaseInput v-model="patientForm.bloodType" label="Nhóm máu" />
+                  <BaseSelect v-if="editingPatientId" v-model="patientForm.status" label="Trạng thái" :options="patientStatusOptions" placeholder="Chọn trạng thái" />
+                </div>
+              </section>
 
-    <div v-if="stockModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div class="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-[1.5rem] bg-white p-6 shadow-2xl">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">Kho dược</p>
-            <h2 class="mt-1 text-2xl font-bold text-slate-950">Xử lý đơn thuốc</h2>
-            <p class="mt-2 text-sm text-slate-500">{{ activePrescriptionRow?.id }} - {{ activePrescriptionRow?.patientName }} ({{ activePrescriptionRow?.patientCode }})</p>
-          </div>
-          <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" @click="closeStockModal">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
+              <section class="space-y-3">
+                <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <UserCheck class="h-4 w-4 text-[#0F52BA]" />
+                  Liên hệ
+                </h3>
+                <div class="grid gap-4 sm:grid-cols-2">
+                  <BaseInput v-model="patientForm.phoneNumber" label="Số điện thoại" />
+                  <BaseInput v-model="patientForm.email" label="Email" type="email" />
+                </div>
+                <label class="block">
+                  <span class="mb-2 block text-sm font-medium text-slate-700">Địa chỉ</span>
+                  <textarea v-model="patientForm.address" rows="3" maxlength="255" class="form-textarea"></textarea>
+                </label>
+              </section>
 
-        <div class="mt-5 grid gap-3 sm:grid-cols-3">
+              <section class="space-y-3">
+                <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <FileText class="h-4 w-4 text-[#0F52BA]" />
+                  Hồ sơ y tế
+                </h3>
+                <label class="block">
+                  <span class="mb-2 block text-sm font-medium text-slate-700">Dị ứng</span>
+                  <textarea v-model="patientForm.allergyNote" rows="3" class="form-textarea"></textarea>
+                </label>
+                <label class="block">
+                  <span class="mb-2 block text-sm font-medium text-slate-700">Tiền sử bệnh</span>
+                  <textarea v-model="patientForm.medicalHistory" rows="4" class="form-textarea"></textarea>
+                </label>
+              </section>
+            </div>
+
+            <div class="flex justify-end gap-3 border-t border-slate-100 bg-white p-4">
+              <BaseButton type="button" variant="outline" @click="closePatientModal">Đóng</BaseButton>
+              <BaseButton type="submit" :loading="saving">Lưu hồ sơ</BaseButton>
+            </div>
+          </form>
+        </aside>
+      </transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="stockModalOpen" class="fixed inset-0 z-[130] bg-slate-950/40 backdrop-blur-sm transition-opacity" @click="closeStockModal"></div>
+      <transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="translate-x-full"
+        enter-to-class="translate-x-0"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="translate-x-0"
+        leave-to-class="translate-x-full"
+      >
+        <aside v-if="stockModalOpen" class="fixed right-0 top-0 z-[130] flex h-screen w-full max-w-4xl flex-col border-l border-slate-200 bg-white shadow-2xl">
+          <div class="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/50 p-5">
+            <div class="flex items-start gap-3">
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-[#0F52BA]">
+                <Send class="h-5 w-5" />
+              </span>
+              <div>
+                <p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-700">Kho dược</p>
+                <h2 class="mt-1 text-lg font-bold text-slate-900">Xử lý đơn thuốc</h2>
+                <p class="mt-1 text-sm text-slate-500">{{ activePrescriptionRow?.id }} - {{ activePrescriptionRow?.patientName }} ({{ activePrescriptionRow?.patientCode }})</p>
+              </div>
+            </div>
+            <button type="button" class="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600" @click="closeStockModal">
+              <X class="h-5 w-5" />
+            </button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto p-6">
+        <div class="grid gap-3 sm:grid-cols-3">
           <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <p class="text-xs font-bold uppercase tracking-wide text-slate-400">Trạng thái đơn</p>
             <p class="mt-2 text-sm font-bold text-slate-900">{{ statusText(stockCheckStatus) }}</p>
@@ -643,500 +919,413 @@
           </table>
         </div>
 
-        <div class="mt-6 flex flex-wrap justify-end gap-3">
+          </div>
+
+          <div class="flex flex-wrap justify-end gap-3 border-t border-slate-100 bg-white p-4">
           <BaseButton type="button" variant="outline" :loading="stockLoading" @click="loadPrescriptionStock()">Kiểm kho lại</BaseButton>
           <BaseButton type="button" variant="outline" @click="closeStockModal">Đóng</BaseButton>
           <BaseButton type="button" :loading="saving" :disabled="stockLoading" @click="handleStockPrimaryAction">{{ stockPrimaryLabel }}</BaseButton>
-        </div>
-      </div>
-    </div>
+          </div>
+        </aside>
+      </transition>
+    </Teleport>
 
-    <!-- Confirm Check-in N2 Dialog -->
-    <div v-if="checkInConfirmOpen && selectedRow" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 animate-in fade-in duration-200">
-        <div class="flex items-center gap-3 text-amber-600 mb-4">
-          <AlertCircle class="h-6 w-6" />
-          <h3 class="text-lg font-bold text-slate-900">Xác nhận tiếp nhận bệnh nhân?</h3>
-        </div>
-        <p class="text-sm text-slate-600 mb-4 leading-relaxed">
-          Bạn có chắc chắn muốn xác nhận bệnh nhân đã đến và tạo lượt khám lâm sàng không?
-        </p>
-        
-        <div class="rounded-xl bg-slate-50 p-4 mb-5 border border-slate-100 text-sm space-y-2.5">
-          <div class="flex justify-between"><span class="text-slate-500 font-medium">Bệnh nhân:</span><span class="font-bold text-slate-950">{{ selectedRow.patientName }}</span></div>
-          <div class="flex justify-between"><span class="text-slate-500 font-medium">Bác sĩ:</span><span class="font-semibold text-slate-800">{{ selectedRow.doctorName }}</span></div>
-          <div class="flex justify-between"><span class="text-slate-500 font-medium">Ngày giờ hẹn:</span><span class="font-semibold text-slate-700">{{ formatDateTime(selectedRow.appointmentDate, selectedRow.slotTime) }}</span></div>
-          <div class="flex justify-between"><span class="text-slate-500 font-medium">Lý do khám:</span><span class="text-slate-600 truncate max-w-[200px]" :title="selectedRow.reason">{{ selectedRow.reason }}</span></div>
-        </div>
-        
-        <div class="flex justify-end gap-3">
-          <BaseButton variant="outline" size="sm" :disabled="saving" @click="checkInConfirmOpen = false">Hủy</BaseButton>
-          <button 
-            type="button" 
-            :disabled="saving" 
-            class="inline-flex h-9 items-center justify-center rounded-lg px-4 text-sm font-bold transition bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-100 disabled:opacity-50"
-            @click="executeCheckInN2"
-          >
-            <Loader2 v-if="saving" class="h-4 w-4 animate-spin mr-2" />
-            Xác nhận tiếp nhận
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Confirm Hủy lịch Dialog -->
-    <div v-if="cancelConfirmOpen && selectedRow" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 animate-in fade-in duration-200">
-        <div class="flex items-center gap-3 text-rose-600 mb-4">
-          <XCircle class="h-6 w-6" />
-          <h3 class="text-lg font-bold text-slate-900">Hủy lịch hẹn?</h3>
-        </div>
-        <p class="text-sm text-slate-600 mb-5 leading-relaxed">
-          Bạn có chắc chắn muốn hủy lịch hẹn của bệnh nhân <span class="font-bold text-slate-950">{{ selectedRow.patientName }}</span> không? Thao tác này không thể hoàn tác.
-        </p>
-        
-        <div class="flex justify-end gap-3">
-          <BaseButton variant="outline" size="sm" :disabled="saving" @click="cancelConfirmOpen = false">Hủy</BaseButton>
-          <button 
-            type="button" 
-            :disabled="saving" 
-            class="inline-flex h-9 items-center justify-center rounded-lg px-4 text-sm font-bold transition bg-rose-600 hover:bg-rose-700 text-white shadow-sm focus:outline-none focus:ring-4 focus:ring-rose-100 disabled:opacity-50"
-            @click="executeCancelAppointment"
-          >
-            <Loader2 v-if="saving" class="h-4 w-4 animate-spin mr-2" />
-            Đồng ý hủy
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Confirm Tạo hóa đơn Dialog -->
-    <div v-if="invoiceConfirmOpen && selectedRow" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 animate-in fade-in duration-200">
-        <div class="flex items-center gap-3 text-indigo-600 mb-4">
-          <CreditCard class="h-6 w-6" />
-          <h3 class="text-lg font-bold text-slate-900">Tạo hóa đơn khám bệnh?</h3>
-        </div>
-        <p class="text-sm text-slate-600 mb-4 leading-relaxed">
-          Bạn có chắc chắn muốn khởi tạo hóa đơn viện phí cho lịch hẹn này không?
-        </p>
-        
-        <div class="rounded-xl bg-slate-50 p-4 mb-5 border border-slate-100 text-sm space-y-2.5">
-          <div class="flex justify-between"><span class="text-slate-500 font-medium">Bệnh nhân:</span><span class="font-bold text-slate-950">{{ selectedRow.patientName }}</span></div>
-          <div class="flex justify-between"><span class="text-slate-500 font-medium">Bác sĩ:</span><span class="font-semibold text-slate-800">{{ selectedRow.doctorName }}</span></div>
-          <div class="flex justify-between"><span class="text-slate-500 font-medium">Phí khám:</span><span class="font-bold text-indigo-600">{{ formatCurrency(selectedRow.examFee || 0) }}</span></div>
-        </div>
-        
-        <div class="flex justify-end gap-3">
-          <BaseButton variant="outline" size="sm" :disabled="saving" @click="invoiceConfirmOpen = false">Hủy</BaseButton>
-          <button 
-            type="button" 
-            :disabled="saving" 
-            class="inline-flex h-9 items-center justify-center rounded-lg px-4 text-sm font-bold transition bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm focus:outline-none focus:ring-4 focus:ring-indigo-100 disabled:opacity-50"
-            @click="executeCreateInvoice"
-          >
-            <Loader2 v-if="saving" class="h-4 w-4 animate-spin mr-2" />
-            Tạo hóa đơn
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Appointment Detail Drawer -->
-    <div v-if="detailDrawerOpen && selectedRow" class="fixed inset-0 z-50 overflow-hidden" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
-      <div class="absolute inset-0 overflow-hidden">
-        <div class="absolute inset-0 bg-slate-950/40 transition-opacity duration-300" @click="detailDrawerOpen = false"></div>
-
-        <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
-          <div class="pointer-events-auto w-screen max-w-md transform bg-white shadow-2xl border-l border-slate-200 transition duration-300 flex flex-col">
-            <!-- Header -->
-            <div class="bg-slate-50 px-6 py-5 border-b border-slate-200/80 flex items-start justify-between">
-              <div>
-                <h2 class="text-lg font-bold text-slate-950" id="slide-over-title">Chi tiết lịch hẹn</h2>
-                <div class="mt-1.5 flex items-center gap-2">
-                  <span class="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">#{{ selectedRow.appointmentId || selectedRow.id }}</span>
-                  <span :class="['rounded-full px-2.5 py-0.5 text-[11px] font-bold border', appointmentStatusClass(selectedRow.resolvedStatus)]">
-                    {{ appointmentStatusText(selectedRow.resolvedStatus) }}
-                  </span>
-                </div>
-              </div>
-              <button type="button" class="rounded-lg p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition" @click="detailDrawerOpen = false">
-                <X class="h-5 w-5" />
+    <Teleport to="body">
+      <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0" enter-to-class="opacity-100" leave-active-class="transition duration-150 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
+        <div v-if="checkInConfirmOpen && selectedRow" class="fixed inset-0 z-[140] bg-slate-950/40 backdrop-blur-sm" @click="checkInConfirmOpen = false"></div>
+      </transition>
+      <transition enter-active-class="transition duration-200 ease-out" enter-from-class="translate-y-2 scale-95 opacity-0" enter-to-class="translate-y-0 scale-100 opacity-100" leave-active-class="transition duration-150 ease-in" leave-from-class="translate-y-0 scale-100 opacity-100" leave-to-class="translate-y-2 scale-95 opacity-0">
+        <div v-if="checkInConfirmOpen && selectedRow" class="pointer-events-none fixed inset-0 z-[141] flex items-center justify-center p-4">
+          <div class="pointer-events-auto w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6 shadow-2xl">
+            <div class="mb-4 flex items-center gap-3 text-amber-600">
+              <AlertCircle class="h-6 w-6" />
+              <h3 class="text-lg font-bold text-slate-900">Xác nhận tiếp nhận bệnh nhân?</h3>
+            </div>
+            <p class="mb-4 text-sm leading-relaxed text-slate-600">
+              Bạn có chắc chắn muốn xác nhận bệnh nhân đã đến và tạo lượt khám lâm sàng không?
+            </p>
+            <div class="mb-5 space-y-2.5 rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm">
+              <div class="flex justify-between gap-4"><span class="text-slate-500 font-medium">Bệnh nhân:</span><span class="text-right font-bold text-slate-950">{{ selectedRow.patientName }}</span></div>
+              <div class="flex justify-between gap-4"><span class="text-slate-500 font-medium">Bác sĩ:</span><span class="text-right font-semibold text-slate-800">{{ selectedRow.doctorName }}</span></div>
+              <div class="flex justify-between gap-4"><span class="text-slate-500 font-medium">Ngày giờ hẹn:</span><span class="text-right font-semibold text-slate-700">{{ formatDateTime(selectedRow.appointmentDate, selectedRow.slotTime) }}</span></div>
+              <div class="flex justify-between gap-4"><span class="text-slate-500 font-medium">Lý do khám:</span><span class="max-w-[220px] truncate text-right text-slate-600" :title="selectedRow.reason">{{ selectedRow.reason }}</span></div>
+            </div>
+            <div class="flex justify-end gap-3">
+              <BaseButton variant="outline" size="sm" :disabled="saving" @click="checkInConfirmOpen = false">Hủy</BaseButton>
+              <button type="button" :disabled="saving" class="inline-flex h-9 items-center justify-center rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-100 disabled:opacity-50" @click="executeCheckInN2">
+                <Loader2 v-if="saving" class="mr-2 h-4 w-4 animate-spin" />
+                Xác nhận tiếp nhận
               </button>
-            </div>
-
-            <!-- Tabs header -->
-            <div class="border-b border-slate-100 bg-white flex overflow-x-auto scrollbar-none px-4">
-              <button 
-                v-for="tab in drawerTabs" 
-                :key="tab.id"
-                type="button"
-                :class="[
-                  'px-3 py-3 border-b-2 text-xs font-bold whitespace-nowrap transition-colors duration-150',
-                  drawerTab === tab.id
-                    ? 'border-blue-600 text-blue-700'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                ]"
-                @click="drawerTab = tab.id"
-              >
-                {{ tab.name }}
-              </button>
-            </div>
-
-            <!-- Content -->
-            <div class="flex-1 overflow-y-auto p-6 space-y-6">
-              <!-- Tab content: Overview -->
-              <div v-if="drawerTab === 'overview'" class="space-y-4 text-sm animate-in fade-in duration-150">
-                <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                  <span class="text-slate-500 font-medium">Mã lịch hẹn:</span>
-                  <span class="col-span-2 font-mono font-bold text-slate-900">#{{ selectedRow.appointmentId || selectedRow.id }}</span>
-                </div>
-                <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                  <span class="text-slate-500 font-medium">Ngày giờ hẹn:</span>
-                  <span class="col-span-2 font-semibold text-slate-800">{{ formatDateTime(selectedRow.appointmentDate, selectedRow.slotTime) }}</span>
-                </div>
-                <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                  <span class="text-slate-500 font-medium">Lý do khám:</span>
-                  <span class="col-span-2 text-slate-700 leading-relaxed">{{ selectedRow.reason }}</span>
-                </div>
-                <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                  <span class="text-slate-500 font-medium">Trạng thái:</span>
-                  <span class="col-span-2 font-semibold text-slate-800">{{ appointmentStatusText(selectedRow.resolvedStatus) }}</span>
-                </div>
-                <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                  <span class="text-slate-500 font-medium">Phí khám:</span>
-                  <span class="col-span-2 font-bold text-indigo-600">{{ formatCurrency(selectedRow.examFee || 0) }}</span>
-                </div>
-                <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                  <span class="text-slate-500 font-medium">Ngày tạo:</span>
-                  <span class="col-span-2 text-slate-600">{{ formatDetailDateTime(selectedRow.raw.createdAt) }}</span>
-                </div>
-                <div class="grid grid-cols-3 gap-2 py-2">
-                  <span class="text-slate-500 font-medium">Cập nhật lúc:</span>
-                  <span class="col-span-2 text-slate-600">{{ formatDetailDateTime(selectedRow.raw.updatedAt || selectedRow.raw.createdAt) }}</span>
-                </div>
-              </div>
-
-              <!-- Tab content: Patient -->
-              <div v-if="drawerTab === 'patient'" class="space-y-4 text-sm animate-in fade-in duration-150">
-                <div v-if="selectedPatient" class="space-y-4">
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Mã bệnh nhân:</span>
-                    <span class="col-span-2 font-mono font-bold text-slate-900">{{ selectedPatient.patientCode || selectedPatient.patientIdCode || selectedPatient.id }}</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Họ và tên:</span>
-                    <span class="col-span-2 font-bold text-slate-900">{{ selectedPatient.fullName }}</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Giới tính:</span>
-                    <span class="col-span-2 text-slate-700">{{ genderLabel(selectedPatient.gender) }}</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Ngày sinh:</span>
-                    <span class="col-span-2 text-slate-700">{{ formatDate(selectedPatient.dateOfBirth) }}</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Số điện thoại:</span>
-                    <span class="col-span-2 text-slate-800 font-semibold">{{ selectedPatient.phoneNumber || selectedPatient.phone }}</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Email:</span>
-                    <span class="col-span-2 text-slate-700 break-all">{{ selectedPatient.email || 'Chưa cập nhật' }}</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Địa chỉ:</span>
-                    <span class="col-span-2 text-slate-700">{{ selectedPatient.address || 'Chưa cập nhật' }}</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Nhóm máu:</span>
-                    <span class="col-span-2 font-semibold text-slate-800">{{ selectedPatient.bloodType || 'Chưa xác định' }}</span>
-                  </div>
-                  <div class="py-2">
-                    <span class="text-slate-500 font-medium block mb-1">Tiền sử bệnh án:</span>
-                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 text-slate-700 text-xs leading-relaxed whitespace-pre-line">
-                      {{ selectedPatient.medicalHistory || 'Chưa có ghi nhận tiền sử bệnh án.' }}
-                    </div>
-                  </div>
-                </div>
-                <div v-else class="space-y-4">
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Mã bệnh nhân:</span>
-                    <span class="col-span-2 font-mono text-slate-700">{{ patientCodeFallback(selectedRow.patientId) }}</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Họ và tên:</span>
-                    <span class="col-span-2 font-bold text-slate-900">{{ selectedRow.patientName }}</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Số điện thoại:</span>
-                    <span class="col-span-2 text-slate-800 font-semibold">{{ selectedRow.patientPhone || 'Chưa cập nhật' }}</span>
-                  </div>
-                  <div class="p-4 rounded-xl border border-blue-100 bg-blue-50 text-xs text-blue-800">
-                    Hồ sơ chi tiết của bệnh nhân này chưa được load đầy đủ. Bạn có thể sang tab <span class="font-bold">Bệnh nhân</span> để tra cứu thêm.
-                  </div>
-                </div>
-              </div>
-
-              <!-- Tab content: Doctor -->
-              <div v-if="drawerTab === 'doctor'" class="space-y-4 text-sm animate-in fade-in duration-150">
-                <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                  <span class="text-slate-500 font-medium">Mã bác sĩ:</span>
-                  <span class="col-span-2 font-mono text-slate-700">#{{ selectedRow.doctorId }}</span>
-                </div>
-                <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                  <span class="text-slate-500 font-medium">Họ và tên:</span>
-                  <span class="col-span-2 font-bold text-slate-950">{{ selectedRow.doctorName }}</span>
-                </div>
-                <div class="grid grid-cols-3 gap-2 py-2">
-                  <span class="text-slate-500 font-medium">Chuyên khoa:</span>
-                  <span class="col-span-2 font-semibold text-slate-700">{{ selectedRow.doctorSpecialty || 'Chưa có thông tin' }}</span>
-                </div>
-              </div>
-
-              <!-- Tab content: N2 Processing -->
-              <div v-if="drawerTab === 'n2'" class="space-y-5 text-sm animate-in fade-in duration-150">
-                <div v-if="selectedRow.visit" class="space-y-4">
-                  <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-100 flex items-start gap-3 text-emerald-800 text-xs leading-relaxed">
-                    <Check class="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
-                    <div>
-                      <p class="font-bold">Lịch hẹn đã tiếp nhận thành công!</p>
-                      <p class="mt-1">Lượt khám lâm sàng đã được tạo thành công trên hệ thống.</p>
-                    </div>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Mã lượt khám:</span>
-                    <span class="col-span-2 font-mono font-bold text-slate-900">#{{ selectedRow.visit.visitId || selectedRow.visit.id }}</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Thời gian tiếp nhận:</span>
-                    <span class="col-span-2 text-slate-700 font-medium">{{ formatDetailDateTime(selectedRow.visit.visitDate || selectedRow.visit.createdAt) }}</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Trạng thái lượt khám:</span>
-                    <span class="col-span-2 font-semibold text-slate-800">{{ statusText(selectedRow.visit.status) }}</span>
-                  </div>
-                </div>
-                <div v-else class="space-y-4">
-                  <div class="p-4 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-3 text-slate-600 text-xs leading-relaxed">
-                    <Clock class="h-5 w-5 text-slate-400 shrink-0 mt-0.5" />
-                    <div>
-                      <p class="font-bold">Chưa thực hiện tiếp nhận bệnh nhân</p>
-                      <p class="mt-1">Lịch hẹn này chưa được tiếp nhận để tạo lượt khám lâm sàng.</p>
-                    </div>
-                  </div>
-                  <div v-if="selectedRow.resolvedStatus === 'Confirmed'" class="pt-2">
-                    <button 
-                      type="button" 
-                      class="w-full inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-sm transition"
-                      @click="checkInConfirmOpen = true"
-                    >
-                      Tiếp nhận ngay
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Tab content: Invoice -->
-              <div v-if="drawerTab === 'invoice'" class="space-y-5 text-sm animate-in fade-in duration-150">
-                <div v-if="selectedRow.invoice" class="space-y-4">
-                  <div class="p-4 rounded-xl bg-indigo-50 border border-indigo-100 flex items-start gap-3 text-indigo-800 text-xs leading-relaxed">
-                    <CreditCard class="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
-                    <div>
-                      <p class="font-bold">Lịch hẹn đã được lập hóa đơn!</p>
-                      <p class="mt-1">Hóa đơn viện phí được lập thành công cho dịch vụ khám bệnh.</p>
-                    </div>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Mã hóa đơn:</span>
-                    <span class="col-span-2 font-mono font-bold text-slate-900">#{{ selectedRow.invoice.invoiceCode || selectedRow.invoice.invoiceId }}</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Tổng số tiền:</span>
-                    <span class="col-span-2 font-bold text-indigo-600">{{ formatCurrency(invoiceAmount(selectedRow.invoice)) }}</span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Trạng thái:</span>
-                    <span :class="['col-span-2 font-bold', selectedRow.invoice.status === 'Paid' ? 'text-emerald-600' : 'text-amber-600']">
-                      {{ selectedRow.invoice.status === 'Paid' ? 'Đã thanh toán' : 'Chưa thanh toán' }}
-                    </span>
-                  </div>
-                  <div class="grid grid-cols-3 gap-2 py-2 border-b border-slate-50">
-                    <span class="text-slate-500 font-medium">Ngày tạo HĐ:</span>
-                    <span class="col-span-2 text-slate-600">{{ formatDetailDateTime(selectedRow.invoice.createdAt) }}</span>
-                  </div>
-                </div>
-                <div v-else class="space-y-4">
-                  <div class="p-4 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-3 text-slate-600 text-xs leading-relaxed">
-                    <CreditCard class="h-5 w-5 text-slate-400 shrink-0 mt-0.5" />
-                    <div>
-                      <p class="font-bold">Chưa tạo hóa đơn</p>
-                      <p class="mt-1">Hiện tại chưa có hóa đơn viện phí cho lịch khám này.</p>
-                    </div>
-                  </div>
-                  <div v-if="selectedRow.resolvedStatus === 'CheckedIn'" class="pt-2">
-                    <button 
-                      type="button" 
-                      class="w-full inline-flex h-10 items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-sm transition"
-                      @click="invoiceConfirmOpen = true"
-                    >
-                      Tạo hóa đơn khám
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Tab content: History -->
-              <div v-if="drawerTab === 'history'" class="space-y-6 text-sm animate-in fade-in duration-150">
-                <div class="flow-root">
-                  <ul role="list" class="-mb-8">
-                    <!-- History point: Created -->
-                    <li>
-                      <div class="relative pb-8">
-                        <span class="absolute left-4 top-4 -ml-px h-full w-0.5 bg-slate-200" aria-hidden="true"></span>
-                        <div class="relative flex space-x-3">
-                          <div>
-                            <span class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center ring-8 ring-white">
-                              <Calendar class="h-4 w-4 text-blue-600" />
-                            </span>
-                          </div>
-                          <div class="flex-1 min-w-0 pt-1.5 flex justify-between space-x-4">
-                            <div>
-                              <p class="text-xs font-bold text-slate-900">Tạo lịch hẹn thành công</p>
-                              <p class="text-xs text-slate-500 mt-0.5">Bệnh nhân đặt khám: {{ selectedRow.reason }}</p>
-                            </div>
-                            <div class="text-right text-xs whitespace-nowrap text-slate-500">
-                              <time>{{ formatDetailDateTime(selectedRow.raw.createdAt) }}</time>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-
-                    <!-- History point: Confirmed -->
-                    <li v-if="selectedRow.resolvedStatus !== 'Pending'">
-                      <div class="relative pb-8">
-                        <span class="absolute left-4 top-4 -ml-px h-full w-0.5 bg-slate-200" aria-hidden="true"></span>
-                        <div class="relative flex space-x-3">
-                          <div>
-                            <span class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center ring-8 ring-white">
-                              <UserCheck class="h-4 w-4 text-blue-600" />
-                            </span>
-                          </div>
-                          <div class="flex-1 min-w-0 pt-1.5 flex justify-between space-x-4">
-                            <div>
-                              <p class="text-xs font-bold text-slate-900">Xác nhận lịch hẹn</p>
-                              <p class="text-xs text-slate-500 mt-0.5">Điều phối viên đã duyệt thông tin đăng ký</p>
-                            </div>
-                            <div class="text-right text-xs whitespace-nowrap text-slate-500">
-                              <time>{{ formatDetailDateTime(selectedRow.raw.updatedAt || selectedRow.raw.createdAt) }}</time>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-
-                    <!-- History point: CheckedIn -->
-                    <li v-if="selectedRow.visit">
-                      <div class="relative pb-8">
-                        <span class="absolute left-4 top-4 -ml-px h-full w-0.5 bg-slate-200" aria-hidden="true"></span>
-                        <div class="relative flex space-x-3">
-                          <div>
-                            <span class="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center ring-8 ring-white">
-                              <Send class="h-4 w-4 text-emerald-600" />
-                            </span>
-                          </div>
-                          <div class="flex-1 min-w-0 pt-1.5 flex justify-between space-x-4">
-                            <div>
-                              <p class="text-xs font-bold text-slate-900">Tiếp nhận bệnh nhân</p>
-                              <p class="text-xs text-slate-500 mt-0.5">Đã tạo lượt khám #{{ selectedRow.visit.visitId || selectedRow.visit.id }}</p>
-                            </div>
-                            <div class="text-right text-xs whitespace-nowrap text-slate-500">
-                              <time>{{ formatDetailDateTime(selectedRow.visit.visitDate || selectedRow.visit.createdAt) }}</time>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-
-                    <!-- History point: Invoiced -->
-                    <li v-if="selectedRow.invoice">
-                      <div class="relative pb-8">
-                        <span class="absolute left-4 top-4 -ml-px h-full w-0.5 bg-slate-200" aria-hidden="true"></span>
-                        <div class="relative flex space-x-3">
-                          <div>
-                            <span class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center ring-8 ring-white">
-                              <CreditCard class="h-4 w-4 text-indigo-600" />
-                            </span>
-                          </div>
-                          <div class="flex-1 min-w-0 pt-1.5 flex justify-between space-x-4">
-                            <div>
-                              <p class="text-xs font-bold text-slate-900">Tạo hóa đơn khám</p>
-                              <p class="text-xs text-slate-500 mt-0.5">Mã HĐ: {{ selectedRow.invoice.invoiceCode || selectedRow.invoice.invoiceId }} - {{ selectedRow.invoice.status === 'Paid' ? 'Đã thanh toán' : 'Chưa thanh toán' }}</p>
-                            </div>
-                            <div class="text-right text-xs whitespace-nowrap text-slate-500">
-                              <time>{{ formatDetailDateTime(selectedRow.invoice.createdAt) }}</time>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-
-                    <!-- History point: Cancelled -->
-                    <li v-if="selectedRow.resolvedStatus === 'Cancelled'">
-                      <div class="relative pb-8">
-                        <div class="relative flex space-x-3">
-                          <div>
-                            <span class="h-8 w-8 rounded-full bg-rose-100 flex items-center justify-center ring-8 ring-white">
-                              <Ban class="h-4 w-4 text-rose-600" />
-                            </span>
-                          </div>
-                          <div class="flex-1 min-w-0 pt-1.5 flex justify-between space-x-4">
-                            <div>
-                              <p class="text-xs font-bold text-rose-700">Lịch hẹn đã hủy</p>
-                            </div>
-                            <div class="text-right text-xs whitespace-nowrap text-slate-500">
-                              <time>{{ formatDetailDateTime(selectedRow.raw.updatedAt || selectedRow.raw.createdAt) }}</time>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-
-                    <!-- History point: Completed -->
-                    <li v-if="selectedRow.resolvedStatus === 'Completed'">
-                      <div class="relative pb-8">
-                        <div class="relative flex space-x-3">
-                          <div>
-                            <span class="h-8 w-8 rounded-full bg-teal-100 flex items-center justify-center ring-8 ring-white">
-                              <CheckCircle2 class="h-4 w-4 text-teal-600" />
-                            </span>
-                          </div>
-                          <div class="flex-1 min-w-0 pt-1.5 flex justify-between space-x-4">
-                            <div>
-                              <p class="text-xs font-bold text-teal-700">Khám hoàn tất</p>
-                              <p class="text-xs text-slate-500 mt-0.5">Quy trình khám bệnh đã kết thúc</p>
-                            </div>
-                            <div class="text-right text-xs whitespace-nowrap text-slate-500">
-                              <time>{{ formatDetailDateTime(selectedRow.raw.updatedAt) }}</time>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            <!-- Footer actions inside drawer -->
-            <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end gap-3 font-semibold">
-              <BaseButton variant="outline" size="sm" @click="detailDrawerOpen = false">Đóng</BaseButton>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </transition>
+
+      <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0" enter-to-class="opacity-100" leave-active-class="transition duration-150 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
+        <div v-if="cancelConfirmOpen && selectedRow" class="fixed inset-0 z-[140] bg-slate-950/40 backdrop-blur-sm" @click="cancelConfirmOpen = false"></div>
+      </transition>
+      <transition enter-active-class="transition duration-200 ease-out" enter-from-class="translate-y-2 scale-95 opacity-0" enter-to-class="translate-y-0 scale-100 opacity-100" leave-active-class="transition duration-150 ease-in" leave-from-class="translate-y-0 scale-100 opacity-100" leave-to-class="translate-y-2 scale-95 opacity-0">
+        <div v-if="cancelConfirmOpen && selectedRow" class="pointer-events-none fixed inset-0 z-[141] flex items-center justify-center p-4">
+          <div class="pointer-events-auto w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6 shadow-2xl">
+            <div class="mb-4 flex items-center gap-3 text-rose-600">
+              <XCircle class="h-6 w-6" />
+              <h3 class="text-lg font-bold text-slate-900">Hủy lịch hẹn?</h3>
+            </div>
+            <p class="mb-5 text-sm leading-relaxed text-slate-600">
+              Bạn có chắc chắn muốn hủy lịch hẹn của bệnh nhân <span class="font-bold text-slate-950">{{ selectedRow.patientName }}</span> không? Thao tác này không thể hoàn tác.
+            </p>
+            <div class="flex justify-end gap-3">
+              <BaseButton variant="outline" size="sm" :disabled="saving" @click="cancelConfirmOpen = false">Hủy</BaseButton>
+              <button type="button" :disabled="saving" class="inline-flex h-9 items-center justify-center rounded-lg bg-rose-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-rose-700 focus:outline-none focus:ring-4 focus:ring-rose-100 disabled:opacity-50" @click="executeCancelAppointment">
+                <Loader2 v-if="saving" class="mr-2 h-4 w-4 animate-spin" />
+                Đồng ý hủy
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
+
+      <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0" enter-to-class="opacity-100" leave-active-class="transition duration-150 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
+        <div v-if="invoiceConfirmOpen && selectedRow" class="fixed inset-0 z-[140] bg-slate-950/40 backdrop-blur-sm" @click="invoiceConfirmOpen = false"></div>
+      </transition>
+      <transition enter-active-class="transition duration-200 ease-out" enter-from-class="translate-y-2 scale-95 opacity-0" enter-to-class="translate-y-0 scale-100 opacity-100" leave-active-class="transition duration-150 ease-in" leave-from-class="translate-y-0 scale-100 opacity-100" leave-to-class="translate-y-2 scale-95 opacity-0">
+        <div v-if="invoiceConfirmOpen && selectedRow" class="pointer-events-none fixed inset-0 z-[141] flex items-center justify-center p-4">
+          <div class="pointer-events-auto w-full max-w-md rounded-2xl border border-slate-100 bg-white p-6 shadow-2xl">
+            <div class="mb-4 flex items-center gap-3 text-indigo-600">
+              <CreditCard class="h-6 w-6" />
+              <h3 class="text-lg font-bold text-slate-900">Tạo hóa đơn khám bệnh?</h3>
+            </div>
+            <p class="mb-4 text-sm leading-relaxed text-slate-600">
+              Bạn có chắc chắn muốn khởi tạo hóa đơn viện phí cho lịch hẹn này không?
+            </p>
+            <div class="mb-5 space-y-2.5 rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm">
+              <div class="flex justify-between gap-4"><span class="text-slate-500 font-medium">Bệnh nhân:</span><span class="text-right font-bold text-slate-950">{{ selectedRow.patientName }}</span></div>
+              <div class="flex justify-between gap-4"><span class="text-slate-500 font-medium">Bác sĩ:</span><span class="text-right font-semibold text-slate-800">{{ selectedRow.doctorName }}</span></div>
+              <div class="flex justify-between gap-4"><span class="text-slate-500 font-medium">Phí khám:</span><span class="text-right font-bold text-indigo-600">{{ formatCurrency(selectedRow.examFee || 0) }}</span></div>
+            </div>
+            <div class="flex justify-end gap-3">
+              <BaseButton variant="outline" size="sm" :disabled="saving" @click="invoiceConfirmOpen = false">Hủy</BaseButton>
+              <button type="button" :disabled="saving" class="inline-flex h-9 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-100 disabled:opacity-50" @click="executeCreateInvoice">
+                <Loader2 v-if="saving" class="mr-2 h-4 w-4 animate-spin" />
+                Tạo hóa đơn
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
+
+    <!-- Appointment Detail Drawer -->
+    <Teleport to="body">
+      <div v-if="detailDrawerOpen && selectedRow" class="fixed inset-0 z-[120] bg-slate-950/40 backdrop-blur-sm transition-opacity" @click="detailDrawerOpen = false"></div>
+      <transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="translate-x-full"
+        enter-to-class="translate-x-0"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="translate-x-0"
+        leave-to-class="translate-x-full"
+      >
+        <div v-if="detailDrawerOpen && selectedRow" class="fixed right-0 top-0 z-[120] flex h-screen w-full max-w-2xl flex-col border-l border-slate-200 bg-white shadow-2xl">
+          <div class="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/50 p-5">
+            <div class="flex items-start gap-3">
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-[#0F52BA]">
+                <Users v-if="resource === 'patients'" class="h-5 w-5" />
+                <CalendarCheck v-else class="h-5 w-5" />
+              </span>
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <h2 class="text-lg font-bold text-slate-900">{{ resource === 'patients' ? 'Chi tiết bệnh nhân' : 'Chi tiết lịch hẹn' }}</h2>
+                  <span :class="['nurse-record-status-tag', resource === 'patients' ? nursePatientStatusTagClass(selectedRow.status) : nurseAppointmentStatusTagClass(selectedRow.resolvedStatus)]">
+                    {{ resource === 'patients' ? patientStatusText(selectedRow.status) : appointmentStatusText(selectedRow.resolvedStatus) }}
+                  </span>
+                </div>
+                <p class="mt-1 font-mono text-xs font-semibold text-slate-500">Mã: {{ resource === 'patients' ? nursePatientCode(selectedRow) : nurseAppointmentCode(selectedRow) }}</p>
+              </div>
+            </div>
+            <button type="button" class="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600" @click="detailDrawerOpen = false">
+              <X class="h-5 w-5" />
+            </button>
+          </div>
+
+          <div class="flex-1 space-y-6 overflow-y-auto p-6">
+            <template v-if="resource === 'patients'">
+              <section class="space-y-3">
+                <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <Users class="h-4 w-4 text-[#0F52BA]" />
+                  Thông tin cá nhân
+                </h3>
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <div class="nurse-detail-info">
+                    <span>Mã bệnh nhân</span>
+                    <p class="font-mono">{{ nursePatientCode(selectedRow) }}</p>
+                  </div>
+                  <div class="nurse-detail-info">
+                    <span>Họ tên</span>
+                    <p>{{ selectedRow.name || 'Chưa cập nhật' }}</p>
+                  </div>
+                  <div class="nurse-detail-info">
+                    <span>Ngày sinh</span>
+                    <p>{{ selectedRow.dateOfBirth || 'Chưa cập nhật' }}</p>
+                  </div>
+                  <div class="nurse-detail-info">
+                    <span>Giới tính</span>
+                    <p>{{ selectedRow.gender || 'Chưa cập nhật' }}</p>
+                  </div>
+                  <div class="nurse-detail-info">
+                    <span>CCCD / định danh</span>
+                    <p class="font-mono">{{ selectedRow.citizenId || 'Chưa cập nhật' }}</p>
+                  </div>
+                  <div class="nurse-detail-info">
+                    <span>Nhóm máu</span>
+                    <p>{{ selectedRow.bloodType || 'Chưa xác định' }}</p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="space-y-3">
+                <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <UserCheck class="h-4 w-4 text-[#0F52BA]" />
+                  Liên hệ
+                </h3>
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <div class="nurse-detail-info">
+                    <span>Số điện thoại</span>
+                    <p>{{ selectedRow.phone || 'Chưa cập nhật' }}</p>
+                  </div>
+                  <div class="nurse-detail-info">
+                    <span>Email</span>
+                    <p>{{ selectedRow.email || 'Chưa cập nhật' }}</p>
+                  </div>
+                  <div class="nurse-detail-info sm:col-span-2">
+                    <span>Địa chỉ</span>
+                    <p>{{ selectedRow.address || 'Chưa cập nhật' }}</p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="space-y-3">
+                <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <FileText class="h-4 w-4 text-[#0F52BA]" />
+                  Hồ sơ y tế
+                </h3>
+                <div class="grid gap-3">
+                  <div class="nurse-detail-info">
+                    <span>Dị ứng</span>
+                    <p class="whitespace-pre-line leading-6">{{ selectedRow.allergyNote || 'Chưa ghi nhận' }}</p>
+                  </div>
+                  <div class="nurse-detail-info">
+                    <span>Tiền sử bệnh</span>
+                    <p class="whitespace-pre-line leading-6">{{ selectedRow.history || 'Chưa ghi nhận' }}</p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="space-y-3">
+                <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <Clock class="h-4 w-4 text-[#0F52BA]" />
+                  Thời gian xử lý
+                </h3>
+                <div class="rounded-xl border border-slate-100 bg-white p-4 text-sm text-slate-600">
+                  <div class="flex justify-between border-b border-slate-50 pb-2">
+                    <span>Ngày tạo:</span>
+                    <span class="font-medium text-slate-800">{{ selectedRow.createdAt || 'Chưa cập nhật' }}</span>
+                  </div>
+                  <div class="mt-2 flex justify-between">
+                    <span>Cập nhật lần cuối:</span>
+                    <span class="font-medium text-slate-800">{{ selectedRow.updatedAt || 'Chưa cập nhật' }}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
+                  @click="openPatientModal(selectedRow)"
+                >
+                  Cập nhật hồ sơ
+                </button>
+              </section>
+            </template>
+
+            <template v-else>
+            <section class="space-y-3">
+              <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <Calendar class="h-4 w-4 text-[#0F52BA]" />
+                Thông tin lịch hẹn
+              </h3>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <div class="nurse-detail-info">
+                  <span>Mã lịch hẹn</span>
+                  <p class="font-mono">{{ nurseAppointmentCode(selectedRow) }}</p>
+                </div>
+                <div class="nurse-detail-info">
+                  <span>Ngày giờ hẹn</span>
+                  <p>{{ formatDateTime(selectedRow.appointmentDate, selectedRow.slotTime) }}</p>
+                </div>
+                <div class="nurse-detail-info">
+                  <span>Trạng thái</span>
+                  <p>{{ appointmentStatusText(selectedRow.resolvedStatus) }}</p>
+                </div>
+                <div class="nurse-detail-info">
+                  <span>Phí khám</span>
+                  <p class="text-indigo-600">{{ formatCurrency(selectedRow.examFee || 0) }}</p>
+                </div>
+                <div class="nurse-detail-info sm:col-span-2">
+                  <span>Lý do khám</span>
+                  <p class="whitespace-pre-line leading-6">{{ selectedRow.reason || 'Chưa ghi nhận' }}</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="space-y-3">
+              <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <Users class="h-4 w-4 text-[#0F52BA]" />
+                Bệnh nhân
+              </h3>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <div class="nurse-detail-info">
+                  <span>Mã bệnh nhân</span>
+                  <p class="font-mono">{{ selectedPatient?.patientCode || selectedPatient?.patientIdCode || patientCodeFallback(selectedRow.patientId) }}</p>
+                </div>
+                <div class="nurse-detail-info">
+                  <span>Họ tên</span>
+                  <p>{{ selectedPatient?.fullName || selectedRow.patientName || 'Chưa cập nhật' }}</p>
+                </div>
+                <div class="nurse-detail-info">
+                  <span>Số điện thoại</span>
+                  <p>{{ selectedPatient?.phoneNumber || selectedPatient?.phone || selectedRow.patientPhone || 'Chưa cập nhật' }}</p>
+                </div>
+                <div class="nurse-detail-info">
+                  <span>Giới tính</span>
+                  <p>{{ selectedPatient ? genderLabel(selectedPatient.gender) : 'Chưa cập nhật' }}</p>
+                </div>
+                <div class="nurse-detail-info">
+                  <span>Ngày sinh</span>
+                  <p>{{ selectedPatient?.dateOfBirth ? formatDate(selectedPatient.dateOfBirth) : 'Chưa cập nhật' }}</p>
+                </div>
+                <div class="nurse-detail-info">
+                  <span>Nhóm máu</span>
+                  <p>{{ selectedPatient?.bloodType || 'Chưa xác định' }}</p>
+                </div>
+                <div class="nurse-detail-info sm:col-span-2">
+                  <span>Địa chỉ</span>
+                  <p>{{ selectedPatient?.address || 'Chưa cập nhật' }}</p>
+                </div>
+                <div class="nurse-detail-info sm:col-span-2">
+                  <span>Tiền sử bệnh án</span>
+                  <p class="whitespace-pre-line leading-6">{{ selectedPatient?.medicalHistory || 'Chưa ghi nhận' }}</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="space-y-3">
+              <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <UserCheck class="h-4 w-4 text-[#0F52BA]" />
+                Bác sĩ phụ trách
+              </h3>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <div class="nurse-detail-info">
+                  <span>Mã bác sĩ</span>
+                  <p class="font-mono">#{{ selectedRow.doctorId || 'Chưa cập nhật' }}</p>
+                </div>
+                <div class="nurse-detail-info">
+                  <span>Bác sĩ</span>
+                  <p>{{ selectedRow.doctorName || 'Chưa chỉ định' }}</p>
+                </div>
+                <div class="nurse-detail-info sm:col-span-2">
+                  <span>Chuyên khoa</span>
+                  <p>{{ selectedRow.doctorSpecialty || selectedRow.specialtyName || 'Chưa có thông tin' }}</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="space-y-3">
+              <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <Send class="h-4 w-4 text-[#0F52BA]" />
+                Xử lý lượt khám
+              </h3>
+              <div v-if="selectedRow.visit" class="rounded-xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-800">
+                <p class="font-semibold">Đã tiếp nhận bệnh nhân và tạo lượt khám lâm sàng.</p>
+                <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div class="nurse-detail-info bg-white/80">
+                    <span>Mã lượt khám</span>
+                    <p class="font-mono">#{{ selectedRow.visit.visitId || selectedRow.visit.id }}</p>
+                  </div>
+                  <div class="nurse-detail-info bg-white/80">
+                    <span>Thời gian tiếp nhận</span>
+                    <p>{{ formatDetailDateTime(selectedRow.visit.visitDate || selectedRow.visit.createdAt) }}</p>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
+                <p class="font-semibold text-slate-800">Chưa tạo lượt khám lâm sàng.</p>
+                <button
+                  v-if="selectedRow.resolvedStatus === 'Confirmed'"
+                  type="button"
+                  class="mt-3 inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700"
+                  @click="checkInConfirmOpen = true"
+                >
+                  Tiếp nhận ngay
+                </button>
+              </div>
+            </section>
+
+            <section class="space-y-3">
+              <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <CreditCard class="h-4 w-4 text-[#0F52BA]" />
+                Hóa đơn viện phí
+              </h3>
+              <div v-if="selectedRow.invoice" class="grid gap-3 sm:grid-cols-2">
+                <div class="nurse-detail-info">
+                  <span>Mã hóa đơn</span>
+                  <p class="font-mono">#{{ selectedRow.invoice.invoiceCode || selectedRow.invoice.invoiceId }}</p>
+                </div>
+                <div class="nurse-detail-info">
+                  <span>Tổng tiền</span>
+                  <p class="text-indigo-600">{{ formatCurrency(invoiceAmount(selectedRow.invoice)) }}</p>
+                </div>
+                <div class="nurse-detail-info">
+                  <span>Trạng thái</span>
+                  <p>{{ selectedRow.invoice.status === 'Paid' ? 'Đã thanh toán' : 'Chưa thanh toán' }}</p>
+                </div>
+                <div class="nurse-detail-info">
+                  <span>Ngày tạo hóa đơn</span>
+                  <p>{{ formatDetailDateTime(selectedRow.invoice.createdAt) }}</p>
+                </div>
+              </div>
+              <div v-else class="rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
+                <p class="font-semibold text-slate-800">Chưa tạo hóa đơn viện phí cho lịch khám này.</p>
+                <button
+                  v-if="selectedRow.resolvedStatus === 'CheckedIn'"
+                  type="button"
+                  class="mt-3 inline-flex h-10 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700"
+                  @click="invoiceConfirmOpen = true"
+                >
+                  Tạo hóa đơn khám
+                </button>
+              </div>
+            </section>
+
+            <section class="space-y-3">
+              <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <Clock class="h-4 w-4 text-[#0F52BA]" />
+                Thời gian xử lý
+              </h3>
+              <div class="rounded-xl border border-slate-100 bg-white p-4 text-sm text-slate-600">
+                <div class="flex justify-between border-b border-slate-50 pb-2">
+                  <span>Ngày tạo:</span>
+                  <span class="font-medium text-slate-800">{{ formatDetailDateTime(selectedRow.raw?.createdAt) }}</span>
+                </div>
+                <div class="mt-2 flex justify-between">
+                  <span>Cập nhật lần cuối:</span>
+                  <span class="font-medium text-slate-800">{{ formatDetailDateTime(selectedRow.raw?.updatedAt || selectedRow.raw?.createdAt) }}</span>
+                </div>
+              </div>
+            </section>
+            </template>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
 
     <Toast
       :show="toast.show"
@@ -1151,6 +1340,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from 'ant-design-vue'
 import {
   CalendarCheck, ChevronLeft, ChevronRight, CreditCard, RefreshCw, Search, SearchX,
   UserPlus, Users, X, Calendar, Clock, UserCheck, Send, CheckCircle2, XCircle,
@@ -1159,7 +1349,7 @@ import {
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
+import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
 import Toast from '@/components/ui/Toast.vue'
 import { getApiErrorMessage } from '@/services/apiClient'
 import { appointmentApi } from '@/services/appointmentApi'
@@ -1203,6 +1393,7 @@ const rows = ref<Row[]>([])
 const patientsList = ref<Patient[]>([])
 const toast = reactive({ show: false, title: '', message: '', type: 'success' as 'success' | 'error' })
 const resource = computed<Resource>(() => isResource(route.meta.nurseResource) ? route.meta.nurseResource : 'appointments')
+const modernResources: Resource[] = ['appointments', 'patients', 'queue', 'bills', 'prescriptions']
 const config = computed(() => configs[resource.value])
 const today = new Date().toISOString().slice(0, 10)
 const hasActions = computed(() => ['appointments', 'queue', 'patients', 'bills', 'prescriptions'].includes(resource.value))
@@ -1353,15 +1544,6 @@ const cancelConfirmOpen = ref(false)
 const invoiceConfirmOpen = ref(false)
 const detailDrawerOpen = ref(false)
 const selectedRow = ref<Row | null>(null)
-const drawerTab = ref<'overview' | 'patient' | 'doctor' | 'n2' | 'invoice' | 'history'>('overview')
-const drawerTabs: Array<{ id: 'overview' | 'patient' | 'doctor' | 'n2' | 'invoice' | 'history'; name: string }> = [
-  { id: 'overview', name: 'Tổng quan' },
-  { id: 'patient', name: 'Bệnh nhân' },
-  { id: 'doctor', name: 'Bác sĩ' },
-  { id: 'n2', name: 'Xử lý lượt khám' },
-  { id: 'invoice', name: 'Hóa đơn' },
-  { id: 'history', name: 'Lịch sử' }
-]
 
 // Dynamic data lists for dropdowns and mapping
 const doctorsList = ref<Doctor[]>([])
@@ -1377,67 +1559,10 @@ const configs: Record<Resource, { title: string; service: string; description: s
 }
 
 const filteredAppointments = computed(() => {
-  let list = rows.value
-
-  // 1. Keyword search (patientName, doctorName, reason, appointmentId/id)
-  const kw = appointmentQuery.value.trim().toLowerCase()
-  if (kw) {
-    list = list.filter(row => 
-      String(row.patientName || '').toLowerCase().includes(kw) ||
-      String(row.doctorName || '').toLowerCase().includes(kw) ||
-      String(row.reason || '').toLowerCase().includes(kw) ||
-      String(row.id || '').toLowerCase().includes(kw)
-    )
-  }
-
-  // 2. Date or date range
-  if (appointmentFromDate.value || appointmentToDate.value) {
-    if (appointmentFromDate.value) {
-      list = list.filter(row => {
-        const rowDate = String(row.appointmentDate || '').slice(0, 10)
-        return rowDate >= appointmentFromDate.value
-      })
-    }
-    if (appointmentToDate.value) {
-      list = list.filter(row => {
-        const rowDate = String(row.appointmentDate || '').slice(0, 10)
-        return rowDate <= appointmentToDate.value
-      })
-    }
-  } else if (appointmentDate.value) {
-    list = list.filter(row => {
-      const rowDate = String(row.appointmentDate || '').slice(0, 10)
-      return rowDate === appointmentDate.value
-    })
-  }
-
-  // 3. Doctor selection
-  if (appointmentDoctor.value) {
-    list = list.filter(row => String(row.doctorId) === String(appointmentDoctor.value))
-  }
-
-  // 4. Status selection
-  // Statuses: 'Cần xử lý', 'Đang chờ', 'Đã xác nhận', 'Đã tiếp nhận', 'Đã tạo hóa đơn', 'Hoàn tất', 'Đã hủy'
-  if (appointmentStatus.value === 'Cần xử lý') {
-    list = list.filter(row => {
-      const stat = row.resolvedStatus
-      return stat === 'Pending' || stat === 'Confirmed' || stat === 'CheckedIn'
-    })
-  } else if (appointmentStatus.value === 'Đang chờ') {
-    list = list.filter(row => row.resolvedStatus === 'Pending')
-  } else if (appointmentStatus.value === 'Đã xác nhận') {
-    list = list.filter(row => row.resolvedStatus === 'Confirmed')
-  } else if (appointmentStatus.value === 'Đã tiếp nhận') {
-    list = list.filter(row => row.resolvedStatus === 'CheckedIn')
-  } else if (appointmentStatus.value === 'Đã tạo hóa đơn') {
-    list = list.filter(row => row.resolvedStatus === 'Invoiced')
-  } else if (appointmentStatus.value === 'Hoàn tất') {
-    list = list.filter(row => row.resolvedStatus === 'Completed')
-  } else if (appointmentStatus.value === 'Đã hủy') {
-    list = list.filter(row => row.resolvedStatus === 'Cancelled')
-  }
-
-  return list
+  return [...rows.value].sort((a, b) =>
+    nurseAppointmentSortTimestamp(b) - nurseAppointmentSortTimestamp(a)
+    || nurseAppointmentNumericId(b) - nurseAppointmentNumericId(a)
+  )
 })
 
 const isDefaultAppointmentFilter = computed(() => {
@@ -1458,9 +1583,15 @@ const filteredRows = computed(() => {
     ? rows.value.filter((row) => config.value.search.some((key) => String(row[key] || '').toLowerCase().includes(keyword)))
     : rows.value
 
+  if (resource.value === 'patients') {
+    return [...list].sort((a, b) => nursePatientSortTimestamp(b) - nursePatientSortTimestamp(a) || nursePatientNumericId(b) - nursePatientNumericId(a))
+  }
+
+  if (resource.value === 'queue') {
+    return [...list].sort((a, b) => nurseQueueSortTimestamp(b) - nurseQueueSortTimestamp(a) || nurseQueueNumericId(b) - nurseQueueNumericId(a))
+  }
+
   if (resource.value === 'bills') {
-    if (billStatusFilter.value === 'unpaid') list = list.filter((row) => !isPaidStatus(row.status))
-    if (billStatusFilter.value === 'paid') list = list.filter((row) => isPaidStatus(row.status))
     return [...list].sort((a, b) => Number(isPaidStatus(a.status)) - Number(isPaidStatus(b.status)) || Number(b.id || 0) - Number(a.id || 0))
   }
 
@@ -1487,6 +1618,410 @@ const paginatedRows = computed(() => {
   return filteredRows.value.slice(start, end)
 })
 
+const nurseAppointmentTableColumns = [
+  {
+    title: 'Mã lịch',
+    key: 'appointmentNo',
+    width: 112,
+    customFilterDropdown: true,
+    onFilter: nurseAppointmentColumnFilter('appointmentNo'),
+    sorter: (a: Row, b: Row) => nurseAppointmentNumericId(a) - nurseAppointmentNumericId(b),
+  },
+  {
+    title: 'Bệnh nhân',
+    key: 'patientName',
+    width: 190,
+    customFilterDropdown: true,
+    onFilter: nurseAppointmentColumnFilter('patientName'),
+    sorter: (a: Row, b: Row) => String(a.patientName || patientNameFallback(a.patientId)).localeCompare(String(b.patientName || patientNameFallback(b.patientId)), 'vi'),
+  },
+  {
+    title: 'Bác sĩ',
+    key: 'doctorName',
+    width: 190,
+    customFilterDropdown: true,
+    onFilter: nurseAppointmentColumnFilter('doctorName'),
+    sorter: (a: Row, b: Row) => String(a.doctorName || '').localeCompare(String(b.doctorName || ''), 'vi'),
+  },
+  {
+    title: 'Ngày giờ',
+    key: 'timeLabel',
+    width: 160,
+    customFilterDropdown: true,
+    onFilter: nurseAppointmentColumnFilter('timeLabel'),
+    sorter: (a: Row, b: Row) => nurseAppointmentSortTimestamp(a) - nurseAppointmentSortTimestamp(b) || nurseAppointmentNumericId(a) - nurseAppointmentNumericId(b),
+    defaultSortOrder: 'descend' as const,
+  },
+  {
+    title: 'Lý do',
+    key: 'reason',
+    width: 230,
+    customFilterDropdown: true,
+    onFilter: nurseAppointmentColumnFilter('reason'),
+  },
+  {
+    title: 'Trạng thái',
+    key: 'resolvedStatus',
+    width: 142,
+    filters: [
+      { text: 'Đang chờ', value: 'Đang chờ' },
+      { text: 'Đã xác nhận', value: 'Đã xác nhận' },
+      { text: 'Đã tiếp nhận', value: 'Đã tiếp nhận' },
+      { text: 'Đã tạo hóa đơn', value: 'Đã tạo hóa đơn' },
+      { text: 'Hoàn tất', value: 'Hoàn tất' },
+      { text: 'Đã hủy', value: 'Đã hủy' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: Row) => appointmentStatusText(record.resolvedStatus) === String(filterValue),
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 150,
+    align: 'center' as const,
+  },
+]
+
+const nurseAppointmentPagination = computed(() => ({
+  current: currentPage.value,
+  pageSize: itemsPerPage.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50', '100'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} lịch hẹn`,
+  locale: { items_per_page: ' / trang' },
+}))
+
+const nursePatientTableColumns = [
+  {
+    title: 'Mã BN',
+    key: 'patientNo',
+    width: 110,
+    customFilterDropdown: true,
+    onFilter: nursePatientColumnFilter('patientNo'),
+    sorter: (a: Row, b: Row) => nursePatientCode(a).localeCompare(nursePatientCode(b), 'vi'),
+  },
+  {
+    title: 'Bệnh nhân',
+    key: 'name',
+    width: 190,
+    customFilterDropdown: true,
+    onFilter: nursePatientColumnFilter('name'),
+    sorter: (a: Row, b: Row) => String(a.name || '').localeCompare(String(b.name || ''), 'vi'),
+  },
+  {
+    title: 'Liên hệ',
+    key: 'contact',
+    width: 220,
+    customFilterDropdown: true,
+    onFilter: nursePatientColumnFilter('contact'),
+  },
+  {
+    title: 'Ngày sinh',
+    key: 'dateOfBirth',
+    width: 130,
+    customFilterDropdown: true,
+    onFilter: nursePatientColumnFilter('dateOfBirth'),
+  },
+  {
+    title: 'Giới tính',
+    key: 'gender',
+    width: 110,
+    customFilterDropdown: true,
+    onFilter: nursePatientColumnFilter('gender'),
+  },
+  {
+    title: 'CCCD',
+    key: 'citizenId',
+    width: 150,
+    customFilterDropdown: true,
+    onFilter: nursePatientColumnFilter('citizenId'),
+  },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 140,
+    filters: [
+      { text: 'Đang hoạt động', value: 'Đang hoạt động' },
+      { text: 'Đã khóa', value: 'Đã khóa' },
+      { text: 'Chưa cập nhật', value: 'Chưa cập nhật' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: Row) => patientStatusText(record.status) === String(filterValue),
+  },
+  {
+    title: 'Ngày tạo',
+    key: 'createdAt',
+    width: 150,
+    customFilterDropdown: true,
+    onFilter: nursePatientColumnFilter('createdAt'),
+    sorter: (a: Row, b: Row) => nursePatientSortTimestamp(a) - nursePatientSortTimestamp(b) || nursePatientNumericId(a) - nursePatientNumericId(b),
+    defaultSortOrder: 'descend' as const,
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 112,
+    align: 'center' as const,
+  },
+]
+
+const nursePatientPagination = computed(() => ({
+  current: currentPage.value,
+  pageSize: itemsPerPage.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50', '100'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} bệnh nhân`,
+  locale: { items_per_page: ' / trang' },
+}))
+
+const nurseQueueTableColumns = [
+  {
+    title: 'Visit',
+    key: 'visitNo',
+    width: 110,
+    customFilterDropdown: true,
+    onFilter: nurseQueueColumnFilter('visitNo'),
+    sorter: (a: Row, b: Row) => nurseQueueNumericId(a) - nurseQueueNumericId(b),
+  },
+  {
+    title: 'Bệnh nhân',
+    key: 'patientName',
+    width: 190,
+    customFilterDropdown: true,
+    onFilter: nurseQueueColumnFilter('patientName'),
+    sorter: (a: Row, b: Row) => String(a.patientName || '').localeCompare(String(b.patientName || ''), 'vi'),
+  },
+  {
+    title: 'Bác sĩ/Khoa',
+    key: 'doctorName',
+    width: 210,
+    customFilterDropdown: true,
+    onFilter: nurseQueueColumnFilter('doctorName'),
+    sorter: (a: Row, b: Row) => String(a.doctorName || '').localeCompare(String(b.doctorName || ''), 'vi'),
+  },
+  {
+    title: 'Tiếp nhận',
+    key: 'timeLabel',
+    width: 150,
+    customFilterDropdown: true,
+    onFilter: nurseQueueColumnFilter('timeLabel'),
+    sorter: (a: Row, b: Row) => nurseQueueSortTimestamp(a) - nurseQueueSortTimestamp(b) || nurseQueueNumericId(a) - nurseQueueNumericId(b),
+    defaultSortOrder: 'descend' as const,
+  },
+  {
+    title: 'Lý do',
+    key: 'reason',
+    width: 230,
+    customFilterDropdown: true,
+    onFilter: nurseQueueColumnFilter('reason'),
+  },
+  {
+    title: 'Sinh hiệu',
+    key: 'vitals',
+    width: 150,
+    filters: [
+      { text: 'Chưa đo sinh hiệu', value: 'Chưa đo sinh hiệu' },
+      { text: 'Đã đo sinh hiệu', value: 'Đã đo sinh hiệu' },
+      { text: 'Chưa tạo lượt khám', value: 'Chưa tạo lượt khám' },
+      { text: 'Không thể cập nhật', value: 'Không thể cập nhật' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: Row) => queueVitalLabel(record) === String(filterValue),
+    sorter: (a: Row, b: Row) => queueVitalLabel(a).localeCompare(queueVitalLabel(b), 'vi'),
+  },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 140,
+    filters: [
+      { text: 'Chờ khám', value: 'Chờ khám' },
+      { text: 'Đang khám', value: 'Đang khám' },
+      { text: 'Hoàn tất', value: 'Hoàn tất' },
+      { text: 'Đã hủy', value: 'Đã hủy' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: Row) => statusText(record.status) === String(filterValue),
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 104,
+    align: 'center' as const,
+  },
+]
+
+const nurseQueuePagination = computed(() => ({
+  current: currentPage.value,
+  pageSize: itemsPerPage.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50', '100'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} lượt chờ`,
+  locale: { items_per_page: ' / trang' },
+}))
+
+const nurseBillTableColumns = [
+  {
+    title: 'Hóa đơn',
+    key: 'invoiceNo',
+    width: 130,
+    customFilterDropdown: true,
+    onFilter: nurseBillColumnFilter('invoiceNo'),
+    sorter: (a: Row, b: Row) => nurseBillNumericId(a) - nurseBillNumericId(b),
+  },
+  {
+    title: 'Bệnh nhân',
+    key: 'patientName',
+    width: 190,
+    customFilterDropdown: true,
+    onFilter: nurseBillColumnFilter('patientName'),
+    sorter: (a: Row, b: Row) => String(a.patientName || '').localeCompare(String(b.patientName || ''), 'vi'),
+  },
+  {
+    title: 'Nguồn thu',
+    key: 'sourceLabel',
+    width: 230,
+    customFilterDropdown: true,
+    onFilter: nurseBillColumnFilter('sourceLabel'),
+  },
+  {
+    title: 'Số tiền',
+    key: 'amount',
+    width: 140,
+    align: 'right' as const,
+    customFilterDropdown: true,
+    onFilter: nurseBillColumnFilter('amount'),
+    sorter: (a: Row, b: Row) => Number(a.amountValue || 0) - Number(b.amountValue || 0),
+  },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 150,
+    filters: [
+      { text: 'Chưa thanh toán', value: 'Chưa thanh toán' },
+      { text: 'Đã thanh toán', value: 'Đã thanh toán' },
+      { text: 'Đã hủy', value: 'Đã hủy' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: Row) => statusText(record.status) === String(filterValue),
+  },
+  {
+    title: 'Thời điểm',
+    key: 'createdAt',
+    width: 170,
+    customFilterDropdown: true,
+    onFilter: nurseBillColumnFilter('createdAt'),
+    sorter: (a: Row, b: Row) => nurseBillSortTimestamp(a) - nurseBillSortTimestamp(b) || nurseBillNumericId(a) - nurseBillNumericId(b),
+    defaultSortOrder: 'descend' as const,
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 104,
+    align: 'center' as const,
+  },
+]
+
+const nurseBillPagination = computed(() => ({
+  current: currentPage.value,
+  pageSize: itemsPerPage.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50', '100'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} hóa đơn`,
+  locale: { items_per_page: ' / trang' },
+}))
+
+const nursePrescriptionTableColumns = [
+  {
+    title: 'Mã đơn',
+    key: 'prescriptionNo',
+    width: 118,
+    customFilterDropdown: true,
+    onFilter: nursePrescriptionColumnFilter('prescriptionNo'),
+    sorter: (a: Row, b: Row) => nursePrescriptionNumericId(a) - nursePrescriptionNumericId(b),
+  },
+  {
+    title: 'Bệnh nhân',
+    key: 'patientName',
+    width: 190,
+    customFilterDropdown: true,
+    onFilter: nursePrescriptionColumnFilter('patientName'),
+    sorter: (a: Row, b: Row) => String(a.patientName || '').localeCompare(String(b.patientName || ''), 'vi'),
+  },
+  {
+    title: 'Bệnh án',
+    key: 'medicalRecordId',
+    width: 132,
+    customFilterDropdown: true,
+    onFilter: nursePrescriptionColumnFilter('medicalRecordId'),
+    sorter: (a: Row, b: Row) => String(a.medicalRecordId || '').localeCompare(String(b.medicalRecordId || ''), 'vi'),
+  },
+  {
+    title: 'Ngày khám',
+    key: 'examDate',
+    width: 140,
+    customFilterDropdown: true,
+    onFilter: nursePrescriptionColumnFilter('examDate'),
+    sorter: (a: Row, b: Row) => dateTimestamp(a.examDateValue) - dateTimestamp(b.examDateValue) || nursePrescriptionNumericId(a) - nursePrescriptionNumericId(b),
+    defaultSortOrder: 'descend' as const,
+  },
+  {
+    title: 'Thuốc',
+    key: 'medicine',
+    width: 260,
+    customFilterDropdown: true,
+    onFilter: nursePrescriptionColumnFilter('medicine'),
+  },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 160,
+    filters: [
+      { text: 'Đang chờ', value: 'Đang chờ' },
+      { text: 'Sẵn sàng phát thuốc', value: 'Sẵn sàng phát thuốc' },
+      { text: 'Đã phát thuốc', value: 'Đã phát thuốc' },
+      { text: 'Đã hủy', value: 'Đã hủy' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: Row) => prescriptionStatusText(record.status) === String(filterValue),
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 104,
+    align: 'center' as const,
+  },
+]
+
+const nursePrescriptionPagination = computed(() => ({
+  current: currentPage.value,
+  pageSize: itemsPerPage.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50', '100'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} đơn thuốc`,
+  locale: { items_per_page: ' / trang' },
+}))
+
 const appointmentMetrics = computed(() => {
   const list = filteredAppointments.value
   const total = list.length
@@ -1498,9 +2033,6 @@ const appointmentMetrics = computed(() => {
     row.resolvedStatus === 'CheckedIn'
   ).length
   
-  // Đã xác nhận: Confirmed
-  const confirmed = list.filter(row => row.resolvedStatus === 'Confirmed').length
-  
   // Đã tiếp nhận: CheckedIn + Invoiced
   const checkedIn = list.filter(row => row.resolvedStatus === 'CheckedIn' || row.resolvedStatus === 'Invoiced').length
   
@@ -1509,11 +2041,10 @@ const appointmentMetrics = computed(() => {
   const cancelled = list.filter(row => row.resolvedStatus === 'Cancelled').length
   
   return [
-    { label: 'Tổng lịch hẹn', value: total, note: 'Theo bộ lọc hiện tại', icon: Calendar, color: 'text-blue-600 bg-blue-50 border-blue-100' },
-    { label: 'Cần xử lý', value: actionable, note: 'Chờ, xác nhận hoặc chưa thu phí', icon: Clock, color: 'text-amber-600 bg-amber-50 border-amber-100' },
-    { label: 'Đã xác nhận', value: confirmed, note: 'Lịch hẹn đã xác nhận', icon: UserCheck, color: 'text-sky-600 bg-sky-50 border-sky-100' },
-    { label: 'Đã tiếp nhận', value: checkedIn, note: 'Đã tạo lượt khám lâm sàng', icon: Send, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
-    { label: 'Hoàn tất / Đã hủy', value: `${completed} / ${cancelled}`, note: 'Số ca khám xong / đã hủy', icon: CheckCircle2, color: 'text-slate-600 bg-slate-50 border-slate-100' },
+    { label: 'Tổng lịch hẹn', value: total, note: 'Theo dữ liệu hiện tại', icon: Calendar, className: 'bg-blue-50 text-blue-700' },
+    { label: 'Cần xử lý', value: actionable, note: 'Chờ, xác nhận hoặc chưa thu phí', icon: Clock, className: 'bg-amber-50 text-amber-700' },
+    { label: 'Đã tiếp nhận', value: checkedIn, note: 'Đã tạo lượt khám lâm sàng', icon: Send, className: 'bg-emerald-50 text-emerald-700' },
+    { label: 'Hoàn tất / Đã hủy', value: `${completed} / ${cancelled}`, note: 'Số ca khám xong / đã hủy', icon: CheckCircle2, className: 'bg-slate-100 text-slate-700' },
   ]
 })
 
@@ -1662,7 +2193,7 @@ async function loadData() {
       if (resource.value === 'bills') rows.value = (await billingApi.getInvoices()).map(mapInvoice)
       if (resource.value === 'prescriptions') rows.value = await loadReadonlyPrescriptions()
     }
-    note.value = rows.value.length ? 'Đã đồng bộ dữ liệu từ API Gateway.' : ''
+      note.value = ''
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError)
     showToast('Không tải được dữ liệu', `${error.value} Thử bấm Tải lại hoặc chuyển sang Lịch hẹn để tiếp nhận lại.`, 'error')
@@ -1908,6 +2439,334 @@ function formatDateTime(dateStr?: string, timeStr?: string) {
   return time ? `${formattedDate} ${time}` : formattedDate
 }
 
+function nurseAppointmentNumericId(record?: Row | null) {
+  const id = Number(record?.appointmentId || record?.id || record?.raw?.appointmentId || record?.raw?.AppointmentId || 0)
+  return Number.isFinite(id) ? id : 0
+}
+
+function nurseAppointmentCode(record?: Row | null) {
+  const id = nurseAppointmentNumericId(record)
+  return id ? `LH${id}` : 'LH--'
+}
+
+function nurseAppointmentSortTimestamp(record?: Row | null) {
+  const date = String(record?.appointmentDate || record?.raw?.appointmentDate || record?.raw?.AppointmentDate || '').slice(0, 10)
+  const time = String(record?.slotTime || record?.raw?.slotTime || record?.raw?.SlotTime || '00:00').slice(0, 5)
+  const timestamp = new Date(`${date || '1970-01-01'}T${time || '00:00'}:00`).getTime()
+  return Number.isNaN(timestamp) ? 0 : timestamp
+}
+
+function nurseAppointmentIdentity(record: Row) {
+  return String(record.appointmentId || record.id || record.raw?.appointmentId || record.raw?.AppointmentId)
+}
+
+function nurseAppointmentSearchField(record: Row, key: string) {
+  if (key === 'appointmentNo') return nurseAppointmentCode(record)
+  if (key === 'patientName') return [record.patientName, patientCodeFallback(record.patientId), record.patientId].filter(Boolean).join(' ')
+  if (key === 'doctorName') return [record.doctorName, record.specialtyName, record.doctorSpecialty].filter(Boolean).join(' ')
+  if (key === 'timeLabel') return formatDateTime(record.appointmentDate, record.slotTime)
+  if (key === 'reason') return appointmentTableReason(record)
+  if (key === 'resolvedStatus') return appointmentStatusText(record.resolvedStatus)
+  return ''
+}
+
+function appointmentTableReason(record?: Row | null) {
+  const reason = String(record?.tableReason || compactAppointmentReason(record?.reason) || '').trim()
+  return reason || 'Chưa ghi lý do'
+}
+
+function compactAppointmentReason(value: unknown) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const markers = [
+    'Nhu cầu hỗ trợ:',
+    'Nhu cau ho tro:',
+    'Mô tả hỗ trợ:',
+    'Mo ta ho tro:',
+    'Có người đi cùng',
+    'Co nguoi di cung',
+    'Người đi cùng/người thân:',
+    'Nguoi di cung/nguoi than:',
+  ]
+  const cutIndexes = markers
+    .map((marker) => {
+      const index = text.toLowerCase().indexOf(marker.toLowerCase())
+      return index
+    })
+    .filter((index) => index >= 0)
+  const cutIndex = cutIndexes.length ? Math.min(...cutIndexes) : -1
+  const main = cutIndex >= 0 ? text.slice(0, cutIndex) : text
+  return main.replace(/[-–—:,;\s]+$/g, '').trim()
+}
+
+function nurseAppointmentColumnFilter(key: string) {
+  return (filterValue: string | number | boolean, record: Row) =>
+    normalizeKey(nurseAppointmentSearchField(record, key)).includes(normalizeKey(filterValue))
+}
+
+function getNurseAppointmentFilterKeys(event: Event) {
+  const filterValue = (event.target as HTMLInputElement)?.value || ''
+  return filterValue ? [filterValue] : []
+}
+
+function clearNurseAppointmentFilter(clearFilters: (() => void) | undefined, confirm: () => void) {
+  clearFilters?.()
+  confirm()
+}
+
+function handleNurseAppointmentTableChange(pagination: { current?: number; pageSize?: number }) {
+  currentPage.value = pagination.current || 1
+  itemsPerPage.value = pagination.pageSize || 10
+}
+
+function nursePatientNumericId(record?: Row | null) {
+  const id = Number(record?.patientId || record?.raw?.patientId || record?.raw?.PatientId || record?.raw?.id || 0)
+  return Number.isFinite(id) ? id : 0
+}
+
+function nursePatientCode(record?: Row | null) {
+  return String(record?.id || record?.raw?.patientCode || record?.raw?.patientIdCode || record?.patientId || 'BN--')
+}
+
+function nursePatientSortTimestamp(record?: Row | null) {
+  const value = String(record?.raw?.createdAt || record?.raw?.CreatedAt || record?.createdAt || '')
+  const timestamp = new Date(value).getTime()
+  return Number.isNaN(timestamp) ? 0 : timestamp
+}
+
+function nursePatientIdentity(record: Row) {
+  return String(record.patientId || record.id || record.raw?.patientId || record.raw?.id)
+}
+
+function patientStatusText(status?: string) {
+  const value = String(status || '').trim()
+  const normalized = normalizeKey(value)
+  if (!value) return 'Chưa cập nhật'
+  if (normalized.includes('lock') || normalized.includes('khoa')) return 'Đã khóa'
+  if (normalized.includes('inactive') || normalized.includes('disabled')) return 'Đã khóa'
+  if (normalized.includes('active') || normalized.includes('hoat dong')) return 'Đang hoạt động'
+  return value
+}
+
+function nursePatientStatusTagClass(status?: string) {
+  const text = patientStatusText(status)
+  if (text === 'Đang hoạt động') return 'is-checked'
+  if (text === 'Đã khóa') return 'is-cancelled'
+  return 'is-muted'
+}
+
+function nursePatientSearchField(record: Row, key: string) {
+  if (key === 'patientNo') return nursePatientCode(record)
+  if (key === 'name') return [record.name, record.bloodType].filter(Boolean).join(' ')
+  if (key === 'contact') return [record.phone, record.email].filter(Boolean).join(' ')
+  if (key === 'dateOfBirth') return record.dateOfBirth || ''
+  if (key === 'gender') return record.gender || ''
+  if (key === 'citizenId') return record.citizenId || ''
+  if (key === 'status') return patientStatusText(record.status)
+  if (key === 'createdAt') return record.createdAt || ''
+  return ''
+}
+
+function nursePatientColumnFilter(key: string) {
+  return (filterValue: string | number | boolean, record: Row) =>
+    normalizeKey(nursePatientSearchField(record, key)).includes(normalizeKey(filterValue))
+}
+
+function getNursePatientFilterKeys(event: Event) {
+  const filterValue = (event.target as HTMLInputElement)?.value || ''
+  return filterValue ? [filterValue] : []
+}
+
+function clearNursePatientFilter(clearFilters: (() => void) | undefined, confirm: () => void) {
+  clearFilters?.()
+  confirm()
+}
+
+function handleNursePatientTableChange(pagination: { current?: number; pageSize?: number }) {
+  currentPage.value = pagination.current || 1
+  itemsPerPage.value = pagination.pageSize || 10
+}
+
+function nurseQueueNumericId(record?: Row | null) {
+  const id = Number(record?.visitId || record?.id || record?.raw?.visitId || record?.raw?.VisitId || record?.raw?.id || 0)
+  return Number.isFinite(id) ? id : 0
+}
+
+function nurseQueueCode(record?: Row | null) {
+  const id = nurseQueueNumericId(record)
+  return id ? `LK${id}` : 'LK--'
+}
+
+function nurseQueueSortTimestamp(record?: Row | null) {
+  const raw = record?.raw || {}
+  const value = raw.checkedInAt || raw.CheckedInAt || raw.visitDate || raw.VisitDate || raw.createdAt || raw.CreatedAt || record?.dateTime || ''
+  const timestamp = new Date(value).getTime()
+  return Number.isNaN(timestamp) ? 0 : timestamp
+}
+
+function nurseQueueIdentity(record: Row) {
+  return String(record.visitId || record.id || record.appointmentId || record.raw?.visitId || record.raw?.id)
+}
+
+function nurseQueueSearchField(record: Row, key: string) {
+  if (key === 'visitNo') return nurseQueueCode(record)
+  if (key === 'patientName') return [record.patientName, patientCodeFallback(record.patientId), record.patientId].filter(Boolean).join(' ')
+  if (key === 'doctorName') return [record.doctorName, queueSpecialtyLabel(record)].filter(Boolean).join(' ')
+  if (key === 'timeLabel') return record.dateTime || ''
+  if (key === 'reason') return record.reason || ''
+  if (key === 'vitals') return queueVitalLabel(record)
+  if (key === 'status') return statusText(record.status)
+  return ''
+}
+
+function nurseQueueColumnFilter(key: string) {
+  return (filterValue: string | number | boolean, record: Row) =>
+    normalizeKey(nurseQueueSearchField(record, key)).includes(normalizeKey(filterValue))
+}
+
+function getNurseQueueFilterKeys(event: Event) {
+  const filterValue = (event.target as HTMLInputElement)?.value || ''
+  return filterValue ? [filterValue] : []
+}
+
+function clearNurseQueueFilter(clearFilters: (() => void) | undefined, confirm: () => void) {
+  clearFilters?.()
+  confirm()
+}
+
+function handleNurseQueueTableChange(pagination: { current?: number; pageSize?: number }) {
+  currentPage.value = pagination.current || 1
+  itemsPerPage.value = pagination.pageSize || 10
+}
+
+function nurseBillNumericId(record?: Row | null) {
+  const id = Number(record?.id || record?.raw?.invoiceId || record?.raw?.InvoiceId || record?.raw?.id || 0)
+  return Number.isFinite(id) ? id : 0
+}
+
+function nurseBillSortTimestamp(record?: Row | null) {
+  const raw = record?.raw || {}
+  const value = raw.createdAt || raw.CreatedAt || raw.issueDate || raw.IssueDate || raw.invoiceDate || raw.InvoiceDate || record?.createdAt || ''
+  const timestamp = new Date(value).getTime()
+  return Number.isNaN(timestamp) ? 0 : timestamp
+}
+
+function nurseBillIdentity(record: Row) {
+  return String(record.id || record.invoiceNo || record.raw?.invoiceId || record.raw?.id)
+}
+
+function nurseBillStatusTagClass(status?: string | number) {
+  const value = String(status || '').toLowerCase()
+  if (isPaidStatus(status)) return 'is-checked'
+  if (value.includes('cancel') || value.includes('void')) return 'is-cancelled'
+  return 'is-waiting'
+}
+
+function nurseBillSearchField(record: Row, key: string) {
+  if (key === 'invoiceNo') return [record.invoiceNo, record.id, record.appointmentLabel, record.appointmentId].filter(Boolean).join(' ')
+  if (key === 'patientName') return [record.patientName, record.patientCode, record.patientId].filter(Boolean).join(' ')
+  if (key === 'sourceLabel') return [record.sourceLabel, record.description].filter(Boolean).join(' ')
+  if (key === 'amount') return [record.amount, record.amountValue].filter(Boolean).join(' ')
+  if (key === 'status') return statusText(record.status)
+  if (key === 'createdAt') return [record.createdAt, record.paidAt].filter(Boolean).join(' ')
+  return ''
+}
+
+function nurseBillColumnFilter(key: string) {
+  return (filterValue: string | number | boolean, record: Row) =>
+    normalizeKey(nurseBillSearchField(record, key)).includes(normalizeKey(filterValue))
+}
+
+function getNurseBillFilterKeys(event: Event) {
+  const filterValue = (event.target as HTMLInputElement)?.value || ''
+  return filterValue ? [filterValue] : []
+}
+
+function clearNurseBillFilter(clearFilters: (() => void) | undefined, confirm: () => void) {
+  clearFilters?.()
+  confirm()
+}
+
+function handleNurseBillTableChange(pagination: { current?: number; pageSize?: number }) {
+  currentPage.value = pagination.current || 1
+  itemsPerPage.value = pagination.pageSize || 10
+}
+
+function nursePrescriptionNumericId(record?: Row | null) {
+  const id = Number(record?.prescriptionId || record?.raw?.prescriptionId || record?.raw?.PrescriptionId || record?.raw?.id || 0)
+  return Number.isFinite(id) ? id : 0
+}
+
+function nursePrescriptionCode(record?: Row | null) {
+  const raw = record?.raw || {}
+  return String(record?.id || raw.prescriptionCode || raw.PrescriptionCode || raw.prescriptionIdCode || raw.PrescriptionIdCode || (nursePrescriptionNumericId(record) ? `DT${String(nursePrescriptionNumericId(record)).padStart(3, '0')}` : 'DT--'))
+}
+
+function nursePrescriptionIdentity(record: Row) {
+  return String(record.prescriptionId || record.id || record.raw?.prescriptionId || record.raw?.id)
+}
+
+function prescriptionStatusText(status?: string | number) {
+  const bucket = stockStatusBucket(status)
+  if (bucket === 'dispensed') return 'Đã phát thuốc'
+  if (bucket === 'ready') return 'Sẵn sàng phát thuốc'
+  if (bucket === 'cancelled') return 'Đã hủy'
+  return 'Đang chờ'
+}
+
+function nursePrescriptionStatusTagClass(status?: string | number) {
+  const bucket = stockStatusBucket(status)
+  if (bucket === 'dispensed') return 'is-checked'
+  if (bucket === 'ready') return 'is-confirmed'
+  if (bucket === 'cancelled') return 'is-cancelled'
+  return 'is-waiting'
+}
+
+function nursePrescriptionSearchField(record: Row, key: string) {
+  if (key === 'prescriptionNo') return nursePrescriptionCode(record)
+  if (key === 'patientName') return [record.patientName, record.patientCode, record.patientId].filter(Boolean).join(' ')
+  if (key === 'medicalRecordId') return record.medicalRecordId || ''
+  if (key === 'examDate') return record.examDate || ''
+  if (key === 'medicine') return record.medicine || ''
+  if (key === 'status') return prescriptionStatusText(record.status)
+  return ''
+}
+
+function nursePrescriptionColumnFilter(key: string) {
+  return (filterValue: string | number | boolean, record: Row) =>
+    normalizeKey(nursePrescriptionSearchField(record, key)).includes(normalizeKey(filterValue))
+}
+
+function getNursePrescriptionFilterKeys(event: Event) {
+  const filterValue = (event.target as HTMLInputElement)?.value || ''
+  return filterValue ? [filterValue] : []
+}
+
+function clearNursePrescriptionFilter(clearFilters: (() => void) | undefined, confirm: () => void) {
+  clearFilters?.()
+  confirm()
+}
+
+function handleNursePrescriptionTableChange(pagination: { current?: number; pageSize?: number }) {
+  currentPage.value = pagination.current || 1
+  itemsPerPage.value = pagination.pageSize || 10
+}
+
+function nurseQueueVitalTagClass(row: Row) {
+  if (hasVitalSigns(row.raw || {})) return 'is-checked'
+  if (canUpdateVitals(row)) return 'is-waiting'
+  return 'is-muted'
+}
+
+function nurseQueueStatusTagClass(status?: string) {
+  const text = normalizeKey(statusText(status))
+  if (text.includes('hoan tat') || text.includes('hoan thanh')) return 'is-completed'
+  if (text.includes('dang kham')) return 'is-confirmed'
+  if (text.includes('huy')) return 'is-cancelled'
+  if (text.includes('cho')) return 'is-waiting'
+  return 'is-muted'
+}
+
 function formatDetailDateTime(value?: string) {
   if (!value) return 'Chưa có thông tin'
   const dateObj = new Date(value)
@@ -1942,6 +2801,17 @@ function appointmentStatusClass(status?: string) {
   if (norm === 'completed' || norm === 'done') return 'bg-teal-50 text-teal-700 border-teal-200 bg-teal-50/50'
   if (norm === 'cancelled' || norm === 'cancel') return 'bg-rose-50 text-rose-700 border-rose-200 bg-rose-50/50'
   return 'bg-slate-50 text-slate-700 border-slate-200 bg-slate-50/50'
+}
+
+function nurseAppointmentStatusTagClass(status?: string) {
+  const norm = String(status || '').toLowerCase()
+  if (norm === 'pending' || norm === 'waiting') return 'is-waiting'
+  if (norm === 'confirmed') return 'is-confirmed'
+  if (norm === 'checkedin') return 'is-checked'
+  if (norm === 'invoiced') return 'is-invoiced'
+  if (norm === 'completed' || norm === 'done') return 'is-completed'
+  if (norm === 'cancelled' || norm === 'cancel') return 'is-cancelled'
+  return 'is-muted'
 }
 
 function confirmAction(action: 'confirm' | 'cancel' | 'checkin' | 'invoice', row: Row) {
@@ -2031,8 +2901,8 @@ async function executeCreateInvoice() {
 
 async function openDetailDrawer(row: Row) {
   selectedRow.value = row
-  drawerTab.value = 'overview'
   detailDrawerOpen.value = true
+  if (resource.value === 'patients') return
   
   const apptId = Number(row.appointmentId || row.id)
   if (apptId) {
@@ -2349,6 +3219,7 @@ async function submitPatient() {
 }
 
 function mapAppointment(item: Appointment): Row {
+  const reason = item.reason || 'Chưa ghi nhận'
   return {
     id: item.appointmentId,
     appointmentId: item.appointmentId,
@@ -2364,7 +3235,8 @@ function mapAppointment(item: Appointment): Row {
     patientName: displayText(item.patientName),
     doctorName: displayText(item.doctorName),
     dateTime: `${formatDate(item.appointmentDate)} - ${item.slotTime || '-'}`,
-    reason: item.reason || 'Chưa ghi nhận',
+    reason,
+    tableReason: compactAppointmentReason(reason) || 'Chưa ghi nhận',
     status: item.status,
     raw: item,
   }
@@ -2456,8 +3328,8 @@ function mapPatient(item: Patient & Record<string, any>): Row {
     id: item.patientCode || item.patientIdCode || item.patientId || item.id,
     patientId: item.patientId || item.id,
     name: displayText(item.fullName),
-    phone: item.phoneNumber || item.phone || 'Chưa cập nhật',
-    email: item.email || 'Chưa cập nhật',
+    phone: item.phoneNumber || item.phone || '',
+    email: item.email || '',
     dateOfBirth: item.dateOfBirth ? formatDate(item.dateOfBirth) : 'Chưa cập nhật',
     gender: genderLabel(item.gender),
     address: item.address || 'Chưa cập nhật',
@@ -2866,7 +3738,270 @@ function showToast(title: string, message: string, type: 'success' | 'error' = '
 </script>
 
 <style scoped lang="postcss">
+.nurse-appointments-page {
+  @apply space-y-6;
+}
+
+.nurse-appointments-title {
+  @apply px-1;
+}
+
+.nurse-appointments-title h1 {
+  @apply text-2xl font-bold tracking-normal text-slate-900;
+}
+
+.nurse-appointments-title p {
+  @apply max-w-2xl text-sm font-medium leading-6 text-slate-500;
+}
+
+.nurse-appointment-metric-card {
+  @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm;
+}
+
+.nurse-appointment-table-card {
+  border-radius: 8px;
+}
+
 .form-textarea {
   @apply w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100;
+}
+
+.nurse-record-table-shell :deep(.ant-table) {
+  color: #334155;
+  font-size: 13px;
+}
+
+.nurse-record-table-shell :deep(.ant-table-container),
+.nurse-record-table-shell :deep(.ant-table-content) {
+  overflow-x: hidden !important;
+}
+
+.nurse-record-table-shell :deep(.ant-table table) {
+  width: 100% !important;
+  table-layout: fixed !important;
+}
+
+.nurse-record-table-shell :deep(.ant-table-thead > tr > th) {
+  height: 44px;
+  background: #f9fbfd;
+  border-bottom: 1px solid #e8edf3;
+  color: #64748b;
+  font-size: 11.5px;
+  font-weight: 650;
+  padding-block: 10px;
+  padding-inline: 12px;
+}
+
+.nurse-record-table-shell :deep(.ant-table-tbody > tr > td) {
+  height: 52px;
+  border-bottom-color: #eef2f7;
+  padding-block: 11px;
+  padding-inline: 12px;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.nurse-record-table-shell :deep(.ant-table-tbody > tr:last-child > td) {
+  border-bottom: 0;
+}
+
+.nurse-record-table-shell :deep(.ant-table-tbody > tr:hover > td) {
+  background: #f7faff;
+}
+
+.nurse-record-table-shell :deep(.ant-table-tbody > tr > td.ant-table-cell-fix-right),
+.nurse-record-table-shell :deep(.ant-table-thead > tr > th.ant-table-cell-fix-right) {
+  background: #ffffff;
+}
+
+.nurse-record-table-shell :deep(.ant-table-tbody > tr:hover > .ant-table-cell-fix-right) {
+  background: #f7faff;
+}
+
+.nurse-record-table-shell :deep(.ant-pagination) {
+  min-height: 58px;
+  border-top: 1px solid #eef2f7;
+  background: #fbfcfe;
+  gap: 4px;
+  margin: 0;
+  padding: 13px 16px;
+}
+
+.nurse-record-table-shell :deep(.ant-table-cell-fix-right-first::after) {
+  box-shadow: inset -8px 0 8px -8px rgb(15 23 42 / 0.16);
+}
+
+.nurse-record-table-shell :deep(.ant-table-column-sorter),
+.nurse-record-table-shell :deep(.ant-table-filter-trigger) {
+  color: #94a3b8;
+  opacity: 0.45;
+  transition: color 160ms ease, opacity 160ms ease;
+}
+
+.nurse-record-table-shell :deep(th:hover .ant-table-column-sorter),
+.nurse-record-table-shell :deep(th:hover .ant-table-filter-trigger),
+.nurse-record-table-shell :deep(.ant-table-filter-trigger.active) {
+  opacity: 1;
+}
+
+.nurse-record-table-shell :deep(.ant-table-filter-trigger:hover),
+.nurse-record-table-shell :deep(.ant-table-filter-trigger.active),
+.nurse-record-table-shell :deep(.ant-table-column-sorter-up.active),
+.nurse-record-table-shell :deep(.ant-table-column-sorter-down.active) {
+  color: #0f52ba;
+}
+
+.nurse-record-table-shell :deep(.ant-pagination-total-text) {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 30px;
+  margin-right: auto;
+}
+
+.nurse-record-table-shell :deep(.ant-pagination-item),
+.nurse-record-table-shell :deep(.ant-pagination-prev .ant-pagination-item-link),
+.nurse-record-table-shell :deep(.ant-pagination-next .ant-pagination-item-link) {
+  min-width: 30px;
+  height: 30px;
+  margin-inline-end: 0;
+  border-color: transparent;
+  border-radius: 8px;
+  background: transparent;
+  line-height: 28px;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.nurse-record-table-shell :deep(.ant-pagination-item:hover),
+.nurse-record-table-shell :deep(.ant-pagination-prev:not(.ant-pagination-disabled) .ant-pagination-item-link:hover),
+.nurse-record-table-shell :deep(.ant-pagination-next:not(.ant-pagination-disabled) .ant-pagination-item-link:hover) {
+  background: #eaf2ff;
+  border-color: transparent;
+  color: #0f52ba;
+}
+
+.nurse-record-table-shell :deep(.ant-pagination-item-active) {
+  background: #0f52ba;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgb(15 82 186 / 0.2);
+}
+
+.nurse-record-table-shell :deep(.ant-pagination-item-active:hover) {
+  background: #003c90;
+  border-color: transparent;
+}
+
+.nurse-record-table-shell :deep(.ant-pagination-item-active a),
+.nurse-record-table-shell :deep(.ant-pagination-item-active:hover a),
+.nurse-record-table-shell :deep(.ant-pagination-item-active:focus a) {
+  color: #ffffff;
+}
+
+.nurse-record-table-shell :deep(.ant-pagination-options) {
+  margin-inline-start: 8px;
+}
+
+.nurse-record-table-shell :deep(.ant-pagination-options .ant-select-selector) {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  border-radius: 8px;
+  box-shadow: none;
+  font-size: 12px;
+  height: 30px;
+}
+
+.nurse-record-table-shell :deep(.ant-pagination-options .ant-select-selection-item) {
+  line-height: 28px;
+}
+
+.nurse-record-filter {
+  @apply w-64 rounded-xl bg-white p-3 shadow-xl;
+}
+
+.nurse-record-filter-title {
+  @apply mb-2 text-xs font-bold text-slate-500;
+}
+
+.nurse-record-filter-actions {
+  @apply mt-3 flex justify-end gap-2;
+}
+
+.nurse-record-filter-reset {
+  @apply border-slate-200 text-slate-600;
+}
+
+.nurse-record-filter-submit {
+  background: #0f52ba !important;
+}
+
+.nurse-record-status-tag {
+  @apply inline-flex min-w-[92px] justify-center rounded-full px-2.5 py-1 text-xs font-medium;
+}
+
+.nurse-record-status-tag.is-waiting {
+  @apply bg-amber-50 text-amber-700;
+}
+
+.nurse-record-status-tag.is-confirmed {
+  @apply bg-blue-50 text-blue-700;
+}
+
+.nurse-record-status-tag.is-checked {
+  @apply bg-emerald-50 text-emerald-700;
+}
+
+.nurse-record-status-tag.is-invoiced {
+  @apply bg-indigo-50 text-indigo-700;
+}
+
+.nurse-record-status-tag.is-completed {
+  @apply bg-teal-50 text-teal-700;
+}
+
+.nurse-record-status-tag.is-cancelled {
+  @apply bg-rose-50 text-rose-700;
+}
+
+.nurse-record-status-tag.is-muted {
+  @apply bg-slate-100 text-slate-600;
+}
+
+.nurse-record-actions {
+  @apply flex items-center justify-center gap-1.5;
+}
+
+.nurse-record-action-button {
+  @apply inline-flex h-8 w-8 items-center justify-center rounded-lg border text-slate-500 transition disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.nurse-record-action-primary {
+  @apply border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100;
+}
+
+.nurse-record-action-success {
+  @apply border-emerald-100 bg-emerald-50 text-emerald-700 hover:bg-emerald-100;
+}
+
+.nurse-record-action-indigo {
+  @apply border-indigo-100 bg-indigo-50 text-indigo-700 hover:bg-indigo-100;
+}
+
+.nurse-record-action-danger {
+  @apply border-rose-100 bg-rose-50 text-rose-700 hover:bg-rose-100;
+}
+
+.nurse-record-action-muted {
+  @apply border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700;
+}
+
+.nurse-detail-info {
+  @apply rounded-xl border border-slate-100 bg-slate-50 p-3;
+}
+
+.nurse-detail-info span {
+  @apply text-xs font-semibold text-slate-400;
+}
+
+.nurse-detail-info p {
+  @apply mt-1 break-words text-sm font-semibold text-slate-800;
 }
 </style>

@@ -1,5 +1,7 @@
 <template>
   <section class="space-y-6">
+    <FullscreenLoader :show="loading" />
+
     <div class="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-card">
       <div class="relative grid gap-6 p-6 sm:p-8 xl:grid-cols-[1fr_360px]">
         <div class="pointer-events-none absolute right-8 top-6 hidden text-slate-100 xl:block">
@@ -50,11 +52,7 @@
 
     <div v-if="error" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{{ error }}</div>
 
-    <div v-if="loading" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <LoadingSkeleton v-for="item in 4" :key="item" />
-    </div>
-
-    <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <RouterLink
         v-for="stat in stats"
         :key="stat.label"
@@ -133,7 +131,7 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, ref, type Component } from 'vue'
 import { CalendarCheck, ClipboardCheck, CreditCard, FileText, Pill, Users } from 'lucide-vue-next'
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
+import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
 import { getApiErrorMessage } from '@/services/apiClient'
 import { appointmentApi } from '@/services/appointmentApi'
 import { billingApi } from '@/services/billingApi'

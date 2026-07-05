@@ -1,71 +1,23 @@
 <template>
   <section class="space-y-6">
-    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex gap-4">
-          <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-            <PackageOpen class="h-6 w-6" />
-          </span>
-          <div>
-            <p class="text-sm font-bold uppercase tracking-[0.16em] text-emerald-700">Quản lý kho dược</p>
-            <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-950">Kho thuốc</h1>
-            <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              Quản lý thuốc, hoạt chất, nhóm thuốc, đơn vị, giá bán, tồn kho, ngưỡng cảnh báo, hạn dùng và trạng thái phát thuốc.
-            </p>
-            <div class="mt-4 flex flex-wrap gap-2">
-              <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Role Nurse</span>
-            </div>
-          </div>
-        </div>
+    <FullscreenLoader :show="loading" />
 
-        <div class="flex flex-wrap gap-2">
-          <BaseButton variant="outline" :disabled="loading" @click="loadMedicines">
-            <template #icon><RefreshCw class="h-4 w-4" /></template>
-            Tải lại
-          </BaseButton>
-          <BaseButton @click="openForm()">
-            <template #icon><Plus class="h-4 w-4" /></template>
-            Thêm thuốc
-          </BaseButton>
-        </div>
+    <header class="nurse-medicine-page-header">
+      <div>
+        <h1>Kho thuốc</h1>
+        <p>Quản lý thuốc, hoạt chất, nhóm thuốc, đơn vị, giá bán, tồn kho, hạn dùng và trạng thái cấp phát.</p>
       </div>
-    </div>
-
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="metric in metrics" :key="metric.label" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="text-sm font-medium text-slate-500">{{ metric.label }}</p>
-            <p class="mt-3 text-3xl font-bold text-slate-950">{{ metric.value }}</p>
-            <p class="mt-1 text-xs font-semibold text-slate-500">{{ metric.note }}</p>
-          </div>
-          <span :class="['flex h-11 w-11 items-center justify-center rounded-xl', metric.className]">
-            <component :is="metric.icon" class="h-5 w-5" />
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="grid gap-3 lg:grid-cols-[1.5fr_1fr_1fr_1fr_auto] lg:items-end">
-        <label class="relative block">
-          <span class="mb-2 block text-sm font-medium text-slate-700">Tìm kiếm</span>
-          <Search class="pointer-events-none absolute left-3 top-[2.65rem] h-4 w-4 text-slate-400" />
-          <input
-            v-model="query"
-            class="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100"
-            placeholder="Tên thuốc, hoạt chất, nhóm thuốc..."
-          />
-        </label>
-        <BaseSelect v-model="typeFilter" label="Nhóm thuốc" placeholder="Tất cả" :options="typeOptions" />
-        <BaseSelect v-model="statusFilter" label="Trạng thái" placeholder="Tất cả" :options="statusOptions" />
-        <BaseSelect v-model="alertFilter" label="Cảnh báo" placeholder="Tất cả" :options="alertOptions" />
-        <BaseButton variant="outline" @click="resetFilters">
-          <template #icon><RotateCcw class="h-4 w-4" /></template>
-          Đặt lại
+      <div class="nurse-medicine-page-actions">
+        <BaseButton variant="outline" :disabled="loading" @click="loadMedicines">
+          <template #icon><RefreshCw class="h-4 w-4" /></template>
+          Tải lại
+        </BaseButton>
+        <BaseButton @click="openForm()">
+          <template #icon><Plus class="h-4 w-4" /></template>
+          Thêm thuốc
         </BaseButton>
       </div>
-    </div>
+    </header>
 
     <div v-if="note" class="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ note }}</div>
     <div v-if="error" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -73,217 +25,213 @@
       <button type="button" class="ml-3 font-bold text-amber-900 underline" @click="loadMedicines">Thử lại</button>
     </div>
 
-    <div v-if="loading" class="grid gap-4 md:grid-cols-3">
-      <LoadingSkeleton v-for="item in 3" :key="item" />
-    </div>
-
-    <div v-else class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div class="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/70 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p class="text-sm font-bold text-slate-900">Danh mục thuốc</p>
-          <p class="mt-1 text-xs font-medium text-slate-500">Hiển thị thông tin chi tiết và số lượng tồn kho của từng loại thuốc.</p>
-        </div>
-        <span class="rounded-xl bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">{{ filteredMedicines.length }} thuốc</span>
-      </div>
-
-      <div v-if="filteredMedicines.length" class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-100 text-sm">
-          <thead class="bg-white text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <tr>
-              <th class="px-5 py-3.5">Thuốc</th>
-              <th class="px-5 py-3.5">Hoạt chất</th>
-              <th class="px-5 py-3.5">Nhóm</th>
-              <th class="px-5 py-3.5 text-right">Giá</th>
-              <th class="px-5 py-3.5 text-right">Tồn kho</th>
-              <th class="px-5 py-3.5">Hạn dùng</th>
-              <th class="px-5 py-3.5">Trạng thái</th>
-              <th class="px-5 py-3.5 text-right">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            <tr v-for="medicine in paginatedMedicines" :key="medicineKey(medicine)" class="transition hover:bg-slate-50">
-              <td class="px-5 py-4 align-top">
-                <p class="font-bold text-slate-950">{{ medicineName(medicine) }}</p>
-                <p class="mt-1 font-mono text-xs font-semibold text-slate-500">#{{ medicineId(medicine) || 'N/A' }}</p>
-                <p class="mt-1 text-xs font-medium text-slate-500">{{ medicineUnit(medicine) }}</p>
-              </td>
-              <td class="px-5 py-4 align-top text-slate-700">{{ medicineActiveIngredient(medicine) }}</td>
-              <td class="px-5 py-4 align-top">
-                <span class="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-bold text-cyan-700">{{ medicineType(medicine) }}</span>
-              </td>
-              <td class="px-5 py-4 text-right align-top font-bold text-slate-900">{{ formatCurrency(medicinePrice(medicine)) }}</td>
-              <td class="px-5 py-4 text-right align-top">
-                <p class="font-bold text-slate-950">{{ medicineStock(medicine) }}</p>
-                <p class="mt-1 text-xs text-slate-500">Tối thiểu {{ medicineMinStock(medicine) }}</p>
-              </td>
-              <td class="px-5 py-4 align-top">
-                <p class="font-semibold text-slate-800">{{ formatDate(medicineExpiryDate(medicine)) }}</p>
-                <p :class="['mt-1 text-xs font-bold', expiryClass(medicine)]">{{ expiryText(medicine) }}</p>
-              </td>
-              <td class="px-5 py-4 align-top">
-                <div class="space-y-1.5">
-                  <span :class="['inline-flex rounded-full px-2.5 py-1 text-xs font-bold', stockClass(medicine)]">{{ stockText(medicine) }}</span>
-                  <span :class="['block w-fit rounded-full px-2.5 py-1 text-xs font-bold', statusClass(medicine)]">{{ statusText(medicine) }}</span>
-                </div>
-              </td>
-              <td class="px-5 py-4 align-top text-right">
-                <div class="flex flex-wrap justify-end gap-2">
-                  <button type="button" class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50" @click="openStockForm(medicine)">
-                    <Archive class="h-3.5 w-3.5" />
-                    Tồn
-                  </button>
-                  <button type="button" class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-3 text-xs font-bold text-blue-700 transition hover:bg-blue-100" @click="openForm(medicine)">
-                    <Pencil class="h-3.5 w-3.5" />
-                    Sửa
-                  </button>
-                  <button type="button" class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-100 bg-rose-50 px-3 text-xs font-bold text-rose-700 transition hover:bg-rose-100" @click="deleteMedicine(medicine)">
-                    <Trash2 class="h-3.5 w-3.5" />
-                    Xóa
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="flex flex-col gap-4 border-t border-slate-100 bg-slate-50/50 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div class="flex items-center gap-2 text-sm text-slate-500">
-            <span>Hiển thị</span>
-            <select v-model="itemsPerPage" class="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
-              <option :value="10">10</option>
-              <option :value="20">20</option>
-              <option :value="50">50</option>
-            </select>
-            <span>bản ghi mỗi trang</span>
-          </div>
-          <div class="text-sm font-medium text-slate-500">
-            {{ pageStart }} - {{ pageEnd }} trên {{ filteredMedicines.length }} kết quả
-          </div>
-          <div v-if="totalPages > 1" class="flex items-center gap-1.5">
-            <button type="button" :disabled="currentPage === 1" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:opacity-50" @click="currentPage--">
-              <ChevronLeft class="h-4 w-4" />
-            </button>
-            <button
-              v-for="page in visiblePages"
-              :key="page"
-              type="button"
-              :class="[
-                'h-8 min-w-8 rounded-lg px-2 text-sm font-bold transition',
-                currentPage === page ? 'bg-blue-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-              ]"
-              @click="currentPage = page"
+    <div class="nurse-medicine-table-shell">
+      <ATable
+        :columns="medicineTableColumns"
+        :data-source="medicines"
+        :pagination="medicinePagination"
+        :row-key="medicineKey"
+        size="middle"
+        table-layout="fixed"
+        @change="handleMedicineTableChange"
+      >
+        <template #customFilterDropdown="{ setSelectedKeys, selectedKeys, confirm, clearFilters, column }">
+          <div class="nurse-medicine-filter">
+            <p class="nurse-medicine-filter-title">Tìm theo {{ String(column.title).toLowerCase() }}</p>
+            <AInput
+              :value="selectedKeys[0]"
+              :placeholder="`Nhập ${String(column.title).toLowerCase()}...`"
+              allow-clear
+              autofocus
+              @change="setSelectedKeys(getMedicineFilterKeys($event))"
+              @press-enter="confirm()"
             >
-              {{ page }}
-            </button>
-            <button type="button" :disabled="currentPage === totalPages" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:opacity-50" @click="currentPage++">
-              <ChevronRight class="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div v-else class="p-10 text-center">
-        <SearchX class="mx-auto h-10 w-10 text-slate-300" />
-        <h2 class="mt-4 text-lg font-bold text-slate-950">Không có thuốc phù hợp</h2>
-        <p class="mt-2 text-sm text-slate-500">Thử đổi bộ lọc hoặc thêm thuốc mới vào kho.</p>
-      </div>
-    </div>
-
-    <div v-if="formOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div class="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-        <div class="border-b border-slate-100 p-6">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <p class="text-sm font-bold uppercase tracking-[0.16em] text-emerald-700">{{ editingMedicine ? 'Cập nhật thuốc' : 'Thêm thuốc mới' }}</p>
-              <h2 class="mt-1 text-2xl font-bold text-slate-950">{{ form.medicineName || 'Thông tin thuốc' }}</h2>
-              <p class="mt-2 text-sm text-slate-500">Nhập đầy đủ thông tin thuốc để lưu vào hệ thống.</p>
+              <template #prefix><Search class="h-3.5 w-3.5 text-slate-400" /></template>
+            </AInput>
+            <div class="nurse-medicine-filter-actions">
+              <AButton size="small" class="nurse-medicine-filter-reset" @click="clearMedicineFilter(clearFilters, confirm)">Đặt lại</AButton>
+              <AButton type="primary" size="small" class="nurse-medicine-filter-submit" @click="confirm()">Áp dụng</AButton>
             </div>
-            <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" @click="closeForm">
-              <X class="h-5 w-5" />
-            </button>
           </div>
-        </div>
-
-        <form class="space-y-6 p-6" @submit.prevent="submitMedicine">
-          <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <BaseInput v-model="form.medicineName" label="Tên thuốc" required placeholder="Paracetamol 500mg" />
-            <BaseInput v-model="form.activeIngredient" label="Hoạt chất" required placeholder="Paracetamol" />
-            <BaseInput v-model="form.medicineType" label="Nhóm thuốc" required placeholder="Giảm đau - hạ sốt" />
-            <BaseInput v-model="form.unit" label="Đơn vị" required placeholder="Viên, Chai, Ống..." />
-            <BaseInput v-model="form.price" label="Giá bán" type="number" min="0" required />
-            <BaseInput v-model="form.stockQuantity" label="Tồn kho" type="number" min="0" required />
-            <BaseInput v-model="form.minStockLevel" label="Ngưỡng tồn tối thiểu" type="number" min="0" required />
-            <BaseInput v-model="form.expiryDate" label="Hạn dùng" type="date" required />
-            <BaseSelect v-model="form.status" label="Trạng thái" :options="statusOptionsForForm" required />
+        </template>
+        <template #customFilterIcon="{ filtered, column }">
+          <CheckCircle2 v-if="column.key === 'status' || column.key === 'alert'" :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+          <Search v-else :class="['h-3.5 w-3.5', filtered ? 'text-[#0F52BA]' : 'text-slate-400']" />
+        </template>
+        <template #emptyText>
+          <div class="py-10 text-center">
+            <SearchX class="mx-auto h-10 w-10 text-slate-300" />
+            <p class="mt-4 font-bold text-slate-900">Không có thuốc phù hợp</p>
+            <p class="mt-1 text-sm text-slate-500">Thử đổi bộ lọc trong từng cột hoặc thêm thuốc mới vào kho.</p>
           </div>
-
-          <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Mô tả / ghi chú nội bộ</span>
-            <textarea v-model="form.description" rows="3" class="form-textarea" placeholder="Thông tin bảo quản, lưu ý khi cấp phát hoặc ghi chú nhập kho."></textarea>
-          </label>
-
-          <div v-if="editingMedicine" class="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm md:grid-cols-3">
-            <InfoItem label="Mã thuốc" :value="String(medicineId(editingMedicine) || '-')" />
-            <InfoItem label="Ngày tạo" :value="formatDateTime(medicineCreatedAt(editingMedicine))" />
-            <InfoItem label="Cập nhật cuối" :value="formatDateTime(medicineUpdatedAt(editingMedicine))" />
-          </div>
-
-          <div class="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
-            <BaseButton type="button" variant="outline" @click="closeForm">Đóng</BaseButton>
-            <BaseButton type="submit" :loading="saving">
-              <template #icon><Save class="h-4 w-4" /></template>
-              Lưu thuốc
-            </BaseButton>
-          </div>
-        </form>
-      </div>
+        </template>
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'medicine'">
+            <div class="min-w-0">
+              <p class="truncate text-[13px] font-bold text-slate-900" :title="medicineName(record)">{{ medicineName(record) }}</p>
+              <p class="mt-0.5 font-mono text-[11px] font-semibold text-[#0F52BA]">#{{ medicineId(record) || 'N/A' }}</p>
+            </div>
+          </template>
+          <template v-else-if="column.key === 'activeIngredient'">
+            <span class="line-clamp-2 text-[13px] font-medium text-slate-700" :title="medicineActiveIngredient(record)">{{ medicineActiveIngredient(record) }}</span>
+          </template>
+          <template v-else-if="column.key === 'type'">
+            <ATag :bordered="false" class="nurse-medicine-type-tag">{{ medicineType(record) }}</ATag>
+          </template>
+          <template v-else-if="column.key === 'price'">
+            <span class="whitespace-nowrap text-[13px] font-semibold text-slate-900">{{ formatCurrency(medicinePrice(record)) }}</span>
+          </template>
+          <template v-else-if="column.key === 'stock'">
+            <div class="text-[13px]">
+              <p class="font-semibold text-slate-900">{{ medicineStock(record) }} {{ medicineUnit(record) }}</p>
+              <p class="mt-0.5 text-[11px] font-medium text-slate-400">Tối thiểu {{ medicineMinStock(record) }}</p>
+            </div>
+          </template>
+          <template v-else-if="column.key === 'expiry'">
+            <div class="text-[13px]">
+              <p class="font-medium text-slate-700">{{ formatDate(medicineExpiryDate(record)) }}</p>
+              <p :class="['mt-0.5 text-[11px] font-semibold', expiryClass(record)]">{{ expiryText(record) }}</p>
+            </div>
+          </template>
+          <template v-else-if="column.key === 'status'">
+            <div class="flex flex-wrap gap-1.5">
+              <ATag :bordered="false" :class="['nurse-medicine-status-tag', stockStatusClass(record)]">{{ stockText(record) }}</ATag>
+              <ATag :bordered="false" :class="['nurse-medicine-status-tag', activeStatusClass(record)]">{{ statusText(record) }}</ATag>
+            </div>
+          </template>
+          <template v-else-if="column.key === 'actions'">
+            <div class="nurse-medicine-actions">
+              <button type="button" class="nurse-medicine-action-button nurse-medicine-action-muted" title="Điều chỉnh tồn kho" @click="openStockForm(record)">
+                <Archive class="h-4 w-4" />
+              </button>
+              <button type="button" class="nurse-medicine-action-button nurse-medicine-action-primary" title="Cập nhật thuốc" @click="openForm(record)">
+                <Pencil class="h-4 w-4" />
+              </button>
+              <button type="button" class="nurse-medicine-action-button nurse-medicine-action-danger" title="Xóa thuốc" @click="deleteMedicine(record)">
+                <Trash2 class="h-4 w-4" />
+              </button>
+            </div>
+          </template>
+        </template>
+      </ATable>
     </div>
 
-    <div v-if="stockFormOpen && stockMedicine" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">Điều chỉnh tồn kho</p>
-            <h2 class="mt-1 text-2xl font-bold text-slate-950">{{ medicineName(stockMedicine) }}</h2>
-            <p class="mt-2 text-sm text-slate-500">Tồn hiện tại: {{ medicineStock(stockMedicine) }} {{ medicineUnit(stockMedicine) }}</p>
+    <Teleport to="body">
+      <div v-if="formOpen" class="fixed inset-0 z-[120] bg-slate-950/40 backdrop-blur-sm" @click="closeForm"></div>
+      <transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="translate-x-full"
+        enter-to-class="translate-x-0"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="translate-x-0"
+        leave-to-class="translate-x-full"
+      >
+        <aside v-if="formOpen" class="fixed right-0 top-0 z-[121] flex h-screen w-full max-w-3xl flex-col border-l border-slate-200 bg-white shadow-2xl">
+          <div class="border-b border-slate-100 p-6">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-sm font-bold uppercase tracking-[0.16em] text-emerald-700">{{ editingMedicine ? 'Cập nhật thuốc' : 'Thêm thuốc mới' }}</p>
+                <h2 class="mt-1 text-2xl font-bold text-slate-950">{{ form.medicineName || 'Thông tin thuốc' }}</h2>
+                <p class="mt-2 text-sm text-slate-500">Nhập đầy đủ thông tin thuốc để lưu vào hệ thống.</p>
+              </div>
+              <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" @click="closeForm">
+                <X class="h-5 w-5" />
+              </button>
+            </div>
           </div>
-          <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" @click="closeStockForm">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-        <form class="mt-5 space-y-4" @submit.prevent="submitStock">
-          <BaseInput v-model="stockForm.quantity" label="Tồn kho mới" type="number" min="0" required />
-          <label class="block">
-            <span class="mb-2 block text-sm font-medium text-slate-700">Lý do điều chỉnh</span>
-            <textarea v-model="stockForm.reason" rows="3" class="form-textarea" placeholder="Nhập kho, kiểm kê, hủy thuốc hết hạn..."></textarea>
-          </label>
-          <div class="flex justify-end gap-3 border-t border-slate-100 pt-4">
-            <BaseButton type="button" variant="outline" @click="closeStockForm">Đóng</BaseButton>
-            <BaseButton type="submit" :loading="saving">
-              <template #icon><Archive class="h-4 w-4" /></template>
-              Cập nhật tồn
-            </BaseButton>
+
+          <form class="flex min-h-0 flex-1 flex-col" @submit.prevent="submitMedicine">
+            <div class="flex-1 space-y-6 overflow-y-auto p-6">
+              <div class="grid gap-4 md:grid-cols-2">
+                <BaseInput v-model="form.medicineName" label="Tên thuốc" required placeholder="Paracetamol 500mg" />
+                <BaseInput v-model="form.activeIngredient" label="Hoạt chất" required placeholder="Paracetamol" />
+                <BaseInput v-model="form.medicineType" label="Nhóm thuốc" required placeholder="Giảm đau - hạ sốt" />
+                <BaseInput v-model="form.unit" label="Đơn vị" required placeholder="Viên, Chai, Ống..." />
+                <BaseInput v-model="form.price" label="Giá bán" type="number" min="0" required />
+                <BaseInput v-model="form.stockQuantity" label="Tồn kho" type="number" min="0" required />
+                <BaseInput v-model="form.minStockLevel" label="Ngưỡng tồn tối thiểu" type="number" min="0" required />
+                <BaseInput v-model="form.expiryDate" label="Hạn dùng" type="date" required />
+                <BaseSelect v-model="form.status" label="Trạng thái" :options="statusOptionsForForm" required />
+              </div>
+
+              <label class="block">
+                <span class="mb-2 block text-sm font-medium text-slate-700">Mô tả / ghi chú nội bộ</span>
+                <textarea v-model="form.description" rows="4" class="form-textarea" placeholder="Thông tin bảo quản, lưu ý khi cấp phát hoặc ghi chú nhập kho."></textarea>
+              </label>
+
+              <div v-if="editingMedicine" class="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm md:grid-cols-3">
+                <InfoItem label="Mã thuốc" :value="String(medicineId(editingMedicine) || '-')" />
+                <InfoItem label="Ngày tạo" :value="formatDateTime(medicineCreatedAt(editingMedicine))" />
+                <InfoItem label="Cập nhật cuối" :value="formatDateTime(medicineUpdatedAt(editingMedicine))" />
+              </div>
+            </div>
+
+            <div class="flex flex-col-reverse gap-3 border-t border-slate-100 bg-white p-5 sm:flex-row sm:justify-end">
+              <BaseButton type="button" variant="outline" @click="closeForm">Đóng</BaseButton>
+              <BaseButton type="submit" :loading="saving">
+                <template #icon><Save class="h-4 w-4" /></template>
+                Lưu thuốc
+              </BaseButton>
+            </div>
+          </form>
+        </aside>
+      </transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="stockFormOpen && stockMedicine" class="fixed inset-0 z-[120] bg-slate-950/40 backdrop-blur-sm" @click="closeStockForm"></div>
+      <transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="translate-x-full"
+        enter-to-class="translate-x-0"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="translate-x-0"
+        leave-to-class="translate-x-full"
+      >
+        <aside v-if="stockFormOpen && stockMedicine" class="fixed right-0 top-0 z-[121] flex h-screen w-full max-w-xl flex-col border-l border-slate-200 bg-white shadow-2xl">
+          <div class="border-b border-slate-100 p-6">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <p class="text-sm font-bold uppercase tracking-[0.16em] text-blue-700">Điều chỉnh tồn kho</p>
+                <h2 class="mt-1 text-2xl font-bold text-slate-950">{{ medicineName(stockMedicine) }}</h2>
+                <p class="mt-2 text-sm text-slate-500">Tồn hiện tại: {{ medicineStock(stockMedicine) }} {{ medicineUnit(stockMedicine) }}</p>
+              </div>
+              <button type="button" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100" @click="closeStockForm">
+                <X class="h-5 w-5" />
+              </button>
+            </div>
           </div>
-        </form>
-      </div>
-    </div>
+          <form class="flex min-h-0 flex-1 flex-col" @submit.prevent="submitStock">
+            <div class="flex-1 space-y-4 overflow-y-auto p-6">
+              <BaseInput v-model="stockForm.quantity" label="Tồn kho mới" type="number" min="0" required />
+              <label class="block">
+                <span class="mb-2 block text-sm font-medium text-slate-700">Lý do điều chỉnh</span>
+                <textarea v-model="stockForm.reason" rows="4" class="form-textarea" placeholder="Nhập kho, kiểm kê, hủy thuốc hết hạn..."></textarea>
+              </label>
+            </div>
+            <div class="flex justify-end gap-3 border-t border-slate-100 bg-white p-5">
+              <BaseButton type="button" variant="outline" @click="closeStockForm">Đóng</BaseButton>
+              <BaseButton type="submit" :loading="saving">
+                <template #icon><Archive class="h-4 w-4" /></template>
+                Cập nhật tồn
+              </BaseButton>
+            </div>
+          </form>
+        </aside>
+      </transition>
+    </Teleport>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue'
+import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
+import { Button as AButton, Input as AInput, Table as ATable, Tag as ATag } from 'ant-design-vue'
 import {
   Archive,
-  AlertTriangle,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Clock3,
-  PackageOpen,
   Pencil,
   Plus,
   RefreshCw,
-  RotateCcw,
   Save,
   Search,
   SearchX,
@@ -293,24 +241,20 @@ import {
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
-import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'
+import FullscreenLoader from '@/components/ui/FullscreenLoader.vue'
 import { getApiErrorMessage } from '@/services/apiClient'
 import { medicineApi } from '@/services/medicineApi'
 import type { Medicine } from '@/types/medicine'
 
-type MedicineRecord = Medicine & Record<string, any>
+type MedicineRecord = Partial<Medicine> & Record<string, any>
 
 const medicines = ref<MedicineRecord[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
 const note = ref('')
-const query = ref('')
-const typeFilter = ref('')
-const statusFilter = ref('')
-const alertFilter = ref('')
-const currentPage = ref(1)
-const itemsPerPage = ref(10)
+const medicineCurrentPage = ref(1)
+const medicinePageSize = ref(10)
 const formOpen = ref(false)
 const editingMedicine = ref<MedicineRecord | null>(null)
 const stockFormOpen = ref(false)
@@ -354,44 +298,99 @@ const typeOptions = computed(() => {
   return Array.from(values).sort((a, b) => a.localeCompare(b, 'vi')).map((value) => ({ label: value, value }))
 })
 
-const filteredMedicines = computed(() => {
-  const keyword = normalizeText(query.value)
-  return medicines.value.filter((medicine) => {
-    const matchesKeyword = !keyword || [
-      medicineName(medicine),
-      medicineActiveIngredient(medicine),
-      medicineType(medicine),
-      medicineUnit(medicine),
-      statusText(medicine),
-    ].some((value) => normalizeText(value).includes(keyword))
-    const matchesType = !typeFilter.value || medicineType(medicine) === typeFilter.value
-    const matchesStatus = !statusFilter.value || medicineStatus(medicine).toLowerCase() === statusFilter.value.toLowerCase()
-    const matchesAlert = !alertFilter.value || alertKey(medicine) === alertFilter.value
-    return matchesKeyword && matchesType && matchesStatus && matchesAlert
-  })
-})
-
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredMedicines.value.length / Number(itemsPerPage.value || 10))))
-const paginatedMedicines = computed(() => {
-  const start = (currentPage.value - 1) * Number(itemsPerPage.value || 10)
-  return filteredMedicines.value.slice(start, start + Number(itemsPerPage.value || 10))
-})
-const visiblePages = computed(() => {
-  const pages: number[] = []
-  const from = Math.max(1, currentPage.value - 2)
-  const to = Math.min(totalPages.value, currentPage.value + 2)
-  for (let page = from; page <= to; page += 1) pages.push(page)
-  return pages
-})
-const pageStart = computed(() => filteredMedicines.value.length ? (currentPage.value - 1) * Number(itemsPerPage.value || 10) + 1 : 0)
-const pageEnd = computed(() => Math.min(filteredMedicines.value.length, currentPage.value * Number(itemsPerPage.value || 10)))
-
-const metrics = computed(() => [
-  { label: 'Tổng thuốc', value: medicines.value.length, note: 'Danh mục hệ thống', icon: PackageOpen, className: 'bg-blue-50 text-blue-700' },
-  { label: 'Đang hoạt động', value: medicines.value.filter((item) => medicineStatus(item).toLowerCase() === 'active').length, note: 'Có thể cấp phát', icon: CheckCircle2, className: 'bg-emerald-50 text-emerald-700' },
-  { label: 'Cần bổ sung', value: medicines.value.filter((item) => ['out', 'low'].includes(alertKey(item))).length, note: 'Hết hàng hoặc dưới ngưỡng', icon: AlertTriangle, className: 'bg-amber-50 text-amber-700' },
-  { label: 'Cận hạn', value: medicines.value.filter((item) => ['expired', 'expiring'].includes(expiryKey(item))).length, note: 'Hết hạn hoặc trong 60 ngày', icon: Clock3, className: 'bg-rose-50 text-rose-700' },
+const medicineTableColumns = computed(() => [
+  {
+    title: 'Thuốc',
+    key: 'medicine',
+    width: 220,
+    customFilterDropdown: true,
+    onFilter: medicineColumnFilter('medicine'),
+    sorter: (a: MedicineRecord, b: MedicineRecord) => medicineName(a).localeCompare(medicineName(b), 'vi'),
+  },
+  {
+    title: 'Hoạt chất',
+    key: 'activeIngredient',
+    width: 180,
+    customFilterDropdown: true,
+    onFilter: medicineColumnFilter('activeIngredient'),
+    sorter: (a: MedicineRecord, b: MedicineRecord) => medicineActiveIngredient(a).localeCompare(medicineActiveIngredient(b), 'vi'),
+  },
+  {
+    title: 'Nhóm',
+    key: 'type',
+    width: 150,
+    filters: typeOptions.value.map((option) => ({ text: option.label, value: option.value })),
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: MedicineRecord) => medicineType(record) === String(filterValue),
+  },
+  {
+    title: 'Giá',
+    key: 'price',
+    width: 132,
+    align: 'right' as const,
+    sorter: (a: MedicineRecord, b: MedicineRecord) => medicinePrice(a) - medicinePrice(b),
+  },
+  {
+    title: 'Tồn kho',
+    key: 'stock',
+    width: 136,
+    sorter: (a: MedicineRecord, b: MedicineRecord) => medicineStock(a) - medicineStock(b),
+  },
+  {
+    title: 'Hạn dùng',
+    key: 'expiry',
+    width: 142,
+    filters: [
+      { text: 'Còn hạn', value: 'valid' },
+      { text: 'Sắp hết hạn', value: 'expiring' },
+      { text: 'Đã hết hạn', value: 'expired' },
+      { text: 'Chưa cập nhật', value: 'none' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: MedicineRecord) => expiryKey(record) === String(filterValue),
+    sorter: (a: MedicineRecord, b: MedicineRecord) => recordTimestamp(medicineExpiryDate(a)) - recordTimestamp(medicineExpiryDate(b)),
+  },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 190,
+    filters: [
+      { text: 'Đủ hàng', value: 'stock:healthy' },
+      { text: 'Tồn thấp', value: 'stock:low' },
+      { text: 'Hết hàng', value: 'stock:out' },
+      { text: 'Hoạt động', value: 'active:Active' },
+      { text: 'Tạm ngưng', value: 'active:Inactive' },
+    ],
+    filterReset: 'Đặt lại',
+    filterConfirm: 'Áp dụng',
+    onFilter: (filterValue: string | number | boolean, record: MedicineRecord) => {
+      const value = String(filterValue)
+      if (value.startsWith('stock:')) return alertKey(record) === value.replace('stock:', '')
+      if (value.startsWith('active:')) return medicineStatus(record).toLowerCase() === value.replace('active:', '').toLowerCase()
+      return false
+    },
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 126,
+    align: 'center' as const,
+  },
 ])
+
+const medicinePagination = computed(() => ({
+  current: medicineCurrentPage.value,
+  pageSize: medicinePageSize.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50'],
+  showLessItems: true,
+  showTitle: false,
+  responsive: true,
+  showTotal: (total: number, range: [number, number]) => `${range[0]}-${range[1]} trong ${total} thuốc`,
+  locale: { items_per_page: ' / trang' },
+}))
 
 const InfoItem = defineComponent({
   props: { label: { type: String, required: true }, value: { type: String, required: true } },
@@ -403,9 +402,33 @@ const InfoItem = defineComponent({
   },
 })
 
-watch([query, typeFilter, statusFilter, alertFilter, itemsPerPage], () => {
-  currentPage.value = 1
-})
+function medicineSearchField(medicine: MedicineRecord, key: string) {
+  if (key === 'medicine') return [medicineName(medicine), medicineId(medicine), medicineUnit(medicine)].filter(Boolean).join(' ')
+  if (key === 'activeIngredient') return medicineActiveIngredient(medicine)
+  if (key === 'type') return medicineType(medicine)
+  if (key === 'status') return [stockText(medicine), statusText(medicine), expiryText(medicine)].join(' ')
+  return ''
+}
+
+function medicineColumnFilter(key: string) {
+  return (filterValue: string | number | boolean, record: MedicineRecord) =>
+    normalizeText(medicineSearchField(record, key)).includes(normalizeText(filterValue))
+}
+
+function getMedicineFilterKeys(event: Event) {
+  const filterValue = (event.target as HTMLInputElement)?.value || ''
+  return filterValue ? [filterValue] : []
+}
+
+function clearMedicineFilter(clearFilters: (() => void) | undefined, confirm: () => void) {
+  clearFilters?.()
+  confirm()
+}
+
+function handleMedicineTableChange(pagination: { current?: number; pageSize?: number }) {
+  medicineCurrentPage.value = pagination.current || 1
+  medicinePageSize.value = pagination.pageSize || 10
+}
 
 onMounted(loadMedicines)
 
@@ -522,13 +545,6 @@ async function deleteMedicine(medicine: MedicineRecord) {
   }
 }
 
-function resetFilters() {
-  query.value = ''
-  typeFilter.value = ''
-  statusFilter.value = ''
-  alertFilter.value = ''
-}
-
 function validateMedicineForm() {
   if (!form.medicineName.trim()) return 'Vui lòng nhập tên thuốc.'
   if (!form.activeIngredient.trim()) return 'Vui lòng nhập hoạt chất.'
@@ -628,6 +644,13 @@ function stockClass(medicine: MedicineRecord) {
   return 'bg-emerald-100 text-emerald-700'
 }
 
+function stockStatusClass(medicine: MedicineRecord) {
+  const key = alertKey(medicine)
+  if (key === 'out') return 'is-danger'
+  if (key === 'low') return 'is-warning'
+  return 'is-success'
+}
+
 function statusText(medicine: MedicineRecord) {
   return medicineStatus(medicine).toLowerCase() === 'active' ? 'Hoạt động' : 'Tạm ngưng'
 }
@@ -636,6 +659,10 @@ function statusClass(medicine: MedicineRecord) {
   return medicineStatus(medicine).toLowerCase() === 'active'
     ? 'bg-blue-50 text-blue-700'
     : 'bg-slate-100 text-slate-600'
+}
+
+function activeStatusClass(medicine: MedicineRecord) {
+  return medicineStatus(medicine).toLowerCase() === 'active' ? 'is-active' : 'is-muted'
 }
 
 function alertKey(medicine: MedicineRecord) {
@@ -680,8 +707,14 @@ function isNonNegativeNumber(value: string) {
   return Number.isFinite(numberValue) && numberValue >= 0
 }
 
-function normalizeText(value: string) {
+function normalizeText(value: unknown) {
   return String(value || '').trim().toLowerCase()
+}
+
+function recordTimestamp(value?: string | null) {
+  if (!value) return 0
+  const time = new Date(value).getTime()
+  return Number.isNaN(time) ? 0 : time
 }
 
 function normalizeDateInput(value: string) {
@@ -708,7 +741,243 @@ function formatDateTime(value?: string) {
 }
 </script>
 
-<style scoped>
+<style scoped lang="postcss">
+.nurse-medicine-page-header {
+  @apply flex flex-col gap-4 px-1 lg:flex-row lg:items-start lg:justify-between;
+}
+
+.nurse-medicine-page-header h1 {
+  @apply text-2xl font-bold tracking-normal text-slate-900;
+}
+
+.nurse-medicine-page-header p {
+  @apply mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-500;
+}
+
+.nurse-medicine-page-actions {
+  @apply flex flex-wrap gap-2;
+}
+
+.nurse-medicine-table-shell {
+  @apply overflow-hidden border border-slate-200 bg-white shadow-sm;
+  border-radius: 8px;
+}
+
+.nurse-medicine-table-shell :deep(.ant-table) {
+  color: #334155;
+  font-size: 13px;
+}
+
+.nurse-medicine-table-shell :deep(.ant-table-container),
+.nurse-medicine-table-shell :deep(.ant-table-content) {
+  overflow-x: hidden !important;
+}
+
+.nurse-medicine-table-shell :deep(.ant-table table) {
+  width: 100% !important;
+  table-layout: fixed !important;
+}
+
+.nurse-medicine-table-shell :deep(.ant-table-thead > tr > th) {
+  height: 44px;
+  background: #f9fbfd;
+  border-bottom: 1px solid #e8edf3;
+  color: #64748b;
+  font-size: 11.5px;
+  font-weight: 650;
+  padding-block: 10px;
+  padding-inline: 12px;
+}
+
+.nurse-medicine-table-shell :deep(.ant-table-tbody > tr > td) {
+  height: 52px;
+  border-bottom-color: #eef2f7;
+  padding-block: 11px;
+  padding-inline: 12px;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.nurse-medicine-table-shell :deep(.ant-table-tbody > tr:last-child > td) {
+  border-bottom: 0;
+}
+
+.nurse-medicine-table-shell :deep(.ant-table-tbody > tr:hover > td) {
+  background: #f7faff;
+}
+
+.nurse-medicine-table-shell :deep(.ant-table-tbody > tr > td.ant-table-cell-fix-right),
+.nurse-medicine-table-shell :deep(.ant-table-thead > tr > th.ant-table-cell-fix-right) {
+  background: #ffffff;
+}
+
+.nurse-medicine-table-shell :deep(.ant-table-tbody > tr:hover > .ant-table-cell-fix-right) {
+  background: #f7faff;
+}
+
+.nurse-medicine-table-shell :deep(.ant-pagination) {
+  min-height: 58px;
+  border-top: 1px solid #eef2f7;
+  background: #fbfcfe;
+  gap: 4px;
+  margin: 0;
+  padding: 13px 16px;
+}
+
+.nurse-medicine-table-shell :deep(.ant-table-cell-fix-right-first::after) {
+  box-shadow: inset -8px 0 8px -8px rgb(15 23 42 / 0.16);
+}
+
+.nurse-medicine-table-shell :deep(.ant-table-column-sorter),
+.nurse-medicine-table-shell :deep(.ant-table-filter-trigger) {
+  color: #94a3b8;
+  opacity: 0.45;
+  transition: color 160ms ease, opacity 160ms ease;
+}
+
+.nurse-medicine-table-shell :deep(th:hover .ant-table-column-sorter),
+.nurse-medicine-table-shell :deep(th:hover .ant-table-filter-trigger),
+.nurse-medicine-table-shell :deep(.ant-table-filter-trigger.active) {
+  opacity: 1;
+}
+
+.nurse-medicine-table-shell :deep(.ant-table-filter-trigger:hover),
+.nurse-medicine-table-shell :deep(.ant-table-filter-trigger.active),
+.nurse-medicine-table-shell :deep(.ant-table-column-sorter-up.active),
+.nurse-medicine-table-shell :deep(.ant-table-column-sorter-down.active) {
+  color: #0f52ba;
+}
+
+.nurse-medicine-table-shell :deep(.ant-pagination-total-text) {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 30px;
+  margin-right: auto;
+}
+
+.nurse-medicine-table-shell :deep(.ant-pagination-item),
+.nurse-medicine-table-shell :deep(.ant-pagination-prev .ant-pagination-item-link),
+.nurse-medicine-table-shell :deep(.ant-pagination-next .ant-pagination-item-link) {
+  min-width: 30px;
+  height: 30px;
+  margin-inline-end: 0;
+  border-color: transparent;
+  border-radius: 8px;
+  background: transparent;
+  line-height: 28px;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.nurse-medicine-table-shell :deep(.ant-pagination-item:hover),
+.nurse-medicine-table-shell :deep(.ant-pagination-prev:not(.ant-pagination-disabled) .ant-pagination-item-link:hover),
+.nurse-medicine-table-shell :deep(.ant-pagination-next:not(.ant-pagination-disabled) .ant-pagination-item-link:hover) {
+  background: #eaf2ff;
+  border-color: transparent;
+  color: #0f52ba;
+}
+
+.nurse-medicine-table-shell :deep(.ant-pagination-item-active) {
+  background: #0f52ba;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgb(15 82 186 / 0.2);
+}
+
+.nurse-medicine-table-shell :deep(.ant-pagination-item-active:hover) {
+  background: #003c90;
+  border-color: transparent;
+}
+
+.nurse-medicine-table-shell :deep(.ant-pagination-item-active a),
+.nurse-medicine-table-shell :deep(.ant-pagination-item-active:hover a),
+.nurse-medicine-table-shell :deep(.ant-pagination-item-active:focus a) {
+  color: #ffffff;
+}
+
+.nurse-medicine-table-shell :deep(.ant-pagination-options) {
+  margin-inline-start: 8px;
+}
+
+.nurse-medicine-table-shell :deep(.ant-pagination-options .ant-select-selector) {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  border-radius: 8px;
+  box-shadow: none;
+  font-size: 12px;
+  height: 30px;
+}
+
+.nurse-medicine-table-shell :deep(.ant-pagination-options .ant-select-selection-item) {
+  line-height: 28px;
+}
+
+.nurse-medicine-filter {
+  @apply w-64 rounded-xl bg-white p-3 shadow-xl;
+}
+
+.nurse-medicine-filter-title {
+  @apply mb-2 text-xs font-bold text-slate-500;
+}
+
+.nurse-medicine-filter-actions {
+  @apply mt-3 flex justify-end gap-2;
+}
+
+.nurse-medicine-filter-reset {
+  @apply border-slate-200 text-slate-600;
+}
+
+.nurse-medicine-filter-submit {
+  background: #0f52ba !important;
+}
+
+.nurse-medicine-type-tag {
+  @apply rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-medium text-cyan-700;
+}
+
+.nurse-medicine-status-tag {
+  @apply rounded-full px-2.5 py-1 text-xs font-medium;
+}
+
+.nurse-medicine-status-tag.is-success {
+  @apply bg-emerald-50 text-emerald-700;
+}
+
+.nurse-medicine-status-tag.is-warning {
+  @apply bg-amber-50 text-amber-700;
+}
+
+.nurse-medicine-status-tag.is-danger {
+  @apply bg-rose-50 text-rose-700;
+}
+
+.nurse-medicine-status-tag.is-active {
+  @apply bg-blue-50 text-blue-700;
+}
+
+.nurse-medicine-status-tag.is-muted {
+  @apply bg-slate-100 text-slate-600;
+}
+
+.nurse-medicine-actions {
+  @apply flex items-center justify-center gap-1.5;
+}
+
+.nurse-medicine-action-button {
+  @apply inline-flex h-8 w-8 items-center justify-center rounded-lg border transition disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.nurse-medicine-action-primary {
+  @apply border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100;
+}
+
+.nurse-medicine-action-danger {
+  @apply border-rose-100 bg-rose-50 text-rose-700 hover:bg-rose-100;
+}
+
+.nurse-medicine-action-muted {
+  @apply border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700;
+}
+
 .form-textarea {
   @apply w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0F52BA] focus:ring-4 focus:ring-blue-100;
 }
