@@ -433,6 +433,12 @@
             <div class="reports-panel-heading">
               <div>
                 <h2>Doanh thu và lượt khám theo ngày</h2>
+                <div class="reports-chart-meta">
+                  <span class="reports-chart-legend reports-chart-legend--revenue">Doanh thu: {{ money(reportSummary?.totalRevenue || 0) }}</span>
+                  <span class="reports-chart-legend reports-chart-legend--visits">Lượt khám: {{ compactNumber(reportSummary?.totalAppointments || 0) }}</span>
+                  <span>Trục trái: doanh thu</span>
+                  <span>Trục phải: lượt khám</span>
+                </div>
               </div>
             </div>
             <div class="reports-chart-box">
@@ -1550,13 +1556,53 @@ function buildReportAuditRows(data: DashboardSummary): Row[] {
   ]
 }
 
+function reportTrendRows(data: DashboardSummary) {
+  const [startDate, endDate] = normalizeReportRange()
+  const revenueByDate = new Map(data.revenueTrends.map((item) => [dateOnlyKey(item.date), Number(item.amount || 0)]))
+  const appointmentsByDate = new Map(data.appointmentTrends.map((item) => [dateOnlyKey(item.date), Number(item.count || 0)]))
+  return reportDateKeys(startDate, endDate).map((dateKey) => ({
+    dateKey,
+    label: formatChartDate(dateKey),
+    amount: revenueByDate.get(dateKey) || 0,
+    count: appointmentsByDate.get(dateKey) || 0,
+  }))
+}
+
+function reportDateKeys(startDate: string, endDate: string) {
+  const keys: string[] = []
+  const cursor = parseInputDate(startDate)
+  const end = parseInputDate(endDate)
+  if (!cursor || !end) return keys
+  for (let index = 0; cursor <= end && index < 62; index += 1) {
+    keys.push(localDateIso(cursor))
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return keys
+}
+
+function dateOnlyKey(value?: string) {
+  return String(value || '').slice(0, 10)
+}
+
+function formatChartDate(value: string) {
+  const dateValue = parseInputDate(value)
+  if (!dateValue) return value
+  return new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(dateValue)
+}
+
 function renderReportCharts() {
   const data = reportSummary.value
   if (!data) return
   destroyReportCharts()
 
-  const labels = data.revenueTrends.map((item) => formatShortDate(item.date))
+  const trendRows = reportTrendRows(data)
+  const labels = trendRows.map((item) => item.label)
   if (revenueChartRef.value) {
+    const gradient = revenueChartRef.value.getContext('2d')?.createLinearGradient(0, 0, 0, 320)
+    gradient?.addColorStop(0, 'rgba(15, 82, 186, 0.22)')
+    gradient?.addColorStop(0.72, 'rgba(15, 82, 186, 0.05)')
+    gradient?.addColorStop(1, 'rgba(15, 82, 186, 0)')
+
     revenueChart = new Chart(revenueChartRef.value, {
       type: 'line',
       data: {
@@ -1564,31 +1610,40 @@ function renderReportCharts() {
         datasets: [
           {
             label: 'Doanh thu',
-            data: data.revenueTrends.map((item) => Number(item.amount || 0)),
+            data: trendRows.map((item) => item.amount),
             borderColor: '#0F52BA',
-            backgroundColor: 'rgba(15, 82, 186, 0.14)',
+            backgroundColor: gradient || 'rgba(15, 82, 186, 0.12)',
             borderWidth: 3,
-            tension: 0.35,
+            tension: 0.38,
             fill: true,
             yAxisID: 'y',
-            pointRadius: 3,
+            pointRadius: 0,
+            pointHitRadius: 14,
             pointHoverRadius: 6,
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: '#0F52BA',
+            pointBorderWidth: 3,
           },
           {
             label: 'Lượt khám',
-            data: data.appointmentTrends.map((item) => Number(item.count || 0)),
+            data: trendRows.map((item) => item.count),
             borderColor: '#10b981',
-            backgroundColor: 'rgba(16, 185, 129, 0.12)',
-            borderWidth: 3,
-            tension: 0.35,
+            backgroundColor: '#10b981',
+            borderWidth: 2.5,
+            borderDash: [7, 5],
+            tension: 0.34,
             fill: false,
             yAxisID: 'y1',
-            pointRadius: 3,
-            pointHoverRadius: 6,
+            pointRadius: 0,
+            pointHitRadius: 14,
+            pointHoverRadius: 5,
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: '#10b981',
+            pointBorderWidth: 3,
           },
         ],
       },
-      options: reportLineOptions(),
+      options: reportLineOptions(trendRows.length),
     } as ChartConfiguration)
   }
 
@@ -1636,15 +1691,27 @@ function destroyReportCharts() {
   statusChart = null
 }
 
-function reportLineOptions() {
+function reportLineOptions(pointCount: number) {
+  const maxTicksLimit = pointCount > 45 ? 7 : pointCount > 24 ? 8 : 10
   return {
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
     plugins: {
-      legend: { labels: { usePointStyle: true, boxWidth: 8, color: '#475569', font: { weight: 700 } } },
+      legend: { display: false },
       tooltip: {
+        backgroundColor: 'rgba(15, 23, 42, 0.94)',
+        borderColor: 'rgba(148, 163, 184, 0.32)',
+        borderWidth: 1,
+        displayColors: true,
+        padding: 12,
+        titleFont: { size: 13, weight: 800 },
+        bodyFont: { size: 13, weight: 700 },
         callbacks: {
+          title(items: any[]) {
+            const label = items?.[0]?.label || ''
+            return label ? `Ngày ${label}` : ''
+          },
           label(context: any) {
             return context.dataset.yAxisID === 'y'
               ? ` ${context.dataset.label}: ${money(context.parsed.y)}`
@@ -1654,9 +1721,40 @@ function reportLineOptions() {
       },
     },
     scales: {
-      x: { grid: { display: false }, ticks: { color: '#64748b', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
-      y: { beginAtZero: true, grid: { color: 'rgba(148, 163, 184, 0.18)' }, ticks: { color: '#64748b', callback: (value: number | string) => compactMoney(Number(value)) } },
-      y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#64748b', precision: 0 } },
+      x: {
+        grid: { display: false },
+        border: { display: false },
+        ticks: {
+          color: '#64748b',
+          maxRotation: 0,
+          autoSkip: true,
+          maxTicksLimit,
+          font: { size: 11, weight: 700 },
+        },
+      },
+      y: {
+        beginAtZero: true,
+        border: { display: false },
+        grid: { color: 'rgba(148, 163, 184, 0.14)', drawTicks: false },
+        ticks: {
+          color: '#64748b',
+          padding: 10,
+          callback: (value: number | string) => compactMoney(Number(value)),
+          font: { size: 11, weight: 700 },
+        },
+      },
+      y1: {
+        beginAtZero: true,
+        position: 'right',
+        border: { display: false },
+        grid: { drawOnChartArea: false, drawTicks: false },
+        ticks: {
+          color: '#059669',
+          precision: 0,
+          padding: 10,
+          font: { size: 11, weight: 800 },
+        },
+      },
     },
   }
 }
@@ -3233,6 +3331,51 @@ const DetailItem = (props: { label: string; value: unknown; badge?: boolean }) =
   font-size: 16px;
   font-weight: 900;
   color: #0f172a;
+}
+
+.reports-chart-meta {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reports-panel-heading .reports-chart-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  background: #f8fafc;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+}
+
+.reports-chart-legend::before {
+  display: inline-block;
+  height: 8px;
+  width: 8px;
+  border-radius: 999px;
+  content: "";
+}
+
+.reports-chart-legend--revenue {
+  color: #0f52ba !important;
+}
+
+.reports-chart-legend--revenue::before {
+  background: #0f52ba;
+  box-shadow: 0 0 0 4px rgba(15, 82, 186, 0.12);
+}
+
+.reports-chart-legend--visits {
+  color: #059669 !important;
+}
+
+.reports-chart-legend--visits::before {
+  background: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14);
 }
 
 .reports-panel-heading span {
