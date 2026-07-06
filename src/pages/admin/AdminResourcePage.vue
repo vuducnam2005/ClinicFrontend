@@ -909,6 +909,7 @@ const doctorCatalog = ref<Doctor[]>(fallbackDoctors)
 const specialtyCatalog = ref<Specialty[]>(fallbackSpecialties)
 const specialtyOptions = ref<SelectOption[]>(fallbackSpecialties.map((s) => ({ label: s.specialtyName, value: s.specialtyId })))
 const doctorOptions = ref<SelectOption[]>(fallbackDoctors.map((d) => ({ label: d.doctorName, value: d.doctorId })))
+const doctorUserOptions = ref<SelectOption[]>([])
 
 const configs: Record<Key, Config> = {
   doctors: cfg('Bác sĩ', 'Lịch hẹn & Ca khám', 'Quản lý hồ sơ bác sĩ, chuyên khoa, phòng khám và phí khám.', 'GET/POST/PUT/DELETE /api/doctors', Stethoscope, cols(['id','ID'], ['name','Bác sĩ', false, false, true], ['specialty','Chuyên khoa'], ['degree','Học vị'], ['fee','Phí khám', true], ['phone','SĐT'], ['email','Email'], ['roomNumber','Phòng'], ['status','Trạng thái', false, true])),
@@ -1188,16 +1189,23 @@ async function loadData() {
   note.value = ''
   try {
     if (key.value === 'doctors') {
-      const [doctors, specialties] = await Promise.all([
+      const [doctors, specialties, users] = await Promise.all([
         appointmentApi.getDoctors(),
         appointmentApi.getSpecialties().catch(() => {
           note.value = 'Đang hiển thị danh mục chuyên khoa mặc định do lỗi kết nối máy chủ.'
           return fallbackSpecialties
         }),
+        authApi.getUsers().catch(() => []),
       ])
       updateSpecialtyCatalog(specialties)
       updateDoctorCatalog(doctors)
       rows.value = mapList(doctors, fallbackDoctors, mapDoctor)
+      doctorUserOptions.value = [
+        { label: 'Không liên kết (hoặc tạo tài khoản sau)', value: '' },
+        ...users
+          .filter((u) => u.roleId === RoleId.Doctor)
+          .map((u) => ({ label: `${u.fullName} (${u.username})`, value: String(u.id) }))
+      ]
     } else if (key.value === 'specialties') {
       const [specialties, doctors] = await Promise.all([
         appointmentApi.getSpecialties(),
@@ -1301,6 +1309,7 @@ function updateSpecialtyCatalog(specialties: Specialty[]) {
 
 function buildFields(k: Key): Field[] {
   if (k === 'doctors') return [
+    field('userId', 'Tài khoản liên kết', 'select', false, doctorUserOptions.value),
     field('doctorName','Tên bác sĩ','text',true),
     field('specialtyId','Chuyên khoa','select',true, specialtyOptions.value),
     field('degree','Học vị'),
@@ -1438,6 +1447,7 @@ function doctorPayload() {
     dateOfBirth: form.dateOfBirth || undefined,
     description: form.description || '',
     avatarUrl: form.avatarUrl || '',
+    userId: form.userId ? Number(form.userId) : null,
   }
 }
 function schedulePayload() { return { doctorId: Number(form.doctorId), workDate: form.workDate, startTime: normalizeTime(form.startTime), endTime: normalizeTime(form.endTime), slotDurationMinutes: Number(form.slotDurationMinutes || 30), isAvailable: form.isAvailable !== 'false' } }
