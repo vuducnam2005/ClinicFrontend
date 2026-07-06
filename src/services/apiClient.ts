@@ -72,6 +72,40 @@ export function createServiceClient(service: ServiceName): AxiosInstance {
   return client
 }
 
+export function createGatewayClient(): AxiosInstance {
+  const client = axios.create({
+    baseURL: apiConfig.gatewayUrl,
+    timeout: 12000,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  client.interceptors.request.use((config) => {
+    const token = localStorage.getItem('cliniccare_token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  })
+
+  client.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      const hadToken = Boolean(localStorage.getItem('cliniccare_token'))
+      if (error.response?.status === 401 && hadToken) {
+        localStorage.removeItem('cliniccare_token')
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
+      }
+      return Promise.reject(error)
+    }
+  )
+
+  return client
+}
+
 export function readApiResponse<T>(payload: ApiResponse<T> | T): T {
   if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) {
     const response = payload as ApiResponse<T>

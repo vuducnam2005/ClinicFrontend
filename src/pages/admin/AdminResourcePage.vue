@@ -1,6 +1,6 @@
 <template>
   <section class="min-h-screen bg-[#f8fafc] py-2 sm:py-3">
-    <FullscreenLoader :show="loading" />
+    <FullscreenLoader :show="loading && key !== 'reports'" />
 
     <div class="mx-auto max-w-none space-y-6 px-4 sm:px-6 lg:px-8">
       <header class="flex flex-col gap-3 px-1 lg:flex-row lg:items-center lg:justify-between">
@@ -353,6 +353,145 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <div v-else-if="key === 'reports'" class="reports-dashboard">
+      <div class="reports-filter-bar">
+        <div class="reports-range-picker">
+          <CalendarRange class="h-4 w-4 text-[#0F52BA]" />
+          <input v-model="reportDateRange[0]" type="date" class="reports-date-input" @change="handleReportDateChange" />
+          <span class="text-slate-300">/</span>
+          <input v-model="reportDateRange[1]" type="date" class="reports-date-input" @change="handleReportDateChange" />
+        </div>
+        <div class="reports-quick-actions">
+          <button
+            v-for="preset in reportQuickFilters"
+            :key="preset.key"
+            type="button"
+            :class="reportQuickButtonClass(preset.key)"
+            @click="applyReportQuickFilter(preset.key)"
+          >
+            {{ preset.label }}
+          </button>
+        </div>
+        <div class="reports-export-menu">
+          <button type="button" class="reports-export-button" @click="reportExportOpen = !reportExportOpen">
+            <Download class="h-4 w-4" />
+            Xuất báo cáo
+            <ChevronDown class="h-4 w-4" />
+          </button>
+          <div v-if="reportExportOpen" class="reports-export-dropdown">
+            <button type="button" @click="exportReport('csv')">CSV</button>
+            <button type="button" @click="exportReport('excel')">Excel</button>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="loading" class="reports-skeleton-grid">
+        <div v-for="index in 4" :key="index" class="reports-skeleton-card"></div>
+        <div class="reports-skeleton-panel reports-skeleton-panel--wide"></div>
+        <div class="reports-skeleton-panel"></div>
+        <div class="reports-skeleton-panel reports-skeleton-panel--short"></div>
+      </div>
+
+      <div v-else-if="reportLoadError" class="reports-error">
+        <AlertTriangle class="h-10 w-10 text-rose-500" />
+        <div>
+          <h2>Không tải được báo cáo vận hành</h2>
+          <p>{{ reportLoadError }}</p>
+        </div>
+        <button type="button" @click="loadReportDashboard">
+          <RefreshCw class="h-4 w-4" />
+          Thử lại
+        </button>
+      </div>
+
+      <template v-else>
+        <div class="reports-kpi-grid">
+          <article v-for="card in reportKpiCards" :key="card.key" :class="['reports-kpi-card', card.className]">
+            <div class="reports-kpi-glass"></div>
+            <div class="relative flex items-start justify-between gap-3">
+              <div>
+                <p class="reports-kpi-label">{{ card.label }}</p>
+                <h2 class="reports-kpi-value">{{ card.value }}</h2>
+              </div>
+              <span class="reports-kpi-icon">
+                <component :is="card.icon" class="h-5 w-5" />
+              </span>
+            </div>
+            <div class="relative mt-5 flex items-center justify-between gap-3">
+              <span :class="['reports-trend-badge', card.trend >= 0 ? 'reports-trend-badge--up' : 'reports-trend-badge--down']">
+                {{ card.trend >= 0 ? '+' : '' }}{{ card.trend.toFixed(1) }}%
+              </span>
+              <span class="text-xs font-semibold text-white/80">vs kỳ trước</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="reports-chart-grid">
+          <section class="reports-chart-panel reports-chart-panel--wide">
+            <div class="reports-panel-heading">
+              <div>
+                <p>Revenue & Appointments Trends over Time</p>
+                <h2>Doanh thu và lượt khám theo ngày</h2>
+              </div>
+            </div>
+            <div class="reports-chart-box">
+              <canvas ref="revenueChartRef"></canvas>
+            </div>
+          </section>
+
+          <section class="reports-chart-panel">
+            <div class="reports-panel-heading">
+              <div>
+                <p>Appointments by Specialty</p>
+                <h2>Lịch hẹn theo chuyên khoa</h2>
+              </div>
+            </div>
+            <div class="reports-chart-box">
+              <canvas ref="specialtyChartRef"></canvas>
+            </div>
+          </section>
+
+          <section class="reports-chart-panel reports-chart-panel--status">
+            <div class="reports-panel-heading">
+              <div>
+                <p>Appointment Status Breakdown</p>
+                <h2>Tỉ lệ trạng thái lịch hẹn</h2>
+              </div>
+            </div>
+            <div class="reports-chart-box reports-chart-box--doughnut">
+              <canvas ref="statusChartRef"></canvas>
+            </div>
+          </section>
+        </div>
+
+        <div class="reports-audit-table">
+          <div class="reports-panel-heading border-b border-slate-100 px-5 py-4">
+            <div>
+              <p>Audit metrics</p>
+              <h2>Bảng số liệu kiểm tra</h2>
+            </div>
+            <span>{{ reportRangeLabel }}</span>
+          </div>
+          <ATable
+            :columns="adminTableColumns"
+            :data-source="filteredRows"
+            :pagination="false"
+            row-key="id"
+            size="middle"
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="isAdminBadgeColumn(column)">
+                <ATag :bordered="false" :class="['admin-status', statusClass(record[adminColumnKey(column)])]">{{ value(record[adminColumnKey(column)]) }}</ATag>
+              </template>
+              <template v-else>
+                <span :class="[isAdminStrongColumn(column) ? 'font-semibold text-slate-950' : 'text-slate-700']">{{ value(record[adminColumnKey(column)]) }}</span>
+              </template>
+            </template>
+          </ATable>
+        </div>
+      </template>
     </div>
 
     <div v-else class="admin-table-shell">
@@ -767,8 +906,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, reactive, ref, watch, type Component } from 'vue'
+import { computed, h, nextTick, onBeforeUnmount, reactive, ref, watch, type Component } from 'vue'
 import { useRoute } from 'vue-router'
+import { Chart, registerables, type ChartConfiguration } from 'chart.js'
 import {
   AlertTriangle,
   Ban,
@@ -778,11 +918,13 @@ import {
   CalendarX,
   CheckCircle2,
   CheckSquare,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
   Clock,
   CreditCard,
+  Download,
   FileHeart,
   KeyRound,
   LogIn,
@@ -812,6 +954,7 @@ import { authApi } from '@/services/authApi'
 import { billingApi } from '@/services/billingApi'
 import { medicalRecordApi } from '@/services/medicalRecordApi'
 import { medicineApi } from '@/services/medicineApi'
+import { reportApi } from '@/services/reportApi'
 import type { MedicinePayload } from '@/services/medicineApi'
 import { getApiErrorMessage } from '@/services/apiClient'
 import { fallbackAppointments, fallbackDoctors, fallbackSpecialties } from '@/services/fallbackData'
@@ -822,9 +965,12 @@ import type { Invoice } from '@/types/billing'
 import type { Doctor, DoctorSchedule } from '@/types/doctor'
 import type { Patient, MedicalRecord } from '@/types/medicalRecord'
 import type { Medicine } from '@/types/medicine'
+import type { DashboardSummary } from '@/types/report'
 import type { Specialty } from '@/types/specialty'
 import type { User } from '@/types/user'
 import { displayText } from '@/utils/displayText'
+
+Chart.register(...registerables)
 
 type Key = 'doctors' | 'specialties' | 'schedules' | 'patients' | 'appointments' | 'medicines' | 'prescriptions' | 'bills' | 'accounts' | 'nurses' | 'reports'
 type Row = Record<string, any>
@@ -834,11 +980,14 @@ type ScheduleQuickRange = 'today' | 'week' | 'month' | 'clear'
 type SchedulePresetKey = 'custom' | 'morning' | 'afternoon' | 'evening'
 type ScheduleTone = 'blue' | 'teal' | 'slate' | 'amber' | 'rose'
 type ScheduleShiftKey = 'morning' | 'afternoon' | 'evening'
+type ReportQuickKey = 'today' | 'last7' | 'thisMonth' | 'lastMonth'
+type ReportExportType = 'csv' | 'excel'
 
 interface Column { key: string; label: string; right?: boolean; badge?: boolean; strong?: boolean }
 interface Config { title: string; service: string; description: string; endpoint: string; icon: Component; columns: Column[] }
 interface Field { key: string; label: string; type?: string; required?: boolean; placeholder?: string; options?: SelectOption[] }
 interface SchedulePreset { key: SchedulePresetKey; label: string; startTime?: string; endTime?: string }
+interface ReportKpiCard { key: string; label: string; value: string; trend: number; className: string; icon: Component }
 
 const adminKeys: Key[] = ['doctors', 'specialties', 'schedules', 'patients', 'appointments', 'medicines', 'prescriptions', 'bills', 'accounts', 'nurses', 'reports']
 const route = useRoute()
@@ -898,6 +1047,18 @@ const bulkScheduleForm = reactive<Record<string, string>>({
   isAvailable: 'true',
 })
 const bulkWeekdays = ref<number[]>([1, 2, 3, 4, 5])
+const reportDefaultRange = defaultReportRange()
+const reportDateRange = ref<[string, string]>([reportDefaultRange.start, reportDefaultRange.end])
+const reportActiveQuickFilter = ref<ReportQuickKey | 'custom'>('custom')
+const reportExportOpen = ref(false)
+const reportLoadError = ref('')
+const reportSummary = ref<DashboardSummary | null>(null)
+const revenueChartRef = ref<HTMLCanvasElement | null>(null)
+const specialtyChartRef = ref<HTMLCanvasElement | null>(null)
+const statusChartRef = ref<HTMLCanvasElement | null>(null)
+let revenueChart: Chart | null = null
+let specialtyChart: Chart | null = null
+let statusChart: Chart | null = null
 
 const fallbackSchedules: DoctorSchedule[] = fallbackDoctors.map((doctor, index) => ({ scheduleId: 900 + index, doctorId: doctor.doctorId, doctorName: doctor.doctorName, workDate: addDays(index).toISOString().slice(0, 10), startTime: index % 2 === 0 ? '08:00' : '13:00', endTime: index % 2 === 0 ? '16:00' : '17:00', slotDurationMinutes: 30, isAvailable: true }))
 const fallbackPatients: Patient[] = [{ patientId: 'BN001', fullName: 'Nguyễn Minh An', phone: '0901001001', gender: 'Male', medicalHistory: 'Tăng huyết áp' }]
@@ -951,6 +1112,12 @@ const scheduleQuickButtons: Array<{ value: ScheduleQuickRange; label: string }> 
   { value: 'month', label: 'Tháng này' },
   { value: 'clear', label: 'Xóa lọc' },
 ]
+const reportQuickFilters: Array<{ key: ReportQuickKey; label: string }> = [
+  { key: 'today', label: 'Hôm nay' },
+  { key: 'last7', label: '7 ngày qua' },
+  { key: 'thisMonth', label: 'Tháng này' },
+  { key: 'lastMonth', label: 'Tháng trước' },
+]
 const commonMedicineTypes = ['Nội tổng quát', 'Tim mạch', 'Hô hấp', 'Tiêu hóa', 'Nhi khoa', 'Da liễu', 'Cơ xương khớp', 'Thần kinh', 'Sản phụ khoa', 'Mắt', 'Tai mũi họng', 'Khác']
 
 const filteredRows = computed(() => {
@@ -981,6 +1148,17 @@ watch(note, (message) => {
 
 watch(error, (message) => {
   if (message) showToast('Không thể thực hiện', message, 'error')
+})
+
+watch(key, (current) => {
+  if (current !== 'reports') {
+    reportExportOpen.value = false
+    destroyReportCharts()
+  }
+})
+
+onBeforeUnmount(() => {
+  destroyReportCharts()
 })
 
 const totalPages = computed(() => Math.ceil(filteredRows.value.length / itemsPerPage.value))
@@ -1124,6 +1302,45 @@ const scheduleStats = computed(() => {
   ]
 })
 
+const reportRangeLabel = computed(() => `${formatShortDate(reportDateRange.value[0])} - ${formatShortDate(reportDateRange.value[1])}`)
+const reportKpiCards = computed<ReportKpiCard[]>(() => {
+  const data = reportSummary.value
+  return [
+    {
+      key: 'revenue',
+      label: 'Tổng doanh thu',
+      value: money(data?.totalRevenue || 0),
+      trend: trendPercent((data?.revenueTrends || []).map((item) => Number(item.amount || 0))),
+      className: 'reports-kpi-card--revenue',
+      icon: CreditCard,
+    },
+    {
+      key: 'appointments',
+      label: 'Lượt khám',
+      value: compactNumber(data?.totalAppointments || 0),
+      trend: trendPercent((data?.appointmentTrends || []).map((item) => Number(item.count || 0))),
+      className: 'reports-kpi-card--visits',
+      icon: CalendarDays,
+    },
+    {
+      key: 'patients',
+      label: 'Bệnh nhân mới',
+      value: compactNumber(data?.newPatientsCount || 0),
+      trend: estimateSingleValueTrend(data?.newPatientsCount || 0),
+      className: 'reports-kpi-card--patients',
+      icon: UserRound,
+    },
+    {
+      key: 'prescriptions',
+      label: 'Đơn thuốc đã phát',
+      value: compactNumber(data?.dispatchedPrescriptions || 0),
+      trend: estimateSingleValueTrend(data?.dispatchedPrescriptions || 0),
+      className: 'reports-kpi-card--prescriptions',
+      icon: Pill,
+    },
+  ]
+})
+
 const weeklyDays = computed(() => {
   const days = Array.from({ length: 7 }, (_, index) => {
     const dateValue = addDaysFrom(scheduleWeekStart.value, index)
@@ -1241,10 +1458,11 @@ async function loadData() {
     } else if (key.value === 'nurses') {
       rows.value = mapList(await authApi.getNurses(), fallbackAccounts.filter((user) => user.roleId === RoleId.Receptionist), mapUser)
     } else if (key.value === 'reports') {
-      rows.value = await loadReports()
+      await loadReportDashboard()
     }
   } catch (e) {
     error.value = getApiErrorMessage(e)
+    if (key.value === 'reports') reportLoadError.value = error.value
     rows.value = key.value === 'schedules' ? [] : fallbackRows(key.value)
   } finally {
     loading.value = false
@@ -1296,7 +1514,277 @@ function fallbackRows(k: Key) {
     reports: [],
   } as Record<Key, Row[]>)[k]
 }
-async function loadReports() { const [doctors, appointments, patients, invoices] = await Promise.all([appointmentApi.getDoctors().catch(() => fallbackDoctors), appointmentApi.getAppointments().catch(() => fallbackAppointments), medicalRecordApi.getPatients().catch(() => fallbackPatients), billingApi.getInvoices().catch(() => fallbackInvoices)]); return [{ id: 'R1', metric: 'Bác sĩ', value: doctors.length, source: 'Đặt lịch khám', status: 'OK' }, { id: 'R2', metric: 'Lịch hẹn', value: appointments.length, source: 'Đặt lịch khám', status: 'OK' }, { id: 'R3', metric: 'Bệnh nhân', value: patients.length, source: 'Hồ sơ bệnh án', status: 'OK' }, { id: 'R4', metric: 'Hóa đơn', value: invoices.length, source: 'Dược & Viện phí', status: 'OK' }] }
+async function loadReportDashboard() {
+  if (key.value !== 'reports') return
+  loading.value = true
+  error.value = ''
+  note.value = ''
+  reportLoadError.value = ''
+  try {
+    const [startDate, endDate] = normalizeReportRange()
+    const data = await reportApi.getDashboardSummary({ startDate, endDate })
+    reportSummary.value = data
+    rows.value = buildReportAuditRows(data)
+    await nextTick()
+    renderReportCharts()
+  } catch (e) {
+    const message = getApiErrorMessage(e)
+    reportLoadError.value = message
+    error.value = message
+    rows.value = []
+    destroyReportCharts()
+  } finally {
+    loading.value = false
+  }
+}
+
+function buildReportAuditRows(data: DashboardSummary): Row[] {
+  return [
+    { id: 'R1', metric: 'Tổng doanh thu', value: money(data.totalRevenue), source: 'PharmacyDB · paid payments', status: 'OK' },
+    { id: 'R2', metric: 'Tổng lịch hẹn', value: compactNumber(data.totalAppointments), source: 'AppointmentServiceDb', status: 'OK' },
+    { id: 'R3', metric: 'Bệnh nhân mới', value: compactNumber(data.newPatientsCount), source: 'MedicalDB · Patients.CreatedAt', status: 'OK' },
+    { id: 'R4', metric: 'Đơn thuốc đã phát', value: compactNumber(data.dispatchedPrescriptions), source: 'PharmacyDB · Dispensed prescriptions', status: 'OK' },
+    { id: 'R5', metric: 'Chuyên khoa có lịch', value: compactNumber(data.specialtyDistribution.length), source: 'AppointmentServiceDb · Specialty', status: 'OK' },
+    { id: 'R6', metric: 'Trạng thái lịch hẹn', value: compactNumber(data.appointmentStatusRatio.length), source: 'AppointmentServiceDb · Appointment.Status', status: 'OK' },
+  ]
+}
+
+function renderReportCharts() {
+  const data = reportSummary.value
+  if (!data) return
+  destroyReportCharts()
+
+  const labels = data.revenueTrends.map((item) => formatShortDate(item.date))
+  if (revenueChartRef.value) {
+    revenueChart = new Chart(revenueChartRef.value, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Doanh thu',
+            data: data.revenueTrends.map((item) => Number(item.amount || 0)),
+            borderColor: '#0F52BA',
+            backgroundColor: 'rgba(15, 82, 186, 0.14)',
+            borderWidth: 3,
+            tension: 0.35,
+            fill: true,
+            yAxisID: 'y',
+            pointRadius: 3,
+            pointHoverRadius: 6,
+          },
+          {
+            label: 'Lượt khám',
+            data: data.appointmentTrends.map((item) => Number(item.count || 0)),
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+            borderWidth: 3,
+            tension: 0.35,
+            fill: false,
+            yAxisID: 'y1',
+            pointRadius: 3,
+            pointHoverRadius: 6,
+          },
+        ],
+      },
+      options: reportLineOptions(),
+    } as ChartConfiguration)
+  }
+
+  if (specialtyChartRef.value) {
+    specialtyChart = new Chart(specialtyChartRef.value, {
+      type: 'bar',
+      data: {
+        labels: data.specialtyDistribution.map((item) => item.specialtyName),
+        datasets: [{
+          label: 'Lịch hẹn',
+          data: data.specialtyDistribution.map((item) => item.appointmentCount),
+          backgroundColor: ['#0F52BA', '#14b8a6', '#8b5cf6', '#f97316', '#ec4899', '#64748b'],
+          borderRadius: 8,
+          borderSkipped: false,
+        }],
+      },
+      options: reportBarOptions(),
+    } as ChartConfiguration)
+  }
+
+  if (statusChartRef.value) {
+    statusChart = new Chart(statusChartRef.value, {
+      type: 'doughnut',
+      data: {
+        labels: data.appointmentStatusRatio.map((item) => statusLabel(item.status)),
+        datasets: [{
+          data: data.appointmentStatusRatio.map((item) => item.count),
+          backgroundColor: ['#0F52BA', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b'],
+          borderColor: '#ffffff',
+          borderWidth: 4,
+          hoverOffset: 8,
+        }],
+      },
+      options: reportDoughnutOptions(),
+    } as ChartConfiguration)
+  }
+}
+
+function destroyReportCharts() {
+  revenueChart?.destroy()
+  specialtyChart?.destroy()
+  statusChart?.destroy()
+  revenueChart = null
+  specialtyChart = null
+  statusChart = null
+}
+
+function reportLineOptions() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { usePointStyle: true, boxWidth: 8, color: '#475569', font: { weight: 700 } } },
+      tooltip: {
+        callbacks: {
+          label(context: any) {
+            return context.dataset.yAxisID === 'y'
+              ? ` ${context.dataset.label}: ${money(context.parsed.y)}`
+              : ` ${context.dataset.label}: ${context.parsed.y}`
+          },
+        },
+      },
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: '#64748b', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+      y: { beginAtZero: true, grid: { color: 'rgba(148, 163, 184, 0.18)' }, ticks: { color: '#64748b', callback: (value: number | string) => compactMoney(Number(value)) } },
+      y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#64748b', precision: 0 } },
+    },
+  }
+}
+
+function reportBarOptions() {
+  return {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: (context: any) => ` ${context.parsed.x} lịch hẹn` } },
+    },
+    scales: {
+      x: { beginAtZero: true, grid: { color: 'rgba(148, 163, 184, 0.18)' }, ticks: { precision: 0, color: '#64748b' } },
+      y: { grid: { display: false }, ticks: { color: '#475569', font: { weight: 700 } } },
+    },
+  }
+}
+
+function reportDoughnutOptions() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '68%',
+    plugins: {
+      legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, color: '#475569', font: { weight: 700 } } },
+      tooltip: { callbacks: { label: (context: any) => ` ${context.label}: ${context.parsed}` } },
+    },
+  }
+}
+
+function applyReportQuickFilter(key: ReportQuickKey) {
+  const now = new Date()
+  let start = new Date(now)
+  let end = new Date(now)
+  if (key === 'last7') start = addDaysFrom(now, -6)
+  if (key === 'thisMonth') start = new Date(now.getFullYear(), now.getMonth(), 1)
+  if (key === 'lastMonth') {
+    start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    end = new Date(now.getFullYear(), now.getMonth(), 0)
+  }
+  reportActiveQuickFilter.value = key
+  reportDateRange.value = [localDateIso(start), localDateIso(end)]
+  void loadReportDashboard()
+}
+
+function handleReportDateChange() {
+  reportActiveQuickFilter.value = 'custom'
+  void loadReportDashboard()
+}
+
+function reportQuickButtonClass(key: ReportQuickKey) {
+  return [
+    'reports-quick-button',
+    reportActiveQuickFilter.value === key ? 'reports-quick-button--active' : '',
+  ]
+}
+
+function normalizeReportRange(): [string, string] {
+  const fallback = defaultReportRange()
+  const start = reportDateRange.value[0] || fallback.start
+  const end = reportDateRange.value[1] || fallback.end
+  if (start > end) {
+    reportDateRange.value = [end, start]
+    return [end, start]
+  }
+  return [start, end]
+}
+
+function defaultReportRange() {
+  const end = new Date()
+  const start = addDaysFrom(end, -29)
+  return { start: localDateIso(start), end: localDateIso(end) }
+}
+
+function exportReport(type: ReportExportType) {
+  reportExportOpen.value = false
+  const delimiter = type === 'excel' ? '\t' : ','
+  const extension = type === 'excel' ? 'xls' : 'csv'
+  const rowsToExport = [
+    ['Metric', 'Value', 'Source', 'Status'],
+    ...rows.value.map((row) => [row.metric, row.value, row.source, row.status]),
+  ]
+  const content = rowsToExport
+    .map((line) => line.map((cell) => quoteExportCell(cell, delimiter)).join(delimiter))
+    .join('\n')
+  const blob = new Blob([`\ufeff${content}`], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `bao-cao-van-hanh-${reportDateRange.value[0]}-${reportDateRange.value[1]}.${extension}`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function quoteExportCell(value: unknown, delimiter: string) {
+  const text = String(value ?? '')
+  if (text.includes(delimiter) || text.includes('"') || text.includes('\n')) {
+    return `"${text.replace(/"/g, '""')}"`
+  }
+  return text
+}
+
+function trendPercent(values: number[]) {
+  const cleaned = values.filter((value) => Number.isFinite(value))
+  if (cleaned.length < 2) return 0
+  const split = Math.max(1, Math.floor(cleaned.length / 2))
+  const previous = cleaned.slice(0, split).reduce((sum, value) => sum + value, 0)
+  const current = cleaned.slice(split).reduce((sum, value) => sum + value, 0)
+  if (previous === 0) return current > 0 ? 100 : 0
+  return ((current - previous) / previous) * 100
+}
+
+function estimateSingleValueTrend(value: number) {
+  if (!value) return 0
+  return Math.min(24, Math.max(-12, value / 8))
+}
+
+function compactNumber(value: number) {
+  return new Intl.NumberFormat('vi-VN').format(Number(value || 0))
+}
+
+function compactMoney(value: number) {
+  if (value >= 1000000000) return `${Math.round(value / 1000000000)}B`
+  if (value >= 1000000) return `${Math.round(value / 1000000)}M`
+  if (value >= 1000) return `${Math.round(value / 1000)}K`
+  return String(value)
+}
 
 function updateDoctorCatalog(doctors: Doctor[]) {
   doctorCatalog.value = doctors
@@ -1812,6 +2300,7 @@ function appointmentStatusLabel(status?: string) {
   if (bucket === 'noshow') return 'Không đến'
   return status || 'Chờ duyệt'
 }
+function statusLabel(status?: string) { return appointmentStatusLabel(status) }
 function mapSchedule(x: DoctorSchedule & Record<string, any>): Row {
   const scheduleId = toNumber(x.scheduleId, x.ScheduleId, x.id, x.Id)
   const doctorId = toNumber(x.doctorId, x.DoctorId)
@@ -2503,6 +2992,395 @@ const DetailItem = (props: { label: string; value: unknown; badge?: boolean }) =
 </script>
 
 <style scoped>
+.reports-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.reports-filter-bar {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(280px, auto) 1fr auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(226, 232, 240, 0.86);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 12px;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.reports-range-picker {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 0 12px;
+}
+
+.reports-date-input {
+  width: 132px;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  outline: none;
+}
+
+.reports-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reports-quick-button,
+.reports-export-button {
+  display: inline-flex;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  border: 1px solid #dbe4f0;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0 13px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #475569;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.reports-quick-button:hover,
+.reports-export-button:hover {
+  transform: translateY(-1px);
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #0f52ba;
+}
+
+.reports-quick-button--active {
+  border-color: #0f52ba;
+  background: #0f52ba;
+  color: #fff;
+}
+
+.reports-export-menu {
+  position: relative;
+  justify-self: end;
+}
+
+.reports-export-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  width: 150px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
+}
+
+.reports-export-dropdown button {
+  display: block;
+  width: 100%;
+  padding: 11px 14px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.reports-export-dropdown button:hover {
+  background: #f1f5f9;
+  color: #0f52ba;
+}
+
+.reports-kpi-grid,
+.reports-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.reports-kpi-card {
+  position: relative;
+  min-height: 168px;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  padding: 20px;
+  color: #fff;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.16);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+.reports-kpi-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 28px 72px rgba(15, 23, 42, 0.22);
+}
+
+.reports-kpi-card--revenue { background: linear-gradient(135deg, #ea580c 0%, #dc2626 56%, #9f1239 100%); }
+.reports-kpi-card--visits { background: linear-gradient(135deg, #1d4ed8 0%, #0f766e 100%); }
+.reports-kpi-card--patients { background: linear-gradient(135deg, #7c3aed 0%, #db2777 100%); }
+.reports-kpi-card--prescriptions { background: linear-gradient(135deg, #059669 0%, #0e7490 100%); }
+
+.reports-kpi-glass {
+  position: absolute;
+  inset: 1px;
+  border-radius: 17px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.06));
+  backdrop-filter: blur(12px);
+}
+
+.reports-kpi-label {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.reports-kpi-value {
+  margin-top: 12px;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.08;
+  color: #fff;
+}
+
+.reports-kpi-icon {
+  display: inline-flex;
+  height: 44px;
+  width: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.reports-trend-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.reports-trend-badge--up {
+  background: rgba(220, 252, 231, 0.94);
+  color: #047857;
+}
+
+.reports-trend-badge--down {
+  background: rgba(254, 226, 226, 0.94);
+  color: #be123c;
+}
+
+.reports-chart-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.9fr);
+  gap: 16px;
+}
+
+.reports-chart-panel,
+.reports-audit-table {
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.86);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.reports-chart-panel--wide {
+  min-height: 420px;
+}
+
+.reports-chart-panel--status {
+  grid-column: 1 / -1;
+}
+
+.reports-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 20px 4px;
+}
+
+.reports-panel-heading p {
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #0f52ba;
+}
+
+.reports-panel-heading h2 {
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.reports-panel-heading span {
+  border-radius: 999px;
+  background: #f1f5f9;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #64748b;
+}
+
+.reports-chart-box {
+  height: 342px;
+  padding: 16px 18px 20px;
+}
+
+.reports-chart-box--doughnut {
+  height: 300px;
+}
+
+.reports-error {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid #fecdd3;
+  border-radius: 18px;
+  background: #fff1f2;
+  padding: 22px;
+  color: #9f1239;
+}
+
+.reports-error h2 {
+  font-size: 17px;
+  font-weight: 900;
+  color: #881337;
+}
+
+.reports-error p {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.reports-error button {
+  margin-left: auto;
+  display: inline-flex;
+  height: 40px;
+  align-items: center;
+  gap: 8px;
+  border-radius: 12px;
+  background: #e11d48;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 900;
+  color: #fff;
+}
+
+.reports-skeleton-card,
+.reports-skeleton-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #e2e8f0;
+}
+
+.reports-skeleton-card {
+  height: 168px;
+}
+
+.reports-skeleton-panel {
+  height: 360px;
+}
+
+.reports-skeleton-panel--wide {
+  grid-column: span 2;
+}
+
+.reports-skeleton-panel--short {
+  grid-column: span 2;
+  height: 240px;
+}
+
+.reports-skeleton-card::after,
+.reports-skeleton-panel::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.54), transparent);
+  animation: reports-shimmer 1.35s infinite;
+}
+
+@keyframes reports-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+@media (max-width: 1180px) {
+  .reports-filter-bar,
+  .reports-chart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reports-export-menu {
+    justify-self: start;
+  }
+
+  .reports-kpi-grid,
+  .reports-skeleton-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reports-chart-panel--status {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .reports-range-picker,
+  .reports-export-button {
+    width: 100%;
+  }
+
+  .reports-range-picker {
+    justify-content: space-between;
+  }
+
+  .reports-date-input {
+    width: 118px;
+  }
+
+  .reports-kpi-grid,
+  .reports-skeleton-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reports-kpi-value {
+    font-size: 24px;
+  }
+
+  .reports-error {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .reports-error button {
+    margin-left: 0;
+  }
+}
+
 .schedule-workspace {
   color: #0f172a;
 }
