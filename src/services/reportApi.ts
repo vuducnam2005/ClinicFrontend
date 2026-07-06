@@ -4,11 +4,14 @@ import { createGatewayClient, readApiResponse } from '@/services/apiClient'
 import { billingApi } from '@/services/billingApi'
 import { medicalRecordApi } from '@/services/medicalRecordApi'
 import type { Appointment } from '@/types/appointment'
-import type { Invoice, Prescription } from '@/types/billing'
+import type { Invoice } from '@/types/billing'
 import type { Patient } from '@/types/medicalRecord'
 import type { DashboardSummary } from '@/types/report'
 
 const client = createGatewayClient()
+const fallbackRowLimit = 700
+const fallbackTrendDayLimit = 62
+const fallbackRequestTimeoutMs = 6500
 
 function normalizeDashboardSummary(data: DashboardSummary & Record<string, any>): DashboardSummary {
   return {
@@ -40,7 +43,7 @@ function normalizeTrends(items: unknown, metricKey: 'amount' | 'count') {
 export const reportApi = {
   async getDashboardSummary(params: { startDate?: string; endDate?: string } = {}) {
     try {
-      const response = await client.get('/api/reports/dashboard-summary', { params })
+      const response = await client.get('/api/reports/dashboard-summary', { params, timeout: 3500 })
       return normalizeDashboardSummary(readApiResponse<DashboardSummary>(response.data) as DashboardSummary & Record<string, any>)
     } catch (error) {
       if (!isMissingAggregatorEndpoint(error)) throw error
@@ -55,32 +58,31 @@ function isMissingAggregatorEndpoint(error: unknown) {
 
 async function buildDashboardSummaryFallback(params: { startDate?: string; endDate?: string }): Promise<DashboardSummary> {
   const { startDate, endDate } = resolveDateRange(params)
-  const [appointments, patients, invoices, prescriptions] = await Promise.all([
-    appointmentApi.getAppointments().catch(() => [] as Appointment[]),
-    medicalRecordApi.getPatients({ pageSize: 500 }).catch(() => [] as Patient[]),
-    billingApi.getInvoices().catch(() => [] as Invoice[]),
-    billingApi.getPrescriptions().catch(() => [] as Prescription[]),
+  const [appointments, patients, invoices] = await Promise.all([
+    withTimeout(appointmentApi.getAppointments(), [] as Appointment[]),
+    withTimeout(medicalRecordApi.getPatients({ pageSize: 120 }), [] as Patient[]),
+    withTimeout(billingApi.getInvoices(), [] as Invoice[]),
   ])
 
-  const appointmentsInRange = appointments.filter((item) => isDateInRange(item.appointmentDate || item.createdAt, startDate, endDate))
-  const patientsInRange = patients.filter((item) => isDateInRange(item.createdAt, startDate, endDate))
-  const paidInvoicesInRange = invoices.filter((item) => isPaidInvoice(item) && isDateInRange(item.paidAt || item.createdAt, startDate, endDate))
-  const dispensedPrescriptions = prescriptions.filter((item) => isDispensedPrescription(item) && isDateInRange(item.dispensedAt || item.createdAt || item.sentToPharmacyAt, startDate, endDate))
+  const appointmentsInRange = capRows(appointments).filter((item) => isDateInRange(item.appointmentDate || item.createdAt, startDate, endDate))
+  const patientsInRange = capRows(patients).filter((item) => isDateInRange(item.createdAt, startDate, endDate))
+  const paidInvoicesInRange = capRows(invoices).filter((item) => isPaidInvoice(item) && isDateInRange(item.paidAt || item.createdAt, startDate, endDate))
+  const trendDates = fillDateRange(startDate, endDate)
+  const revenueByDate = sumByDate(paidInvoicesInRange, (item) => item.paidAt || item.createdAt, invoiceRevenue)
+  const appointmentsByDate = countByDate(appointmentsInRange, (item) => item.appointmentDate || item.createdAt)
 
   return {
     totalRevenue: paidInvoicesInRange.reduce((sum, item) => sum + invoiceRevenue(item), 0),
     totalAppointments: appointmentsInRange.length,
     newPatientsCount: patientsInRange.length,
-    dispatchedPrescriptions: dispensedPrescriptions.length,
-    revenueTrends: fillDateRange(startDate, endDate).map((date) => ({
+    dispatchedPrescriptions: paidInvoicesInRange.filter((item) => Number(item.prescriptionId || (item as any).PrescriptionId || 0) > 0).length,
+    revenueTrends: trendDates.map((date) => ({
       date,
-      amount: paidInvoicesInRange
-        .filter((item) => dateKey(item.paidAt || item.createdAt) === date)
-        .reduce((sum, item) => sum + invoiceRevenue(item), 0),
+      amount: revenueByDate.get(date) || 0,
     })),
-    appointmentTrends: fillDateRange(startDate, endDate).map((date) => ({
+    appointmentTrends: trendDates.map((date) => ({
       date,
-      count: appointmentsInRange.filter((item) => dateKey(item.appointmentDate || item.createdAt) === date).length,
+      count: appointmentsByDate.get(date) || 0,
     })),
     specialtyDistribution: groupCounts(
       appointmentsInRange,
@@ -100,17 +102,24 @@ function resolveDateRange(params: { startDate?: string; endDate?: string }) {
 }
 
 function addDays(date: string, days: number) {
-  const value = new Date(`${date}T00:00:00`)
+  const value = parseDateOnly(date)
   value.setDate(value.getDate() + days)
   return value.toISOString().slice(0, 10)
 }
 
 function fillDateRange(startDate: string, endDate: string) {
   const dates: string[] = []
-  for (let cursor = startDate; cursor <= endDate; cursor = addDays(cursor, 1)) {
+  let cursor = startDate
+  for (let index = 0; cursor <= endDate && index < fallbackTrendDayLimit; index += 1) {
     dates.push(cursor)
+    cursor = addDays(cursor, 1)
   }
   return dates
+}
+
+function parseDateOnly(value: string) {
+  const parsed = new Date(`${String(value || '').slice(0, 10)}T00:00:00`)
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed
 }
 
 function dateKey(value?: string) {
@@ -134,11 +143,6 @@ function invoiceRevenue(invoice: Invoice & Record<string, any>) {
   return Number(invoice.totalAmount ?? invoice.TotalAmount ?? invoice.amount ?? invoice.Amount ?? 0)
 }
 
-function isDispensedPrescription(prescription: Prescription) {
-  const status = String(prescription.status || prescription.stockStatus || '').toLowerCase()
-  return status.includes('dispensed') || status.includes('đã phát') || status.includes('da phat')
-}
-
 function groupCounts<T>(items: T[], keySelector: (item: T) => string) {
   const counts = new Map<string, number>()
   items.forEach((item) => {
@@ -146,4 +150,33 @@ function groupCounts<T>(items: T[], keySelector: (item: T) => string) {
     counts.set(key, (counts.get(key) || 0) + 1)
   })
   return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])
+}
+
+function capRows<T>(items: T[]) {
+  return items.length > fallbackRowLimit ? items.slice(0, fallbackRowLimit) : items
+}
+
+function withTimeout<T>(promise: Promise<T>, fallback: T): Promise<T> {
+  return Promise.race([
+    promise.catch(() => fallback),
+    new Promise<T>((resolve) => window.setTimeout(() => resolve(fallback), fallbackRequestTimeoutMs)),
+  ])
+}
+
+function countByDate<T>(items: T[], dateSelector: (item: T) => string | undefined) {
+  const counts = new Map<string, number>()
+  items.forEach((item) => {
+    const key = dateKey(dateSelector(item))
+    if (key) counts.set(key, (counts.get(key) || 0) + 1)
+  })
+  return counts
+}
+
+function sumByDate<T>(items: T[], dateSelector: (item: T) => string | undefined, valueSelector: (item: T) => number) {
+  const sums = new Map<string, number>()
+  items.forEach((item) => {
+    const key = dateKey(dateSelector(item))
+    if (key) sums.set(key, (sums.get(key) || 0) + valueSelector(item))
+  })
+  return sums
 }
