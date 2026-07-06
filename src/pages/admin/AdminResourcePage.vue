@@ -423,7 +423,7 @@
               <span :class="['reports-trend-badge', card.trend >= 0 ? 'reports-trend-badge--up' : 'reports-trend-badge--down']">
                 {{ card.trend >= 0 ? '+' : '' }}{{ card.trend.toFixed(1) }}%
               </span>
-              <span class="text-xs font-semibold text-white/80">vs kỳ trước</span>
+              <span class="text-xs font-semibold text-white/80">so với kỳ trước</span>
             </div>
           </article>
         </div>
@@ -432,7 +432,6 @@
           <section class="reports-chart-panel reports-chart-panel--wide">
             <div class="reports-panel-heading">
               <div>
-                <p>Revenue & Appointments Trends over Time</p>
                 <h2>Doanh thu và lượt khám theo ngày</h2>
               </div>
             </div>
@@ -444,7 +443,6 @@
           <section class="reports-chart-panel">
             <div class="reports-panel-heading">
               <div>
-                <p>Appointments by Specialty</p>
                 <h2>Lịch hẹn theo chuyên khoa</h2>
               </div>
             </div>
@@ -456,7 +454,6 @@
           <section class="reports-chart-panel reports-chart-panel--status">
             <div class="reports-panel-heading">
               <div>
-                <p>Appointment Status Breakdown</p>
                 <h2>Tỉ lệ trạng thái lịch hẹn</h2>
               </div>
             </div>
@@ -469,7 +466,6 @@
         <div class="reports-audit-table">
           <div class="reports-panel-heading border-b border-slate-100 px-5 py-4">
             <div>
-              <p>Audit metrics</p>
               <h2>Bảng số liệu kiểm tra</h2>
             </div>
             <span>{{ reportRangeLabel }}</span>
@@ -1520,13 +1516,13 @@ async function loadReportDashboard() {
   error.value = ''
   note.value = ''
   reportLoadError.value = ''
+  let shouldRenderCharts = false
   try {
     const [startDate, endDate] = normalizeReportRange()
     const data = await reportApi.getDashboardSummary({ startDate, endDate })
     reportSummary.value = data
     rows.value = buildReportAuditRows(data)
-    await nextTick()
-    renderReportCharts()
+    shouldRenderCharts = true
   } catch (e) {
     const message = getApiErrorMessage(e)
     reportLoadError.value = message
@@ -1536,16 +1532,21 @@ async function loadReportDashboard() {
   } finally {
     loading.value = false
   }
+
+  if (shouldRenderCharts && key.value === 'reports') {
+    await nextTick()
+    renderReportCharts()
+  }
 }
 
 function buildReportAuditRows(data: DashboardSummary): Row[] {
   return [
-    { id: 'R1', metric: 'Tổng doanh thu', value: money(data.totalRevenue), source: 'PharmacyDB · paid payments', status: 'OK' },
-    { id: 'R2', metric: 'Tổng lịch hẹn', value: compactNumber(data.totalAppointments), source: 'AppointmentServiceDb', status: 'OK' },
-    { id: 'R3', metric: 'Bệnh nhân mới', value: compactNumber(data.newPatientsCount), source: 'MedicalDB · Patients.CreatedAt', status: 'OK' },
-    { id: 'R4', metric: 'Đơn thuốc đã phát', value: compactNumber(data.dispatchedPrescriptions), source: 'PharmacyDB · Dispensed prescriptions', status: 'OK' },
-    { id: 'R5', metric: 'Chuyên khoa có lịch', value: compactNumber(data.specialtyDistribution.length), source: 'AppointmentServiceDb · Specialty', status: 'OK' },
-    { id: 'R6', metric: 'Trạng thái lịch hẹn', value: compactNumber(data.appointmentStatusRatio.length), source: 'AppointmentServiceDb · Appointment.Status', status: 'OK' },
+    { id: 'R1', metric: 'Tổng doanh thu', value: money(data.totalRevenue), source: 'Thanh toán viện phí', status: 'OK' },
+    { id: 'R2', metric: 'Tổng lịch hẹn', value: compactNumber(data.totalAppointments), source: 'Quản lý lịch hẹn', status: 'OK' },
+    { id: 'R3', metric: 'Bệnh nhân mới', value: compactNumber(data.newPatientsCount), source: 'Hồ sơ bệnh nhân', status: 'OK' },
+    { id: 'R4', metric: 'Đơn thuốc đã phát', value: compactNumber(data.dispatchedPrescriptions), source: 'Cấp phát thuốc', status: 'OK' },
+    { id: 'R5', metric: 'Chuyên khoa có lịch', value: compactNumber(data.specialtyDistribution.length), source: 'Lịch hẹn theo chuyên khoa', status: 'OK' },
+    { id: 'R6', metric: 'Trạng thái lịch hẹn', value: compactNumber(data.appointmentStatusRatio.length), source: 'Theo dõi trạng thái lịch hẹn', status: 'OK' },
   ]
 }
 
