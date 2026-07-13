@@ -28,6 +28,7 @@ pnpm-lock.yaml
 
 # Environment variables
 .env
+backend/.env
 .env.*
 !.env.example
 

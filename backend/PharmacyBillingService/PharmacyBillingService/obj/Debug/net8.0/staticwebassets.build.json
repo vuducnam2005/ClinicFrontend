@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "HE3PdKs5Jyp3afbmTK8jZ4Na6l7iBWwyJoJE7jlWvCQ=",
+  "Source": "PharmacyBillingService",
+  "BasePath": "_content/PharmacyBillingService",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

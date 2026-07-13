@@ -1,0 +1,296 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    mem_limit: 96m
+    logging: *default-logging
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api-gateway
+    networks:
+      - clinic-network
+
+  api-gateway:
+    build:
+      context: ./ApiGateway
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    mem_limit: 128m
+    logging: *default-logging
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      DOTNET_GCHeapHardLimitPercent: 60
+      DOTNET_GCConserveMemory: 1
+      Jwt__Key: ${JWT_SECRET}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      MEDICAL_API_URL: http://medical-api:8080
+      PHARMACY_API_URL: http://pharmacy-billing-service:8080
+      APPOINTMENT_API_URL: http://appointment-service:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - appointment-service
+      - medical-api
+      - pharmacy-billing-service
+    networks:
+      - clinic-network
+
+  appointment-service:
+    build:
+      context: ./AppointmentService
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    mem_limit: 256m
+    logging: *default-logging
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      DOTNET_GCHeapHardLimitPercent: 60
+      DOTNET_GCConserveMemory: 1
+      Jwt__SharedSecret: ${JWT_SECRET}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      ConnectionStrings__AppointmentDatabase: Host=appointment-postgres;Port=5432;Database=${APPOINTMENT_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Trust Server Certificate=true
+      ServiceUrls__MedicalRecordService: http://medical-api:8080
+      ServiceUrls__PharmacyBillingService: http://pharmacy-billing-service:8080
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Port: 5672
+      RabbitMq__Username: ${RABBITMQ_USERNAME}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
+      RabbitMq__Exchange: clinic.events
+      RabbitMq__AppointmentQueue: n2.appointment-events
+    depends_on:
+      appointment-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    networks:
+      - clinic-network
+
+  appointment-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    mem_limit: 160m
+    logging: *default-logging
+    command:
+      - postgres
+      - -c
+      - shared_buffers=32MB
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=16MB
+      - -c
+      - effective_cache_size=96MB
+      - -c
+      - max_connections=30
+    environment:
+      POSTGRES_DB: ${APPOINTMENT_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - appointment_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${APPOINTMENT_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - clinic-network
+
+  medical-api:
+    build:
+      context: ./MedicalAPI
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    mem_limit: 256m
+    logging: *default-logging
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      DOTNET_GCHeapHardLimitPercent: 60
+      DOTNET_GCConserveMemory: 1
+      Jwt__SharedSecret: ${JWT_SECRET}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      ServiceUrls__PharmacyBillingService: http://pharmacy-billing-service:8080
+      ConnectionStrings__MedicalDb: Host=medical-postgres;Port=5432;Database=${MEDICAL_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Port: 5672
+      RabbitMq__Username: ${RABBITMQ_USERNAME}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
+      RabbitMq__Exchange: clinic.events
+      RabbitMq__AppointmentQueue: n2.appointment-events
+      RabbitMq__PrescriptionQueue: n3.prescription-events
+    depends_on:
+      medical-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    networks:
+      - clinic-network
+
+  medical-postgres:
+    image: postgres:16
+    restart: unless-stopped
+    mem_limit: 192m
+    logging: *default-logging
+    command:
+      - postgres
+      - -c
+      - shared_buffers=32MB
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=16MB
+      - -c
+      - effective_cache_size=96MB
+      - -c
+      - max_connections=30
+    environment:
+      POSTGRES_DB: ${MEDICAL_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - medical_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${MEDICAL_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - clinic-network
+
+  pharmacy-billing-service:
+    build:
+      context: ./PharmacyBillingService/PharmacyBillingService
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    mem_limit: 256m
+    logging: *default-logging
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      DOTNET_GCHeapHardLimitPercent: 60
+      DOTNET_GCConserveMemory: 1
+      Jwt__Key: ${JWT_SECRET}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      ConnectionStrings__DefaultConnection: Host=pharmacy-postgres;Port=5432;Database=${PHARMACY_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Include Error Detail=true
+      ServiceUrls__MedicalRecordService: http://medical-api:8080
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Port: 5672
+      RabbitMq__Username: ${RABBITMQ_USERNAME}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
+      RabbitMq__Exchange: clinic.events
+      RabbitMq__PrescriptionQueue: n3.prescription-events
+    depends_on:
+      pharmacy-postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    networks:
+      - clinic-network
+
+  pharmacy-postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    mem_limit: 160m
+    logging: *default-logging
+    command:
+      - postgres
+      - -c
+      - shared_buffers=32MB
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=16MB
+      - -c
+      - effective_cache_size=96MB
+      - -c
+      - max_connections=30
+    environment:
+      POSTGRES_DB: ${PHARMACY_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pharmacy_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${PHARMACY_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - clinic-network
+
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    restart: unless-stopped
+    mem_limit: 192m
+    logging: *default-logging
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 1:1 +sbwt none +sbwtdcpu none +sbwtdio none"
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - clinic-network
+
+  pgadmin:
+    image: dpage/pgadmin4
+    profiles:
+      - tools
+    restart: "no"
+    mem_limit: 192m
+    logging: *default-logging
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      appointment-postgres:
+        condition: service_healthy
+      medical-postgres:
+        condition: service_healthy
+      pharmacy-postgres:
+        condition: service_healthy
+    networks:
+      - clinic-network
+
+volumes:
+  appointment_postgres_data:
+  medical_postgres_data:
+  pharmacy_postgres_data:
+  rabbitmq_data:
+  pgadmin_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  clinic-network:
+    name: clinic-shared-network
+    driver: bridge
